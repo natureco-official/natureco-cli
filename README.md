@@ -303,8 +303,8 @@ Config dosyası: `~/.natureco/config.json`
 - **Documentation:** [natureco.me/docs](https://natureco.me/docs)
 - **CLI Docs:** [natureco.me/cli](https://natureco.me/cli)
 - **npm Package:** [npmjs.com/package/natureco-cli](https://www.npmjs.com/package/natureco-cli)
-- **API Reference:** [natureco.me/api](https://natureco.me/api)
-- **GitHub:** [github.com/natureco/cli](https://github.com/natureco/cli)
+- **API Reference:** [natureco.me/api](https://natureco.me/docs/sdk))
+- **GitHub:** [github.com/natureco/cli](github.com/natureco-official/natureco-cli)
 
 ## 📝 License
 
