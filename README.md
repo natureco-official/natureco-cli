@@ -32,121 +32,121 @@ natureco chat    # terminal agent hazır
 
 ## 📋 Commands
 
-### Temel Komutlar
+### Core Commands
 
-| Komut | Açıklama |
-|-------|----------|
-| `natureco` | Gateway ekranını açar — sistem durumu, aktif bot, skill sayısı |
-| `natureco setup` | Kurulum sihirbazı — API key, bot seç, AI provider, model seç, entegrasyonlar |
-| `natureco login` | API key ile giriş yapar |
-| `natureco logout` | Çıkış yapar, config'i temizler |
-| `natureco help` | Tüm komutları ve örnekleri listeler |
-| `natureco doctor` | Sistem sağlık kontrolü — Node, API, bot, skill, entegrasyon |
-| `natureco doctor --fix` | Sorunları otomatik onarır |
-| `natureco update` | Yeni versiyon kontrolü |
+| Command | Description |
+|---------|-------------|
+| `natureco` | Opens gateway screen — system status, active bot, skill count |
+| `natureco setup` | Setup wizard — API key, bot selection, AI provider, model, integrations |
+| `natureco login` | Login with API key |
+| `natureco logout` | Logout and clear config |
+| `natureco help` | List all commands with examples |
+| `natureco doctor` | System health check — Node, API, bot, skills, integrations |
+| `natureco doctor --fix` | Auto-fix detected issues |
+| `natureco update` | Check for new version |
 
-### Sohbet
+### Chat
 
-| Komut | Açıklama |
-|-------|----------|
-| `natureco chat` | Varsayılan botla sohbet (yoksa interaktif seçim) |
-| `natureco chat Bot Adı` | Belirli botla sohbet (boşluklu isimler desteklenir) |
-| `natureco chat Nature Bot V3` | Çok kelimeli bot adları otomatik birleştirilir |
-| `natureco chat --resume` | En son oturuma devam eder |
-| `natureco ask "soru"` | Tek seferlik soru sorar |
-| `natureco run script.md` | Markdown dosyasını prompt olarak gönderir |
-| `natureco bots` | Tüm botları listeler |
+| Command | Description |
+|---------|-------------|
+| `natureco chat` | Chat with default bot (interactive selection if none) |
+| `natureco chat Bot Name` | Chat with specific bot (spaces supported) |
+| `natureco chat Nature Bot V3` | Multi-word bot names auto-joined |
+| `natureco chat --resume` | Resume latest session |
+| `natureco ask "question"` | One-time question |
+| `natureco run script.md` | Send markdown file as prompt |
+| `natureco bots` | List all bots |
 
-**Chat İçi Komutlar:**
+**In-Chat Commands:**
 
-| Komut | Açıklama |
-|-------|----------|
-| `/clear` | Ekranı temizler |
-| `/bot` | Bot listesi gösterir veya bot değiştirir |
-| `/bot Bot Adı` | Belirli bota geçer |
-| `/skills` | Aktif skill'leri gösterir |
-| `/memory` | Hafıza durumunu gösterir |
-| `/memory clear` | Hafızayı temizler |
-| `/commands` | Özel komutları listeler |
-| `/ultrareview` | Son kod bloğunu detaylı inceler |
-| `/help` | Chat yardımını gösterir |
-| `exit` / `quit` | Sohbetten çıkar |
-| `Ctrl+B` | Görevi arka plana al |
+| Command | Description |
+|---------|-------------|
+| `/clear` | Clear screen |
+| `/bot` | Show bot list or switch bot |
+| `/bot Bot Name` | Switch to specific bot |
+| `/skills` | Show active skills |
+| `/memory` | Show memory status |
+| `/memory clear` | Clear memory |
+| `/commands` | List custom commands |
+| `/ultrareview` | Deep review last code block |
+| `/help` | Show chat help |
+| `exit` / `quit` | Exit chat |
+| `Ctrl+B` | Move task to background |
 
-### Skill Sistemi
+### Skill System
 
-| Komut | Açıklama |
-|-------|----------|
-| `natureco skills` | Yüklü skill'leri listeler |
-| `natureco skills install slug` | NatureHub'dan skill yükler |
-| `natureco skills install clawhub:slug` | ClawHub'dan skill yükler |
-| `natureco skills browse` | Popüler skill listesi, interaktif seçim |
-| `natureco skills search "sorgu"` | Skill arar |
-| `natureco skills remove slug` | Skill'i kaldırır |
-| `natureco skills create ad` | Yeni skill şablonu oluşturur |
+| Command | Description |
+|---------|-------------|
+| `natureco skills` | List installed skills |
+| `natureco skills install slug` | Install skill from NatureHub |
+| `natureco skills install clawhub:slug` | Install skill from ClawHub |
+| `natureco skills browse` | Browse popular skills, interactive selection |
+| `natureco skills search "query"` | Search skills |
+| `natureco skills remove slug` | Remove skill |
+| `natureco skills create name` | Create new skill template |
 
-### Entegrasyonlar
+### Integrations
 
-| Komut | Açıklama |
-|-------|----------|
-| `natureco telegram connect` | Telegram botunu bağlar (token + user ID) |
-| `natureco discord connect` | Discord botunu bağlar |
-| `natureco slack connect` | Slack workspace'ine bağlanır |
-| `natureco whatsapp connect` | WhatsApp QR kod ile bağlanır (Baileys) |
-| `natureco whatsapp status` | WhatsApp bağlantı durumu ve izin listesi |
-| `natureco whatsapp allow <numara>` | İzin listesine numara ekler |
-| `natureco whatsapp disconnect` | WhatsApp bağlantısını keser |
+| Command | Description |
+|---------|-------------|
+| `natureco telegram connect` | Connect Telegram bot (token + user ID) |
+| `natureco discord connect` | Connect Discord bot |
+| `natureco slack connect` | Connect to Slack workspace |
+| `natureco whatsapp connect` | Connect WhatsApp with QR code (Baileys) |
+| `natureco whatsapp status` | WhatsApp connection status and allow list |
+| `natureco whatsapp allow <number>` | Add number to allow list |
+| `natureco whatsapp disconnect` | Disconnect WhatsApp |
 
-### MCP Sunucuları
+### MCP Servers
 
-| Komut | Açıklama |
-|-------|----------|
-| `natureco mcp list` | Bağlı MCP sunucularını listeler |
-| `natureco mcp add` | MCP sunucu ekler (filesystem, github, postgres...) |
-| `natureco mcp templates` | Hazır MCP şablonlarını listeler |
-| `natureco mcp enable <name>` | MCP sunucusunu aktif eder |
-| `natureco mcp disable <name>` | MCP sunucusunu devre dışı bırakır |
+| Command | Description |
+|---------|-------------|
+| `natureco mcp list` | List connected MCP servers |
+| `natureco mcp add` | Add MCP server (filesystem, github, postgres...) |
+| `natureco mcp templates` | List ready-made MCP templates |
+| `natureco mcp enable <name>` | Enable MCP server |
+| `natureco mcp disable <name>` | Disable MCP server |
 
-### Otomasyon
+### Automation
 
-| Komut | Açıklama |
-|-------|----------|
-| `natureco ultrareview dosya.js` | Kod inceleme — güvenlik, performans, kalite puanlar |
-| `natureco git review` | Staged değişiklikleri inceletir |
-| `natureco git commit` | AI ile commit mesajı üretir |
-| `natureco cron add` | Zamanlanmış görev oluşturur |
-| `natureco cron list` | Cron görevlerini listeler |
-| `natureco cron start` | Cron daemon'unu başlatır |
-| `natureco hooks create tip` | Hook oluşturur (pre-message, post-message...) |
-| `natureco commands create ad` | Özel /komut oluşturur |
-| `natureco migrate --from openclaw` | OpenClaw'dan migration (memory, crons, skills, scripts) |
+| Command | Description |
+|---------|-------------|
+| `natureco ultrareview file.js` | Code review — security, performance, quality scores |
+| `natureco git review` | Review staged changes |
+| `natureco git commit` | Generate commit message with AI |
+| `natureco cron add` | Create scheduled task |
+| `natureco cron list` | List cron jobs |
+| `natureco cron start` | Start cron daemon |
+| `natureco hooks create type` | Create hook (pre-message, post-message...) |
+| `natureco commands create name` | Create custom /command |
+| `natureco migrate --from openclaw` | Migrate from OpenClaw (memory, crons, skills, scripts) |
 
 ### Gateway & Dashboard
 
-| Komut | Açıklama |
-|-------|----------|
-| `natureco gateway start` | Gateway'i arka planda başlatır (WhatsApp otomatik) |
-| `natureco gateway stop` | Gateway'i durdurur |
-| `natureco gateway status` | Gateway durumu (son 10 log) |
-| `natureco gateway logs` | Tüm logları gösterir (~/.natureco/gateway.log) |
-| `natureco dashboard` | Web arayüzü açar (localhost:3848) |
-| `natureco dashboard stop` | Dashboard'u durdurur |
-| `natureco dashboard status` | Dashboard durumunu kontrol eder |
+| Command | Description |
+|---------|-------------|
+| `natureco gateway start` | Start gateway in background (WhatsApp auto-start) |
+| `natureco gateway stop` | Stop gateway |
+| `natureco gateway status` | Gateway status (last 10 logs) |
+| `natureco gateway logs` | Show all logs (~/.natureco/gateway.log) |
+| `natureco dashboard` | Open web UI (localhost:3848) |
+| `natureco dashboard stop` | Stop dashboard |
+| `natureco dashboard status` | Check dashboard status |
 
-### Yapılandırma
+### Configuration
 
-| Komut | Açıklama |
-|-------|----------|
-| `natureco config list` | Tüm ayarları gösterir |
-| `natureco config get key` | Belirli ayarı gösterir |
-| `natureco config set key val` | Ayar değiştirir |
-| `natureco init` | Proje klasörü oluşturur (.natureco/) |
+| Command | Description |
+|---------|-------------|
+| `natureco config list` | Show all settings |
+| `natureco config get key` | Get specific setting |
+| `natureco config set key val` | Change setting |
+| `natureco init` | Create project folder (.natureco/) |
 
 ## 🔌 Integrations
 
 ### Telegram
 
-Telegram botunuzu bağlayın, mesajları alın ve yanıtlayın. Bot token ve kullanıcı ID ile kimlik doğrulama.
+Connect your Telegram bot, receive and respond to messages. Authentication with bot token and user ID.
 
 ```bash
 natureco telegram connect
@@ -154,7 +154,7 @@ natureco telegram connect
 
 ### Discord
 
-Discord botlarını entegre edin. Sunucu kanalları, DM'ler ve slash komutları desteklenir.
+Integrate Discord bots. Server channels, DMs, and slash commands supported.
 
 ```bash
 natureco discord connect
@@ -162,7 +162,7 @@ natureco discord connect
 
 ### Slack
 
-Slack workspace'lerine bağlanın. Kanal ve DM mesajlarını yönetin.
+Connect to Slack workspaces. Manage channel and DM messages.
 
 ```bash
 natureco slack connect
@@ -170,94 +170,94 @@ natureco slack connect
 
 ### WhatsApp
 
-WhatsApp hesaplarını QR kod ile bağlayın. Baileys kütüphanesi ile tam medya desteği.
+Connect WhatsApp accounts with QR code. Full media support with Baileys library.
 
 ```bash
-# İlk bağlantı (QR kod)
+# Initial connection (QR code)
 natureco whatsapp connect
 
-# Gateway ile otomatik başlat
+# Auto-start with gateway
 natureco gateway start
 
-# İzin listesine numara ekle
+# Add number to allow list
 natureco whatsapp allow 905551234567
 
-# Durum kontrolü
+# Check status
 natureco whatsapp status
 ```
 
-**WhatsApp Özellikleri:**
-- QR kod ile terminal'de bağlantı
+**WhatsApp Features:**
+- QR code connection in terminal
 - Session persistence (~/.natureco/whatsapp-sessions/)
-- İzin listesi kontrolü (son 10 hane karşılaştırma)
-- Gateway ile otomatik başlatma
+- Allow list control (last 10 digits comparison)
+- Gateway auto-start
 - OpenClaw-style logging
-- Auto-reconnect (515, 408 hata kodları)
-- Çoklu mesaj formatı desteği (text, caption, buttons, list...)
+- Auto-reconnect (515, 408 error codes)
+- Multiple message format support (text, caption, buttons, list...)
 
 ## 🌐 Gateway Server
 
-Arka planda çalışan gateway sunucusu. WhatsApp otomatik başlatma, OpenClaw-style logging, health check.
+Background gateway server. WhatsApp auto-start, OpenClaw-style logging, health check.
 
 ```bash
-# Gateway'i başlat (arka planda)
+# Start gateway (background)
 natureco gateway start
 
-# Logları canlı izle
+# Watch logs live
 tail -f ~/.natureco/gateway.log
 
-# Durum kontrolü
+# Check status
 natureco gateway status
 
-# Durdur
+# Stop
 natureco gateway stop
 ```
 
-**Gateway Özellikleri:**
-- Detached process (terminal kapatılsa bile çalışır)
-- WhatsApp otomatik başlatma (config'de kayıtlıysa)
-- OpenClaw-style log formatı: `[timestamp] [module] message`
-- Health check her 60 saniyede
+**Gateway Features:**
+- Detached process (runs even if terminal closed)
+- WhatsApp auto-start (if saved in config)
+- OpenClaw-style log format: `[timestamp] [module] message`
+- Health check every 60 seconds
 - Auto-restart on connection loss (10s delay)
 - Platform-aware stop (SIGTERM → SIGKILL / taskkill)
-- Tüm loglar ~/.natureco/gateway.log dosyasında
+- All logs in ~/.natureco/gateway.log
 
 ## 🎨 Dashboard
 
-Localhost:3848'de çalışan web arayüzü. Glassmorphism tasarım, animated gradient arka plan.
+Web UI running on localhost:3848. Glassmorphism design, animated gradient background.
 
 ```bash
 natureco dashboard
 ```
 
-**Dashboard Özellikleri:**
+**Dashboard Features:**
 - Modern glassmorphism UI
-- Animated gradient background (natureco.me/landing ile aynı)
-- Sol sidebar: Aktif bot, diğer botlar, kanallar, skill'ler, hafıza, sessions, sistem, cron jobs
-- Sağ chat alanı: Bot avatar, model bilgisi, version badge
-- Typing indicator (üç nokta animasyonu)
-- Türkçe karakter desteği
-- Responsive tasarım
+- Animated gradient background (same as natureco.me/landing)
+- Left sidebar: Active bot, other bots, channels, skills, memory, sessions, system, cron jobs
+- Right chat area: Bot avatar, model info, version badge
+- Typing indicator (three dots animation)
+- Turkish character support
+- Responsive design
 
 ## 💾 Memory System
 
-Bot hafızası — kullanıcı adı, bot adı, lakap, tercihler ve facts. Her bot için ayrı hafıza.
+Bot memory — user name, bot name, nickname, preferences, and facts. Separate memory per bot.
 
-**Memory Özellikleri:**
-- **Bot Name:** Bot'un adı (memory'den veya agents/ klasöründen)
-- **User Name:** Kullanıcının adı
-- **Nickname:** Kullanıcının lakabı
-- **Facts:** Kullanıcı hakkında bilgiler (max 15, score'a göre sıralı)
-- **Preferences:** Kullanıcı tercihleri
-- **Auto-Extract:** Mesajlardan otomatik bilgi çıkarma
-- **Score System:** Her fact'in score'u var, eski facts decay oluyor
+**Memory Features:**
+- **Bot Name:** Bot's name (from memory or agents/ folder)
+- **User Name:** User's name
+- **Nickname:** User's nickname
+- **Facts:** Information about user (max 15, sorted by score)
+- **Preferences:** User preferences
+- **Auto-Extract:** Automatic information extraction from messages
+- **Score System:** Each fact has a score, old facts decay
 
 ```bash
-# Hafızayı göster
+# Show memory
 natureco chat
 /memory
 
-# Hafızayı temizle
+# Clear memory
 /memory clear
 ```
 
@@ -269,7 +269,7 @@ natureco chat
   "nickname": "Parton",
   "facts": [
     { "value": "Timezone: UTC+3", "score": 6, "updatedAt": "2025-01-12" },
-    { "value": "Yazılımcı", "score": 5, "updatedAt": "2025-01-12" }
+    { "value": "Developer", "score": 5, "updatedAt": "2025-01-12" }
   ],
   "preferences": [],
   "lastSeen": "2025-01-12T10:30:00.000Z"
@@ -278,15 +278,15 @@ natureco chat
 
 ## 🐰 Terminal UI
 
-Minimal ve temiz terminal arayüzü. Tavşan ASCII art, progress bar animasyonu, renkli çıktılar.
+Minimal and clean terminal interface. Rabbit ASCII art, progress bar animation, colored output.
 
-**UI Özellikleri:**
-- **Startup Animation:** Tavşan ASCII art + progress bar (Memory, Skills, Gateway)
-- **Header:** Terminal genişliği kadar separator, bot adı, model, timezone
-- **Message Format:** `You  mesaj` (gray) → `İchigo  cevap` (cyan)
-- **Loading:** `●○○ ○●○ ○○●` animasyonu (300ms)
-- **Colors:** Hata (red), başarı (green), bot adı (cyan), kullanıcı (gray)
-- **No Emoji:** Temiz, minimal tasarım
+**UI Features:**
+- **Startup Animation:** Rabbit ASCII art + progress bar (Memory, Skills, Gateway)
+- **Header:** Full terminal width separator, bot name, model, timezone
+- **Message Format:** `You  message` (gray) → `İchigo  response` (cyan)
+- **Loading:** `●○○ ○●○ ○○●` animation (300ms)
+- **Colors:** Error (red), success (green), bot name (cyan), user (gray)
+- **No Emoji:** Clean, minimal design
 
 ```
   (\\_/)
@@ -301,34 +301,34 @@ Session · /clear /bot /skills /memory /help · Ctrl+C to exit
 Memory: Gencay · 67 facts   Skills: 28   Crons: 21 active
 ────────────────────────────────────────
 
-You  merhaba
-İchigo  Merhaba! Nasıl yardımcı olabilirim?
+You  hello
+İchigo  Hello! How can I help you?
 ```
 
 ## 🔄 Migration from OpenClaw
 
-OpenClaw'dan NatureCo'ya geçiş yapın. Memory, crons, skills, scripts ve WhatsApp session'ları otomatik migrate edilir.
+Migrate from OpenClaw to NatureCo. Memory, crons, skills, scripts, and WhatsApp sessions auto-migrated.
 
 ```bash
-# OpenClaw'dan migrate et
+# Migrate from OpenClaw
 natureco migrate --from openclaw
 
-# Özel OpenClaw dizini
+# Custom OpenClaw directory
 natureco migrate --from openclaw --openclaw-dir /path/to/.openclaw
 ```
 
-**Migrate Edilen Veriler:**
+**Migrated Data:**
 - **Memory:** USER.md → universal-provider.json (name, nickname, timezone, notes)
-- **Memory Files:** MEMORY.md ve memory/*.md → facts (max 15, deduplicated)
-- **Bot Name:** agents/ klasör adından veya cron job adlarından
+- **Memory Files:** MEMORY.md and memory/*.md → facts (max 15, deduplicated)
+- **Bot Name:** From agents/ folder name or cron job names
 - **Cron Jobs:** jobs.json → crons.json (path normalization, duplicate check)
 - **Telegram:** allowFrom → config
 - **WhatsApp:** Session → whatsapp-sessions (number normalization)
 - **Scripts:** workspace/scripts → .natureco/workspace/scripts (path fixes, package.json)
 - **Skills:** workspace/skills → .natureco/skills
-- **.env:** Workspace .env dosyası kopyalanır
+- **.env:** Workspace .env file copied
 
-**Migration Özellikleri:**
+**Migration Features:**
 - Path normalization (Windows → Unix)
 - Duplicate detection (crons, facts)
 - WhatsApp number normalization (JID → clean phone)
