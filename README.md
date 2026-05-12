@@ -8,16 +8,13 @@ Terminal-native AI agent CLI — chat with your bots, automate workflows, and co
 
 ## ✨ Features
 
-- **🤖 Multi-Bot Chat** — Interactive conversations with AI bots, support for multi-word bot names, auto-selection when no default
-- **🔌 Multi-Platform Integration** — Telegram, Discord, Slack, WhatsApp (QR code auth with Baileys)
-- **🎯 Skill System** — Extend capabilities with NatureHub and ClawHub skills
-- **🔧 MCP Support** — Model Context Protocol servers for filesystem, GitHub, databases
+- **🤖 Universal LLM Provider Support** — Connect to any OpenAI-compatible API (Groq, OpenAI, Together, Fireworks, DeepSeek, OpenRouter, Ollama, LM Studio) or Anthropic
+- **🛠️ Local Tool Execution** — Bash commands, file operations (read_file, write_file, list_dir) — AI executes tools locally with automatic retry loop
+- **🔒 Security Layer** — Base64 encoding for tool results, dangerous command blocking, content truncation
+- **🎯 Smart Tool Selection** — AI automatically chooses the right tool based on file type and task
 - **🌐 Web Dashboard** — Beautiful glassmorphism UI at localhost:3848 with animated gradients
-- **⚡ Gateway Server** — Background process with WhatsApp auto-start, OpenClaw-style logging
-- **🎨 Custom AI Providers** — OpenAI, Anthropic, Groq, Gemini with model selection
 - **📝 Code Analysis** — Deep code review with security, performance, quality scoring
-- **🔄 Automation** — Cron jobs, hooks, custom commands, background tasks
-- **💾 Memory System** — Persistent conversation memory per bot
+- **💾 Memory System** — Persistent conversation memory per session
 - **📊 System Health** — Built-in doctor command with auto-fix
 
 ## 🚀 Quick Start
@@ -26,11 +23,11 @@ Terminal-native AI agent CLI — chat with your bots, automate workflows, and co
 # Install globally
 npm install -g natureco-cli
 
-# Run setup wizard
-natureco setup
+# Run setup wizard (v2.x - universal provider support)
+natureco setup   # provider URL, API key, model seç
 
 # Start chatting
-natureco chat
+natureco chat    # terminal agent hazır
 ```
 
 ## 📋 Commands
@@ -122,6 +119,7 @@ natureco chat
 | `natureco cron start` | Cron daemon'unu başlatır |
 | `natureco hooks create tip` | Hook oluşturur (pre-message, post-message...) |
 | `natureco commands create ad` | Özel /komut oluşturur |
+| `natureco migrate --from openclaw` | OpenClaw'dan migration (memory, crons, skills, scripts) |
 
 ### Gateway & Dashboard
 
@@ -241,6 +239,119 @@ natureco dashboard
 - Türkçe karakter desteği
 - Responsive tasarım
 
+## 💾 Memory System
+
+Bot hafızası — kullanıcı adı, bot adı, lakap, tercihler ve facts. Her bot için ayrı hafıza.
+
+**Memory Özellikleri:**
+- **Bot Name:** Bot'un adı (memory'den veya agents/ klasöründen)
+- **User Name:** Kullanıcının adı
+- **Nickname:** Kullanıcının lakabı
+- **Facts:** Kullanıcı hakkında bilgiler (max 15, score'a göre sıralı)
+- **Preferences:** Kullanıcı tercihleri
+- **Auto-Extract:** Mesajlardan otomatik bilgi çıkarma
+- **Score System:** Her fact'in score'u var, eski facts decay oluyor
+
+```bash
+# Hafızayı göster
+natureco chat
+/memory
+
+# Hafızayı temizle
+/memory clear
+```
+
+**Memory Format:**
+```json
+{
+  "name": "Gencay",
+  "botName": "İchigo",
+  "nickname": "Parton",
+  "facts": [
+    { "value": "Timezone: UTC+3", "score": 6, "updatedAt": "2025-01-12" },
+    { "value": "Yazılımcı", "score": 5, "updatedAt": "2025-01-12" }
+  ],
+  "preferences": [],
+  "lastSeen": "2025-01-12T10:30:00.000Z"
+}
+```
+
+## 🐰 Terminal UI
+
+Minimal ve temiz terminal arayüzü. Tavşan ASCII art, progress bar animasyonu, renkli çıktılar.
+
+**UI Özellikleri:**
+- **Startup Animation:** Tavşan ASCII art + progress bar (Memory, Skills, Gateway)
+- **Header:** Terminal genişliği kadar separator, bot adı, model, timezone
+- **Message Format:** `You  mesaj` (gray) → `İchigo  cevap` (cyan)
+- **Loading:** `●○○ ○●○ ○○●` animasyonu (300ms)
+- **Colors:** Hata (red), başarı (green), bot adı (cyan), kullanıcı (gray)
+- **No Emoji:** Temiz, minimal tasarım
+
+```
+  (\\_/)
+  (•ᴥ•)
+  />🌿
+
+────────────────────────────────────────
+NatureCo · İchigo · llama-3.1 · UTC+3
+────────────────────────────────────────
+Session · /clear /bot /skills /memory /help · Ctrl+C to exit
+────────────────────────────────────────
+Memory: Gencay · 67 facts   Skills: 28   Crons: 21 active
+────────────────────────────────────────
+
+You  merhaba
+İchigo  Merhaba! Nasıl yardımcı olabilirim?
+```
+
+## 🔄 Migration from OpenClaw
+
+OpenClaw'dan NatureCo'ya geçiş yapın. Memory, crons, skills, scripts ve WhatsApp session'ları otomatik migrate edilir.
+
+```bash
+# OpenClaw'dan migrate et
+natureco migrate --from openclaw
+
+# Özel OpenClaw dizini
+natureco migrate --from openclaw --openclaw-dir /path/to/.openclaw
+```
+
+**Migrate Edilen Veriler:**
+- **Memory:** USER.md → universal-provider.json (name, nickname, timezone, notes)
+- **Memory Files:** MEMORY.md ve memory/*.md → facts (max 15, deduplicated)
+- **Bot Name:** agents/ klasör adından veya cron job adlarından
+- **Cron Jobs:** jobs.json → crons.json (path normalization, duplicate check)
+- **Telegram:** allowFrom → config
+- **WhatsApp:** Session → whatsapp-sessions (number normalization)
+- **Scripts:** workspace/scripts → .natureco/workspace/scripts (path fixes, package.json)
+- **Skills:** workspace/skills → .natureco/skills
+- **.env:** Workspace .env dosyası kopyalanır
+
+**Migration Özellikleri:**
+- Path normalization (Windows → Unix)
+- Duplicate detection (crons, facts)
+- WhatsApp number normalization (JID → clean phone)
+- Bot name extraction (agents/, cron jobs, MEMORY.md)
+- Facts filtering (skip tables, commands, emojis)
+
+## 🎨 Dashboard
+
+Localhost:3848'de çalışan web arayüzü. Glassmorphism tasarım, animated gradient arka plan.
+
+```bash
+natureco dashboard
+```
+
+**Dashboard Özellikleri:**
+- Modern glassmorphism UI
+- Animated gradient background (natureco.me/landing ile aynı)
+- Sol sidebar: Aktif bot, diğer botlar, kanallar, skill'ler, hafıza, sessions, sistem, cron jobs
+- Sağ chat alanı: Bot avatar, model bilgisi, version badge
+- Typing indicator (üç nokta animasyonu)
+- Türkçe karakter desteği
+- Responsive tasarım
+
 ## 🤖 Custom AI Providers
 
 NatureCo dışında kendi AI provider'ınızı kullanın. Setup sırasında veya config ile ayarlayın.
@@ -281,21 +392,41 @@ natureco config set aiModel gpt-4o
 
 Config dosyası: `~/.natureco/config.json`
 
-**Örnek Config:**
+**v2.x Örnek Config (Universal Provider):**
 ```json
 {
-  "apiKey": "nc_...",
-  "defaultBot": "Nature Bot",
-  "defaultBotId": "bot_123",
-  "aiProvider": "openai",
-  "aiModel": "gpt-4o",
-  "telegramToken": "...",
-  "discordToken": "...",
-  "whatsappConnected": true,
-  "whatsappBotId": "bot_123",
-  "whatsappPhone": "905551234567@s.whatsapp.net",
-  "whatsappAllowedNumbers": ["905551234567", "905422842631"]
+  "providerUrl": "https://api.groq.com/openai/v1",
+  "providerApiKey": "gsk_xxx",
+  "providerModel": "llama-3.3-70b-versatile",
+  "debug": false,
+  "skills": { "enabled": true, "list": [] },
+  "mcpServers": {}
 }
+```
+
+**Desteklenen Provider'lar:**
+- Groq: `https://api.groq.com/openai/v1`
+- OpenAI: `https://api.openai.com/v1`
+- Anthropic: `https://api.anthropic.com`
+- Together AI: `https://api.together.xyz/v1`
+- Fireworks AI: `https://api.fireworks.ai/inference/v1`
+- DeepSeek: `https://api.deepseek.com/v1`
+- OpenRouter: `https://openrouter.ai/api/v1`
+- Ollama (local): `http://localhost:11434/v1`
+- LM Studio (local): `http://localhost:1234/v1`
+
+**Config Komutları:**
+```bash
+# Provider değiştir
+natureco config set providerUrl https://api.openai.com/v1
+natureco config set providerApiKey sk-xxx
+natureco config set providerModel gpt-4o
+
+# Debug mode
+natureco config set debug true
+
+# Tüm ayarları göster
+natureco config list
 ```
 
 ## 📚 Support
@@ -312,5 +443,5 @@ MIT © NatureCo
 
 ---
 
-**Version:** 1.0.51 | **Node.js:** >=16.0.0 | **Platform:** macOS, Windows, Linux
+**Version:** 2.14.5 | **Node.js:** >=16.0.0 | **Platform:** macOS, Windows, Linux
 
