@@ -1,11 +1,9 @@
 name: "CodeQL"
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   schedule:
     - cron: '15 6 * * 1'
+  workflow_dispatch:
+
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
