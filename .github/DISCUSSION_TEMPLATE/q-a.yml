@@ -1,0 +1,22 @@
+title: "❓ Question"
+labels: [question]
+category: 🙏 Q&A
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking a question!
+  - type: input
+    id: title
+    attributes:
+      label: Question
+      placeholder: Clear, concise question
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      placeholder: Include all relevant information...
+    validations:
+      required: true
