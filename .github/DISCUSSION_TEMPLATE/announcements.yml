@@ -1,0 +1,22 @@
+title: "📣 Announcement"
+labels: [announcement]
+category: 📣 Announcements
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for posting an announcement!
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      placeholder: Short, clear title
+    validations:
+      required: true
+  - type: textarea
+    id: content
+    attributes:
+      label: Content
+      placeholder: What would you like to announce?
+    validations:
+      required: true
