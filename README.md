@@ -3,445 +3,584 @@
 [![npm version](https://img.shields.io/npm/v/natureco-cli)](https://www.npmjs.com/package/natureco-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)]()
+[![Node](https://img.shields.io/badge/node-%3E%3D16.0.0-brightgreen)]()
+[![Downloads](https://img.shields.io/npm/dm/natureco-cli)](https://www.npmjs.com/package/natureco-cli)
+[![Stars](https://img.shields.io/github/stars/natureco-official/natureco-cli)](https://github.com/natureco-official/natureco-cli)
 
-Terminal-native AI agent CLI — chat with your bots, automate workflows, and connect Telegram, Discord, Slack & WhatsApp. A powerful alternative to Claude Code & OpenClaw.
+> **Yapay Zekânın Gücü artık parmaklarının ucunda.**
+> *Terminalin hızını NatureCo ile keşfet.*
 
-## ✨ Features
+Terminal-native AI agent CLI — sohbet et, kod yaz, workflow'ları otomatikleştir, **Telegram / Discord / Slack / WhatsApp / iMessage** bağla.
 
-- **🤖 Universal LLM Provider Support** — Connect to any OpenAI-compatible API (Groq, OpenAI, Together, Fireworks, DeepSeek, OpenRouter, Ollama, LM Studio) or Anthropic
-- **🛠️ Local Tool Execution** — Bash commands, file operations (read_file, write_file, list_dir) — AI executes tools locally with automatic retry loop
-- **🔒 Security Layer** — Base64 encoding for tool results, dangerous command blocking, content truncation
-- **🎯 Smart Tool Selection** — AI automatically chooses the right tool based on file type and task
-- **🌐 Web Dashboard** — Beautiful glassmorphism UI at localhost:3848 with animated gradients
-- **📝 Code Analysis** — Deep code review with security, performance, quality scoring
-- **💾 Memory System** — Persistent conversation memory per session
-- **📊 System Health** — Built-in doctor command with auto-fix
-
-## 🚀 Quick Start
-
-```bash
-# Install globally
-npm install -g natureco-cli
-
-# Run setup wizard (v2.x - universal provider support)
-natureco setup   # provider URL, API key, model seç
-
-# Start chatting
-natureco chat    # terminal agent hazır
-```
-
-## 📋 Commands
-
-### Core Commands
-
-| Command | Description |
-|---------|-------------|
-| `natureco` | Opens gateway screen — system status, active bot, skill count |
-| `natureco setup` | Setup wizard — API key, bot selection, AI provider, model, integrations |
-| `natureco login` | Login with API key |
-| `natureco logout` | Logout and clear config |
-| `natureco help` | List all commands with examples |
-| `natureco doctor` | System health check — Node, API, bot, skills, integrations |
-| `natureco doctor --fix` | Auto-fix detected issues |
-| `natureco update` | Check for new version |
-
-### Chat
-
-| Command | Description |
-|---------|-------------|
-| `natureco chat` | Chat with default bot (interactive selection if none) |
-| `natureco chat Bot Name` | Chat with specific bot (spaces supported) |
-| `natureco chat Nature Bot V3` | Multi-word bot names auto-joined |
-| `natureco chat --resume` | Resume latest session |
-| `natureco ask "question"` | One-time question |
-| `natureco run script.md` | Send markdown file as prompt |
-| `natureco bots` | List all bots |
-
-**In-Chat Commands:**
-
-| Command | Description |
-|---------|-------------|
-| `/clear` | Clear screen |
-| `/bot` | Show bot list or switch bot |
-| `/bot Bot Name` | Switch to specific bot |
-| `/skills` | Show active skills |
-| `/memory` | Show memory status |
-| `/memory clear` | Clear memory |
-| `/commands` | List custom commands |
-| `/ultrareview` | Deep review last code block |
-| `/help` | Show chat help |
-| `exit` / `quit` | Exit chat |
-| `Ctrl+B` | Move task to background |
-
-### Skill System
-
-| Command | Description |
-|---------|-------------|
-| `natureco skills` | List installed skills |
-| `natureco skills install slug` | Install skill from NatureHub |
-| `natureco skills install clawhub:slug` | Install skill from ClawHub |
-| `natureco skills browse` | Browse popular skills, interactive selection |
-| `natureco skills search "query"` | Search skills |
-| `natureco skills remove slug` | Remove skill |
-| `natureco skills create name` | Create new skill template |
-
-### Integrations
-
-| Command | Description |
-|---------|-------------|
-| `natureco telegram connect` | Connect Telegram bot (token + user ID) |
-| `natureco discord connect` | Connect Discord bot |
-| `natureco slack connect` | Connect to Slack workspace |
-| `natureco whatsapp connect` | Connect WhatsApp with QR code (Baileys) |
-| `natureco whatsapp status` | WhatsApp connection status and allow list |
-| `natureco whatsapp allow <number>` | Add number to allow list |
-| `natureco whatsapp disconnect` | Disconnect WhatsApp |
-
-### MCP Servers
-
-| Command | Description |
-|---------|-------------|
-| `natureco mcp list` | List connected MCP servers |
-| `natureco mcp add` | Add MCP server (filesystem, github, postgres...) |
-| `natureco mcp templates` | List ready-made MCP templates |
-| `natureco mcp enable <name>` | Enable MCP server |
-| `natureco mcp disable <name>` | Disable MCP server |
-
-### Automation
-
-| Command | Description |
-|---------|-------------|
-| `natureco ultrareview file.js` | Code review — security, performance, quality scores |
-| `natureco git review` | Review staged changes |
-| `natureco git commit` | Generate commit message with AI |
-| `natureco cron add` | Create scheduled task |
-| `natureco cron list` | List cron jobs |
-| `natureco cron start` | Start cron daemon |
-| `natureco hooks create type` | Create hook (pre-message, post-message...) |
-| `natureco commands create name` | Create custom /command |
-| `natureco migrate --from openclaw` | Migrate from OpenClaw (memory, crons, skills, scripts) |
-
-### Gateway & Dashboard
-
-| Command | Description |
-|---------|-------------|
-| `natureco gateway start` | Start gateway in background (WhatsApp auto-start) |
-| `natureco gateway stop` | Stop gateway |
-| `natureco gateway status` | Gateway status (last 10 logs) |
-| `natureco gateway logs` | Show all logs (~/.natureco/gateway.log) |
-| `natureco dashboard` | Open web UI (localhost:3848) |
-| `natureco dashboard stop` | Stop dashboard |
-| `natureco dashboard status` | Check dashboard status |
-
-### Configuration
-
-| Command | Description |
-|---------|-------------|
-| `natureco config list` | Show all settings |
-| `natureco config get key` | Get specific setting |
-| `natureco config set key val` | Change setting |
-| `natureco init` | Create project folder (.natureco/) |
-
-## 🔌 Integrations
-
-### Telegram
-
-Connect your Telegram bot, receive and respond to messages. Authentication with bot token and user ID.
-
-```bash
-natureco telegram connect
-```
-
-### Discord
-
-Integrate Discord bots. Server channels, DMs, and slash commands supported.
-
-```bash
-natureco discord connect
-```
-
-### Slack
-
-Connect to Slack workspaces. Manage channel and DM messages.
-
-```bash
-natureco slack connect
-```
-
-### WhatsApp
-
-Connect WhatsApp accounts with QR code. Full media support with Baileys library.
-
-```bash
-# Initial connection (QR code)
-natureco whatsapp connect
-
-# Auto-start with gateway
-natureco gateway start
-
-# Add number to allow list
-natureco whatsapp allow 905551234567
-
-# Check status
-natureco whatsapp status
-```
-
-**WhatsApp Features:**
-- QR code connection in terminal
-- Session persistence (~/.natureco/whatsapp-sessions/)
-- Allow list control (last 10 digits comparison)
-- Gateway auto-start
-- OpenClaw-style logging
-- Auto-reconnect (515, 408 error codes)
-- Multiple message format support (text, caption, buttons, list...)
-
-## 🌐 Gateway Server
-
-Background gateway server. WhatsApp auto-start, OpenClaw-style logging, health check.
-
-```bash
-# Start gateway (background)
-natureco gateway start
-
-# Watch logs live
-tail -f ~/.natureco/gateway.log
-
-# Check status
-natureco gateway status
-
-# Stop
-natureco gateway stop
-```
-
-**Gateway Features:**
-- Detached process (runs even if terminal closed)
-- WhatsApp auto-start (if saved in config)
-- OpenClaw-style log format: `[timestamp] [module] message`
-- Health check every 60 seconds
-- Auto-restart on connection loss (10s delay)
-- Platform-aware stop (SIGTERM → SIGKILL / taskkill)
-- All logs in ~/.natureco/gateway.log
-
-## 🎨 Dashboard
-
-Web UI running on localhost:3848. Glassmorphism design, animated gradient background.
-
-```bash
-natureco dashboard
-```
-
-**Dashboard Features:**
-- Modern glassmorphism UI
-- Animated gradient background (same as natureco.me/landing)
-- Left sidebar: Active bot, other bots, channels, skills, memory, sessions, system, cron jobs
-- Right chat area: Bot avatar, model info, version badge
-- Typing indicator (three dots animation)
-- Turkish character support
-- Responsive design
-
-## 💾 Memory System
-
-Bot memory — user name, bot name, nickname, preferences, and facts. Separate memory per bot.
-
-**Memory Features:**
-- **Bot Name:** Bot's name (from memory or agents/ folder)
-- **User Name:** User's name
-- **Nickname:** User's nickname
-- **Facts:** Information about user (max 15, sorted by score)
-- **Preferences:** User preferences
-- **Auto-Extract:** Automatic information extraction from messages
-- **Score System:** Each fact has a score, old facts decay
-
-```bash
-# Show memory
-natureco chat
-/memory
-
-# Clear memory
-/memory clear
-```
-
-**Memory Format:**
-```json
-{
-  "name": "Gencay",
-  "botName": "İchigo",
-  "nickname": "Parton",
-  "facts": [
-    { "value": "Timezone: UTC+3", "score": 6, "updatedAt": "2025-01-12" },
-    { "value": "Developer", "score": 5, "updatedAt": "2025-01-12" }
-  ],
-  "preferences": [],
-  "lastSeen": "2025-01-12T10:30:00.000Z"
-}
-```
-
-## 🐰 Terminal UI
-
-Minimal and clean terminal interface. Rabbit ASCII art, progress bar animation, colored output.
-
-**UI Features:**
-- **Startup Animation:** Rabbit ASCII art + progress bar (Memory, Skills, Gateway)
-- **Header:** Full terminal width separator, bot name, model, timezone
-- **Message Format:** `You  message` (gray) → `İchigo  response` (cyan)
-- **Loading:** `●○○ ○●○ ○○●` animation (300ms)
-- **Colors:** Error (red), success (green), bot name (cyan), user (gray)
-- **No Emoji:** Clean, minimal design
+**Claude Code alternatifi** · Multi-agent orkestrasyon · Slash-prefix sistemi · Dangerous Command Approval · 12 provider, 200+ model · 57 tool · 10 mesajlaşma kanalı · 3-dosya kişilik sistemi
 
 ```
-  (\\_/)
-  (•ᴥ•)
-  />🌿
-
-────────────────────────────────────────
-NatureCo · İchigo · llama-3.1 · UTC+3
-────────────────────────────────────────
-Session · /clear /bot /skills /memory /help · Ctrl+C to exit
-────────────────────────────────────────
-Memory: Gencay · 67 facts   Skills: 28   Crons: 21 active
-────────────────────────────────────────
-
-You  hello
-İchigo  Hello! How can I help you?
+███╗   ██╗ █████╗ ████████╗██╗   ██╗██████╗ ███████╗ ██████╗  ██████╗
+████╗  ██║██╔══██╗╚══██╔══╝██║   ██║██╔══██╗██╔════╝██╔════╝ ██╔═══██╗
+██╔██╗ ██║███████║   ██║   ██║   ██║██████╔╝█████╗  ██║      ██║   ██║
+██║╚██╗██║██╔══██║   ██║   ██║   ██║██╔══██╗██╔══╝  ██║      ██║   ██║
+██║ ╚████║██║  ██║   ██║   ╚██████╔╝██║  ██║███████╗╚██████╗ ╚██████╔╝
+╚═╝  ╚═══╝╚═╝  ╚═╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚══════╝ ╚═════╝  ╚═════╝
 ```
-
-## 🔄 Migration from OpenClaw
-
-Migrate from OpenClaw to NatureCo. Memory, crons, skills, scripts, and WhatsApp sessions auto-migrated.
-
-```bash
-# Migrate from OpenClaw
-natureco migrate --from openclaw
-
-# Custom OpenClaw directory
-natureco migrate --from openclaw --openclaw-dir /path/to/.openclaw
-```
-
-**Migrated Data:**
-- **Memory:** USER.md → universal-provider.json (name, nickname, timezone, notes)
-- **Memory Files:** MEMORY.md and memory/*.md → facts (max 15, deduplicated)
-- **Bot Name:** From agents/ folder name or cron job names
-- **Cron Jobs:** jobs.json → crons.json (path normalization, duplicate check)
-- **Telegram:** allowFrom → config
-- **WhatsApp:** Session → whatsapp-sessions (number normalization)
-- **Scripts:** workspace/scripts → .natureco/workspace/scripts (path fixes, package.json)
-- **Skills:** workspace/skills → .natureco/skills
-- **.env:** Workspace .env file copied
-
-**Migration Features:**
-- Path normalization (Windows → Unix)
-- Duplicate detection (crons, facts)
-- WhatsApp number normalization (JID → clean phone)
-- Bot name extraction (agents/, cron jobs, MEMORY.md)
-- Facts filtering (skip tables, commands, emojis)
-
-## 🎨 Dashboard
-
-Localhost:3848'de çalışan web arayüzü. Glassmorphism tasarım, animated gradient arka plan.
-
-```bash
-natureco dashboard
-```
-
-**Dashboard Özellikleri:**
-- Modern glassmorphism UI
-- Animated gradient background (natureco.me/landing ile aynı)
-- Sol sidebar: Aktif bot, diğer botlar, kanallar, skill'ler, hafıza, sessions, sistem, cron jobs
-- Sağ chat alanı: Bot avatar, model bilgisi, version badge
-- Typing indicator (üç nokta animasyonu)
-- Türkçe karakter desteği
-- Responsive tasarım
-
-## 🤖 Custom AI Providers
-
-NatureCo dışında kendi AI provider'ınızı kullanın. Setup sırasında veya config ile ayarlayın.
-
-**Desteklenen Provider'lar:**
-- **OpenAI:** GPT-5.5, GPT-5.4, GPT-5, GPT-4.1, GPT-4o, o3, o4 Mini
-- **Anthropic:** Claude Opus 4.7/4.6/4.5, Sonnet 4.6/4.5, Haiku 4.5/3.5
-- **Groq:** Llama 3.3 70B, Llama 3.1 8B/70B, Mixtral 8x7B, Gemma 2 9B
-- **Gemini:** 2.5 Pro/Flash, 2.0 Flash, 1.5 Pro/Flash
-
-```bash
-# Setup sırasında provider ve model seç
-natureco setup
-
-# Config ile değiştir
-natureco config set aiProvider openai
-natureco config set aiModel gpt-4o
-```
-
-## 📁 File Structure
-
-```
-~/.natureco/
-├── config.json              # Ana yapılandırma
-├── gateway.pid              # Gateway process ID
-├── gateway.log              # Gateway logları
-├── dashboard.pid            # Dashboard process ID
-├── skills/                  # Yüklü skill'ler
-├── memory/                  # Bot hafızaları
-├── history/                 # Chat geçmişi
-├── sessions/                # Chat oturumları
-├── whatsapp-sessions/       # WhatsApp session'ları
-│   └── {bot_id}/           # Bot bazında session
-└── cron.json               # Cron görevleri
-```
-
-## 🔧 Configuration
-
-Config dosyası: `~/.natureco/config.json`
-
-**v2.x Örnek Config (Universal Provider):**
-```json
-{
-  "providerUrl": "https://api.groq.com/openai/v1",
-  "providerApiKey": "gsk_xxx",
-  "providerModel": "llama-3.3-70b-versatile",
-  "debug": false,
-  "skills": { "enabled": true, "list": [] },
-  "mcpServers": {}
-}
-```
-
-**Desteklenen Provider'lar:**
-- Groq: `https://api.groq.com/openai/v1`
-- OpenAI: `https://api.openai.com/v1`
-- Anthropic: `https://api.anthropic.com`
-- Together AI: `https://api.together.xyz/v1`
-- Fireworks AI: `https://api.fireworks.ai/inference/v1`
-- DeepSeek: `https://api.deepseek.com/v1`
-- OpenRouter: `https://openrouter.ai/api/v1`
-- Ollama (local): `http://localhost:11434/v1`
-- LM Studio (local): `http://localhost:1234/v1`
-
-**Config Komutları:**
-```bash
-# Provider değiştir
-natureco config set providerUrl https://api.openai.com/v1
-natureco config set providerApiKey sk-xxx
-natureco config set providerModel gpt-4o
-
-# Debug mode
-natureco config set debug true
-
-# Tüm ayarları göster
-natureco config list
-```
-
-## 📚 Support
-
-- **Documentation:** [natureco.me/docs](https://natureco.me/docs)
-- **CLI Docs:** [natureco.me/cli](https://natureco.me/cli)
-- **npm Package:** [npmjs.com/package/natureco-cli](https://www.npmjs.com/package/natureco-cli)
-- **API Reference:** [natureco.me/api](https://natureco.me/docs/sdk))
-- **GitHub:** [github.com/natureco/cli](github.com/natureco-official/natureco-cli)
-
-## 📝 License
-
-MIT © NatureCo
 
 ---
 
-**Version:** 2.14.5 | **Node.js:** >=16.0.0 | **Platform:** macOS, Windows, Linux
+## 🚀 Hızlı Başlangıç
 
+```bash
+# 1. Kur
+npm install -g natureco-cli
+
+# 2. İlk kurulum sihirbazı (provider, model, bot adı)
+natureco setup
+
+# 3. Sohbet başlat
+natureco chat
+
+# 4. Veya kod ajanı
+natureco code
+```
+
+**30 saniyede hazır.** İlk açılışta sihirbaz seni karşılar: provider seç → API key gir → model seç → bot adı belirle. Hepsi bu.
+
+---
+
+## 🆕 v5.6.x Yenilikler
+
+### Slash-Prefix Komut Sistemi
+
+**İMessage ve WhatsApp'ta** artık `/` ile başlayan mesajlar komut olarak işlenir:
+
+```
+You  > /selam nasılsın
+AI   Selam selam! 🙌 Nasıl gidiyor?
+
+You  > /bana bir fıkra anlat
+AI   Tabii! Bilgisayar fıkrası...
+```
+
+Normal mesajlar **skip edilir** (döngü önleme). Bu sayede:
+- ✅ Bot kendi mesajına cevap vermez
+- ✅ Echo loop oluşmaz
+- ✅ Sadece `/` ile başlayanlar AI'a gider
+
+### Dangerous Command Approval
+
+Akıllı onay sistemi. **Sadece riskli işlemlerde** onay ister:
+
+```bash
+# Otomatik onay (güvenli)
+natureco memory write "favori renk kırmızı"
+✓ Memory eklendi
+
+# Onay gerekli (riskli)
+natureco rm -rf node_modules
+🔴 YÜKSEK RISK: Dosya silme komutu
+Devam edilsin mi? (Y/n)
+```
+
+**Risk tespiti:**
+- `rm -rf`, `sudo`, `dd if=` → 🔴 YÜKSEK
+- `chmod 777`, `mv` → 🟡 ORTA
+- `mv .env` → 🔴 (hassas dosya)
+
+### v5.6.0 — v5.6.43 Diğer
+
+| Versiyon | Yenilik |
+|----------|---------|
+| **v5.6.0** | Postinstall + API key validation + reset komutu |
+| **v5.6.1** | Groq tool filter (9 temel tool) |
+| **v5.6.3** | Provider tier wizard |
+| **v5.6.4** | Tam model kataloğu (12 provider, 200+ model) |
+| **v5.6.5** | Token limit fix + SOUL injection optimizasyonu |
+| **v5.6.6** | Inline tool filter (BLOCKED_TOOL_NAMES) |
+| **v5.6.7** | Memory auto-create in setup |
+| **v5.6.8** | Hard-coded prefix dinamik (botName) |
+| **v5.6.21** | Akıllı onay sistemi + tool result yol gizleme |
+| **v5.6.22** | 8 bug fix (read_file priority, ~expansion, memory search, grep fix, git auto-find, vb.) |
+| **v5.6.27** | imsg send `--to` flag fix |
+| **v5.6.31** | `imsg watch --json` streaming |
+| **v5.6.39** | iMessage is_from_me filtresi |
+| **v5.6.40** | Echo loop prevention (30sn) |
+| **v5.6.41-42** | Slash-prefix sistemi (iMessage/WhatsApp) |
+| **v5.6.43** | WhatsApp slash + cron endpoint fix |
+
+---
+
+## ✨ Özellikler
+
+### 🤖 AI & Sohbet
+- **57 Tool** — file ops, web search, image generation, code execution, memory
+- **İnteraktif REPL** — read_file, edit_file, bash, multi-turn
+- **Slash Komutlar** — `/memory`, `/help`, `/skills`, `/clear`
+- **Agentic Mod** (`--agent`) — autonomous task completion
+- **Persistent Memory** — fact-based, cross-session
+
+### 💻 Kod Ajanı (Claude Code Alternatifi)
+- **Read/Write/Edit** multi-file operations
+- **Bash execution** — sandboxed shell
+- **Streaming syntax highlighting** — gerçek zamanlı
+- **Slash komutlar** — `/summary`, `/done`
+- **Approval prompt** — yazma/silme onayı
+
+### 📡 10 Mesajlaşma Kanalı
+
+| Platform | Bağlantı | Test |
+|----------|----------|------|
+| **Telegram** | `natureco telegram connect` | ✅ |
+| **WhatsApp** | `natureco whatsapp connect` | ✅ (Baileys) |
+| **iMessage** | `natureco imessage connect` | ✅ (imsg CLI) |
+| **Discord** | `natureco discord connect` | Token |
+| **Slack** | `natureco slack connect` | Token |
+| **Mattermost** | `natureco mattermost connect` | URL |
+| **IRC** | `natureco irc connect` | Server |
+| **Signal** | `natureco signal connect` | signal-cli |
+| **SMS** | `natureco sms connect` | Twilio |
+| **Webhooks** | `natureco webhooks list` | ✅ |
+
+**Gateway:** `natureco gateway start` — tüm kanalları tek process'te yönet.
+
+### 🌿 NatureCo Native
+- **NatureHub** paylaşımı (sosyal akış)
+- **Medium** makale taslağı/yayını
+- **SEO** analizi (skor 0-100)
+- **XP & Seviye** sistemi (gamification)
+
+### 🛡️ Güvenlik & Gözlem
+- **Dangerous Command Approval** — risk tespiti
+- **Audit logs** — tüm işlemler kayıt
+- **Cost tracking** — AI maliyet takibi (today/week/month/budget)
+- **Security audit** — hassas dosya taraması
+- **Path anonymization** — tool output'ta `~/` ile gizleme
+
+### ⚙️ Otomasyon & Zamanlama
+- **Cron jobs** — `natureco cron add`
+- **Hooks** — event-driven automation
+- **Webhooks** — HTTP callback
+- **Tasks (Kanban)** — `natureco tasks`
+
+---
+
+## 📋 Komutlar (A'dan Z'ye, 120+ Komut)
+
+### 🤖 AI & Sohbet
+
+| Komut | Açıklama |
+|-------|----------|
+| `natureco chat` | İnteraktif REPL sohbet (57 tool aktif) |
+| `natureco chat --resume` | Önceki oturumu devam ettir |
+| `natureco code` | Kod ajanı (uygulama/script yazma) |
+| `natureco code <file>` | Belirli dosyada kod ajanı |
+| `natureco run <script>` | Markdown script çalıştır |
+| `natureco ask "<soru>"` | Tek soru AI'a sor |
+| `natureco bots` | Mevcut botları listele |
+| `natureco models` | Provider modellerini yönet |
+| `natureco ultrareview <file>` | Derin kod incelemesi |
+
+**REPL içi slash komutları:**
+```
+/clear      Ekranı temizle
+/bot        Bot değiştir
+/skills     Aktif skill'leri göster
+/memory     Memory durumu
+/memory clear  Memory temizle
+/commands   Tüm komutlar
+/help       Yardım
+exit / quit Çıkış
+```
+
+### ⚙️ Setup & Konfig
+
+```bash
+natureco setup         # İlk kurulum sihirbazı
+natureco login         # API key girişi
+natureco logout        # Çıkış
+natureco init          # Proje başlat (SOUL.md oluştur)
+natureco doctor        # Sistem sağlık kontrolü
+natureco doctor --fix  # Otomatik düzeltme
+natureco config list   # Konfigürasyonu göster
+natureco config set <key> <value>
+natureco configure     # İnteraktif konfig
+natureco update        # CLI güncelle
+natureco completion bash|powershell
+```
+
+### 📡 Kanallar (10 Mesajlaşma Platformu)
+
+```bash
+# Tüm kanallar
+natureco channels              # Bağlı kanallar listele
+natureco channels add <type>   # Yeni kanal
+natureco channels remove <type>
+
+# Telegram
+natureco telegram connect     # Token kaydet
+natureco telegram chatid       # Chat ID otomatik bul
+natureco telegram allow <id>   # Chat'e izin ver
+natureco telegram status
+
+# WhatsApp (Baileys)
+natureco whatsapp connect
+natureco whatsapp status
+
+# iMessage (imsg CLI)
+natureco imessage connect
+natureco imessage status
+natureco imessage allow <numara>
+natureco imessage send <numara> <mesaj>
+
+# Discord, Slack, Mattermost, IRC, Signal, SMS, Webhooks
+natureco discord connect
+natureco slack connect
+natureco mattermost connect
+natureco irc connect
+natureco signal connect
+natureco sms connect
+natureco webhooks list
+
+# Gateway — tüm kanalları başlat
+natureco gateway start
+natureco gateway stop
+natureco gateway status
+```
+
+### 🧠 Memory & Sessions
+
+```bash
+natureco memory write "favori renk kırmızı"
+natureco memory write "user_name=patron"
+natureco memory search "renk"
+natureco memory status
+natureco memory list
+natureco memory clear
+natureco memory export
+natureco memory import <dosya>
+
+natureco sessions list        # Tüm oturumlar
+natureco sessions show <id>   # Oturum detayı
+```
+
+### 🔌 Skill, MCP, Plugin
+
+```bash
+natureco skills list         # Aktif skill'ler
+natureco skills install <name>
+natureco skills remove <name>
+
+natureco mcp list             # MCP server'ları
+natureco mcp add <name> <url>
+
+natureco plugins list
+natureco plugins install <name>
+```
+
+### ⏰ Otomasyon
+
+```bash
+natureco cron add            # Zamanlı görev
+natureco cron list
+natureco cron remove <id>
+
+natureco hooks list          # Event hook'ları
+natureco hooks create
+
+natureco tasks list          # Kanban (Todo)
+natureco tasks add
+natureco tasks done <id>
+
+natureco webhooks list        # Webhook URL'leri
+natureco webhooks add <url>
+
+natureco dashboard            # Web dashboard (port 7421)
+```
+
+### 🔍 Geliştirici Araçları
+
+```bash
+natureco git status          # Git durumu
+natureco git diff            # Diff
+natureco git log             # Commit log
+natureco git branches        # Branch listesi
+
+natureco audit today         # Bugünkü işlemler
+natureco audit stats         # İstatistikler
+natureco audit files         # Dosya değişiklikleri
+
+natureco cost today          # Bugünkü AI maliyeti
+natureco cost week
+natureco cost month
+natureco cost budget 50      # $50 limit
+
+natureco security audit      # Hassas dosya taraması
+
+natureco logs                # Log dosyaları
+```
+
+### 🌿 NatureCo Native
+
+```bash
+natureco naturehub post <text>      # NatureHub paylaşımı
+natureco naturehub feed             # Akışı gör
+
+natureco seo audit natureco.me     # SEO analizi (skor)
+
+natureco medium draft              # Medium makale taslağı
+natureco medium publish <file>     # Yayınla
+
+natureco xp rewards                # XP & seviye
+natureco xp leaderboard
+```
+
+### 🛡️ Yönetim
+
+```bash
+natureco reset --scope config      # Sıfırla
+natureco reset --scope memory
+natureco reset --scope sessions
+natureco reset --scope all --yes
+
+natureco uninstall
+
+natureco approvals                 # Onay yönetimi
+natureco approvals allow <cmd>
+```
+
+---
+
+## 🌐 Provider Desteği (12 Provider, 200+ Model)
+
+| Provider | Modeller | API Key |
+|----------|----------|---------|
+| **OpenAI** | GPT-5, GPT-4.1, o3, GPT-4o | OpenAI |
+| **Anthropic** | Claude Opus 4, Sonnet 4, Haiku | Anthropic |
+| **Gemini** | 2.5 Pro, 2.0 Flash, Gemma | Google |
+| **Groq** | Llama 3.3, Mixtral | Groq |
+| **DeepSeek** | R1, Chat V3 | DeepSeek |
+| **Ollama** | Llama, Qwen (local) | - |
+| **MiniMax** | M2.5, M2 | MiniMax |
+| **OpenRouter** | 15+ model (multi-provider) | OpenRouter |
+| **Mistral** | Large, Small, Codestral | Mistral |
+| **Cohere** | Command R+, Embed | Cohere |
+| **xAI** | Grok 2, Grok Beta | xAI |
+| **Together** | Llama, Mixtral, Qwen | Together |
+
+```bash
+# Provider seçimi sihirbazda
+natureco setup
+# Sihirbaz: Provider → API Key → Model → Bot adı
+
+# Model listesi
+natureco models list --provider openai
+natureco models list --provider anthropic
+```
+
+---
+
+## 🔄 vs Diğer CLI'lar
+
+| Özellik | NatureCo | Claude Code | Hermes | OpenClaw |
+|---------|----------|-------------|--------|----------|
+| Multi-provider | ✅ 12 | ❌ Anthropic | ✅ 8 | ❌ |
+| 200+ model | ✅ | ❌ | ✅ | ❌ |
+| Slash-prefix | ✅ v5.6 | ❌ | ❌ | ❌ |
+| Dangerous Command Approval | ✅ v5.6 | ❌ | ✅ | ❌ |
+| Multi-channel (10 platform) | ✅ | ❌ | ✅ (Python) | ❌ |
+| Persistent memory | ✅ | ✅ | ✅ | ❌ |
+| Tool result anonimleştirme | ✅ v5.6 | ❌ | ❌ | ❌ |
+| XP/Gamification | ✅ | ❌ | ❌ | ❌ |
+| SEO/Medium/NatureHub native | ✅ | ❌ | ❌ | ❌ |
+| Türkçe yerelleştirme | ✅ %100 | ❌ | Kısmi | ❌ |
+| MIT lisanslı | ✅ | ✅ | ❌ | ❌ |
+| npm paketi | ✅ v5.6 | ❌ | ❌ | ❌ |
+| 57 tool | ✅ | ✅ ~30 | ✅ ~25 | ✅ ~40 |
+| Cron + Hooks + Webhooks | ✅ | ❌ | ✅ | ❌ |
+
+---
+
+## 🛠️ Sistem Gereksinimleri
+
+| Gereksinim | Minimum | Önerilen |
+|------------|---------|----------|
+| **Node.js** | 18.x | 20.x (LTS) |
+| **RAM** | 256 MB | 512 MB |
+| **Disk** | 100 MB | 500 MB (cache ile) |
+| **OS** | macOS 12, Win 10, Ubuntu 20 | macOS 14+, Win 11, Ubuntu 22 |
+| **İnternet** | Gereklidir | - |
+
+**Bağımlılıklar:** sadece 18 npm paketi. Hafif.
+
+---
+
+## 🚀 Gerçek Örnekler
+
+### 1. Basit Sohbet
+```
+$ natureco chat
+Provider: api.minimax.io
+Model: MiniMax-M2.5
+Bot: naruto
+
+👋 Merhaba! Ben naruto, patron.
+
+You  > sen kimsin?
+AI   Ben naruto, NatureCo CLI'nin Türkçe yapay zekâ asistanıyım. 57 tool aktif,
+     hafıza korunuyor, kanallar hazır.
+
+You  > bana bir fıkra anlat
+AI   Temel bir bilgisayar fıkrası: ...
+```
+
+### 2. Telegram Bot Bağlantısı
+```
+$ natureco telegram connect
+? Telegram bot token: *** (BotFather'dan)
+✓ Token zaten kayıtlı: 889****729:AAGJ9PX4j...
+Bot ID: telegram_1782204289029
+
+$ natureco telegram chatid
+⏳ Bot çalıştırılıyor, ilk mesajı bekliyorum...
+[Telegram'dan /start yaz]
+✓ Chat ID algılandı: 6139455189
+
+$ natureco gateway start
+[gateway] Gateway running (PID 77765)
+[telegram] watching for inbound
+[telegram] Inbound from +90****44: "selam"
+[telegram] Sending to AI provider...
+[telegram] Reply sent (117 chars)
+```
+
+### 3. iMessage Slash Komutu
+```
+$ natureco imessage connect
+? imsg CLI yolu: /opt/homebrew/bin/imsg
+✓ Bağlantı kuruldu
+
+$ natureco imessage allow +90****4449
+✓ İzin verildi: +90****4449
+
+$ natureco gateway start
+[imessage] watching for new messages (streaming)
+
+[Telegram'da /start yaz]
+[iMessage'da /sen kimsin yaz]
+[imessage] Inbound from +90****4449: "/sen kimsin"
+[imessage] Slash command: /sen kimsin
+[imessage] Reply sent (178 chars)
+```
+
+### 4. Kod Ajanı — Basit Uygulama
+```
+$ natureco code
+NatureCo Code Agent v5
+
+You  > notes.py olustur, not ekleme/listeleme/silme, JSON dosyasi
+
+Tool: write_file (2303 bytes)
+Tool: bash (python3 notes.py)
+✅ Not eklendi: Alışveriş
+✅ Not eklendi: Toplantı
+✅ Not eklendi: Kitap
+✅ Toplam: 3 not
+✅ Silme başarılı: ID 2
+
+📂 /Users/gencay/Downloads/notes.py (2303 bytes)
+```
+
+---
+
+## 🔌 Entegrasyonlar
+
+### Webhook
+```bash
+# HTTP callback URL'leri
+natureco webhooks add https://example.com/hook
+
+# incoming webhook (POST)
+POST /webhook/<id>
+Content-Type: application/json
+{"event": "...", "data": {...}}
+```
+
+### Cron (Zamanlı Görev)
+```bash
+# Her 5 dakikada bir
+natureco cron add \
+  --name "selam-gorevi" \
+  --schedule "*/5 * * * *" \
+  --command "echo 'Selam!'"
+
+# Tek seferlik
+natureco cron add --at "2026-12-31T23:59"
+```
+
+### MCP (Model Context Protocol)
+```bash
+natureco mcp add filesystem npx -y @modelcontextprotocol/server-filesystem
+natureco mcp add github npx -y @modelcontextprotocol/server-github
+```
+
+---
+
+## 📚 Dokümantasyon
+
+- 🌐 **Ana sayfa:** [natureco.me/cli](https://natureco.me/cli)
+- 📖 **Komut referansı:** [natureco.me/cli/commands](https://natureco.me/cli/commands)
+- 🎓 **Tutorial:** [natureco.me/cli/getting-started](https://natureco.me/cli/getting-started)
+- 🔧 **API:** [natureco.me/cli/api](https://natureco.me/cli/api)
+- 💬 **Discord topluluğu:** [discord.gg/4FwumbWph](https://discord.gg/4FwumbWph)
+- 🐦 **Twitter/X:** [@naturecoofficial](https://twitter.com/naturecoofficial)
+
+---
+
+## 🤝 Katkıda Bulunma
+
+PR'ler ve issue'lar kabul edilir!
+
+```bash
+# Repo'yu klonla
+git clone https://github.com/natureco-official/natureco-cli.git
+cd cli
+
+# Kur
+npm install
+
+# Test
+npm test
+
+# Lint
+npm run lint
+
+# Build
+npm run build
+```
+
+**Katkıda bulunanlar:** [CONTRIBUTORS.md](https://github.com/natureco-official/natureco-cli/blob/main/CONTRIBUTORS.md)
+
+---
+
+## 📄 Lisans
+
+MIT © [NatureCo](https://github.com/natureco)
+
+---
+
+## 🙏 Teşekkürler
+
+- [OpenAI](https://openai.com) — GPT API
+- [Anthropic](https://anthropic.com) — Claude API
+- [MiniMax](https://api.minimax.io) — AI provider
+- [Baileys](https://github.com/WhiskeySockets/Baileys) — WhatsApp Web
+- [imsg](https://github.com/steipete/imsg) — iMessage CLI
+- [ripgrep](https://github.com/BurntSushi/ripgrep) — fast search
+
+---
+
+<p align="center">
+  <b>Yapay Zekânın Gücü artık parmaklarının ucunda.</b><br>
+  <i>Terminalin hızını NatureCo ile keşfet.</i>
+</p>
+
+<p align="center">
+  Made with 🌿 in Turkey
+</p>
