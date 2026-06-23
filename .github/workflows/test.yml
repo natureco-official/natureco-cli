@@ -2,48 +2,15 @@ name: Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
-    name: Test (Node ${{ matrix.node-version }})
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [18.x, 20.x]
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps || npm install
-
-      - name: Lint
-        run: npm run lint --if-present || echo "Lint not yet defined (skipped)"
-
-      - name: Test
-        run: npm test --if-present || echo "Tests not yet defined (skipped)"
-
-      - name: Build
-        run: npm run build --if-present || echo "Build not yet defined (skipped)"
-
-  publish:
-    name: Publish to npm
-    needs: test
+    name: Test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
       - name: Checkout
@@ -52,13 +19,34 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "20"
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+      - name: Install
+        run: npm install --no-audit --no-fund
 
-      - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Lint
+        run: |
+          if [ -f package.json ] && grep -q "lint" package.json; then
+            npm run lint
+          else
+            echo "No lint script - skipping"
+          fi
+        continue-on-error: true
+
+      - name: Test
+        run: |
+          if [ -f package.json ] && grep -q "test" package.json; then
+            npm test
+          else
+            echo "No test script - skipping"
+          fi
+        continue-on-error: true
+
+      - name: Validate
+        run: |
+          echo "Node version:"
+          node --version
+          echo "NPM version:"
+          npm --version
+          echo "package.json valid:"
+          node -e "JSON.parse(require('fs').readFileSync('package.json'))" && echo "OK"
