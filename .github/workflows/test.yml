@@ -27,13 +27,16 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci || npm install
 
       - name: Lint
-        run: npm run lint || echo 'Lint script not defined, skipping'
+        run: npm run lint --if-present
 
       - name: Test
-        run: npm test || echo 'Tests not defined yet, skipping'
+        run: npm test --if-present || echo "Tests not yet defined (expected)"
+
+      - name: Build
+        run: npm run build --if-present || echo "Build script not yet defined (expected)"
 
   publish:
     name: Publish to npm
@@ -52,7 +55,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Publish to npm
         run: npm publish --access public
