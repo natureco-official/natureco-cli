@@ -1,0 +1,6 @@
+# Default code owners
+* @Gencayolgun
+
+# Documentation needs review
+/docs/   @Gencayolgun
+*.md     @Gencayolgun
