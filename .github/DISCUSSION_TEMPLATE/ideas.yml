@@ -1,0 +1,29 @@
+title: "💡 Idea"
+labels: [idea, enhancement]
+category: 💡 Ideas
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an idea!
+  - type: input
+    id: title
+    attributes:
+      label: Idea
+      placeholder: Brief idea description
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      placeholder: Tell us more about your idea...
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      placeholder: Why would this be useful? What problem does it solve?
+    validations:
+      required: false
