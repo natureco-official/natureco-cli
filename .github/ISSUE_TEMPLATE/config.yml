@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discord Community
+    url: https://discord.gg/4FwumbWph
+    about: Get help, share ideas, and chat with the community
+  - name: 🐦 Twitter / X
+    url: https://twitter.com/naturecoofficial
+    about: Follow for updates and announcements
+  - name: 📧 Email
+    url: mailto:hello@natureco.me
+    about: For private inquiries
