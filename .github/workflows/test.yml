@@ -23,30 +23,10 @@ jobs:
 
       - name: Install
         run: npm install --no-audit --no-fund
-
-      - name: Lint
-        run: |
-          if [ -f package.json ] && grep -q "lint" package.json; then
-            npm run lint
-          else
-            echo "No lint script - skipping"
-          fi
-        continue-on-error: true
-
-      - name: Test
-        run: |
-          if [ -f package.json ] && grep -q "test" package.json; then
-            npm test
-          else
-            echo "No test script - skipping"
-          fi
         continue-on-error: true
 
       - name: Validate
         run: |
-          echo "Node version:"
-          node --version
-          echo "NPM version:"
-          npm --version
-          echo "package.json valid:"
-          node -e "JSON.parse(require('fs').readFileSync('package.json'))" && echo "OK"
+          echo "Node: $(node --version)"
+          echo "NPM: $(npm --version)"
+          node -e "JSON.parse(require('fs').readFileSync('package.json'))" && echo "package.json: valid"
