@@ -66,3 +66,12 @@ NATURECO_CLI_DOC.md
 PROVIDERS_GUIDE.md
 MARKETING_*.md
 nc-restore/
+
+# Secrets / credentials (CRITICAL)
+.env
+.env.test
+.env.local
+.env.*.local
+!.env.example
+.npmrc
+**/.npmrc
