@@ -47,6 +47,27 @@ natureco code
 
 ## 🆕 v5.6.x Yenilikler
 
+### v5.6.47 — Sharded Memory Sistemi
+
+Ajanın kişiliği & çalışma notları artık **6 dosyaya sharded** — sonsuz ölçeklenebilir:
+
+```
+soul/
+├── SOUL.md           ← index + kritik referanslar
+└── notes/
+    ├── INDEX.md      ← dosya haritası, navigasyon
+    ├── note1.md      ← Patron & persona
+    ├── note2.md      ← proje yapısı, 120+ komut
+    ├── note3.md      ← tokens, kırmızı çizgiler, masking çözümleri
+    ├── note4.md      ← 7-adım release workflow
+    └── note5.md      ← skills, tools, channels, MCP
+```
+
+- **Sonsuz ölçeklenebilir** — `note6.md`, `note7.md`... ihtiyaç oldukça
+- **Cross-project pattern** — `/Users/gencay/.hermes/sasuke-notes*.md` ile aynı yapı
+- **Hafıza kaybı yok** — detay 6 sharded dosyada, SOUL.md'de sadece referanslar
+- **Patch-cascade safe** — release workflow `note4.md`'de belgelenmiş, gelecekte tutarlı
+
 ### Slash-Prefix Komut Sistemi
 
 **İMessage ve WhatsApp'ta** artık `/` ile başlayan mesajlar komut olarak işlenir:
@@ -104,6 +125,8 @@ Devam edilsin mi? (Y/n)
 | **v5.6.40** | Echo loop prevention (30sn) |
 | **v5.6.41-42** | Slash-prefix sistemi (iMessage/WhatsApp) |
 | **v5.6.43** | WhatsApp slash + cron endpoint fix |
+| **v5.6.46** | README overhaul (hero slogan, ASCII banner, badges) |
+| **v5.6.47** | **SOUL SHARDED** — Sharded memory sistemi (`soul/notes/{INDEX,note1-5}.md`) |
 
 ---
 

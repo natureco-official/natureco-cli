@@ -47,6 +47,27 @@ natureco code
 
 ## 🆕 v5.6.x What's New
 
+### v5.6.47 — Sharded Memory System
+
+The agent's personality & working notes are now **sharded across 6 files** for infinite scalability:
+
+```
+soul/
+├── SOUL.md           ← index + critical references
+└── notes/
+    ├── INDEX.md      ← file map, navigation
+    ├── note1.md      ← Patron & persona
+    ├── note2.md      ← project structure, 120+ commands
+    ├── note3.md      ← tokens, red lines, masking fixes
+    ├── note4.md      ← 7-step release workflow
+    └── note5.md      ← skills, tools, channels, MCP
+```
+
+- **Infinite scalability** — add `note6.md`, `note7.md`... as needed
+- **Cross-project pattern** — mirrors `/Users/gencay/.hermes/sasuke-notes*.md`
+- **No memory loss** — detailed context in 6 sharded files, only references in SOUL.md
+- **Patch-cascade safe** — release workflow documented in `note4.md` so future releases are consistent
+
 ### Slash-Prefix Command System
 
 On **iMessage and WhatsApp**, messages starting with `/` are now treated as commands:
@@ -104,6 +125,8 @@ Continue? (Y/n)
 | **v5.6.40** | Echo loop prevention (30s) |
 | **v5.6.41-42** | Slash-prefix system (iMessage/WhatsApp) |
 | **v5.6.43** | WhatsApp slash + cron endpoint fix |
+| **v5.6.46** | README overhaul (hero slogan, ASCII banner, badges) |
+| **v5.6.47** | **SOUL SHARDED** — Sharded memory system (`soul/notes/{INDEX,note1-5}.md`) |
 
 ---
 

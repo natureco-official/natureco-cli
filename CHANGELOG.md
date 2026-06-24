@@ -2,6 +2,16 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.6.48] - 2026-06-24 — "README SHARDED"
+
+### 📚 Documentation
+- **README.md + README_EN.md updated** for v5.6.47
+  - v5.6.47 + v5.6.46 added to "Recent Releases" table
+  - New "v5.6.47 — Sharded Memory System" hero section in "What's New"
+  - Folder structure diagram (`soul/notes/{INDEX,note1-5}.md`)
+  - Cross-project reference to `sasuke-notes*.md`
+- npm registry will reflect updated README on next publish
+
 ## [5.6.47] - 2026-06-24 — "SOUL SHARDED"
 
 ### ✨ Added
