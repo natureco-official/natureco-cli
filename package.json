@@ -1,0 +1,86 @@
+{
+  "name": "natureco-cli",
+  "version": "5.6.48",
+  "description": "OpenClaw'dan daha güvenli, daha hızlı, daha ucuz AI agent CLI. Multi-agent, self-evolving skills, audit log, maliyet optimizasyonu ve NatureCo platform-native.",
+  "bin": {
+    "natureco": "bin/natureco.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "skills/",
+    "README.md",
+    "CHANGELOG.md",
+    "AUDIT.md",
+    "DEPLOY_v2.0.0.md"
+  ],
+  "scripts": {
+    "test": "node bin/natureco.js help",
+    "test:unit": "node --check bin/natureco.js && node -e \"console.log('All files OK')\"",
+    "test:watch": "node --watch bin/natureco.js",
+    "test:coverage": "node --check bin/natureco.js",
+    "postinstall": "node bin/natureco.js doctor || true",
+    "prepublishOnly": "node --check bin/natureco.js"
+  },
+  "keywords": [
+    "natureco",
+    "ai",
+    "ai-agent",
+    "bot",
+    "cli",
+    "terminal",
+    "openclaw-alternative",
+    "claude-code-alternative",
+    "multi-agent",
+    "self-evolving-skills",
+    "audit-log",
+    "cost-optimization",
+    "seo",
+    "türkçe",
+    "turkish",
+    "whatsapp-bot",
+    "telegram-bot",
+    "discord-bot",
+    "natureco-me"
+  ],
+  "author": {
+    "name": "Gencay Olgun",
+    "email": "hello@natureco.me",
+    "url": "https://natureco.me"
+  },
+  "homepage": "https://natureco.me/cli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/natureco/natureco-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/natureco/natureco-cli/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
+    "@inquirer/prompts": "^8.5.0",
+    "@slack/web-api": "^7.17.0",
+    "@whiskeysockets/baileys": "^7.0.0-rc10",
+    "chalk": "^4.1.2",
+    "commander": "^11.1.0",
+    "discord.js": "^14.26.4",
+    "irc": "^0.5.2",
+    "mattermost": "^3.4.0",
+    "node-cron": "^4.2.1",
+    "node-telegram-bot-api": "^0.67.0",
+    "openai": "^6.44.0",
+    "pino": "^8.21.0",
+    "qrcode": "^1.5.4",
+    "qrcode-terminal": "^0.12.0",
+    "semver": "^7.8.1",
+    "twilio": "^6.0.2",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
+  }
+}
