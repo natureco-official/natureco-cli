@@ -64,7 +64,7 @@ soul/
 ```
 
 - **Infinite scalability** — add `note6.md`, `note7.md`... as needed
-- **Cross-project pattern** — mirrors `/Users/gencay/.hermes/sasuke-notes*.md`
+- **Cross-project pattern** — mirrors a global sharded memory system (e.g. `~/.notes/{1-5}.md`)
 - **No memory loss** — detailed context in 6 sharded files, only references in SOUL.md
 - **Patch-cascade safe** — release workflow documented in `note4.md` so future releases are consistent
 
@@ -505,7 +505,7 @@ Tool: bash (python3 notes.py)
 ✅ Total: 3 notes
 ✅ Delete success: ID 2
 
-📂 /Users/gencay/Downloads/notes.py (2303 bytes)
+📂 `notes.py` (2303 bytes)
 ```
 
 ---

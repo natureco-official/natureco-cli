@@ -52,3 +52,17 @@ coverage/
 *.log
 .gateway.pid
 .session-*.json
+
+# Personal / private files (NEVER commit)
+soul/
+soul/notes/
+*.bak
+notes.py
+DEPLOY_*.md
+LAUNCH.md
+AUDIT.md
+TEST_PLAYBOOK.md
+NATURECO_CLI_DOC.md
+PROVIDERS_GUIDE.md
+MARKETING_*.md
+nc-restore/

@@ -2,6 +2,17 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.7.0] - 2026-06-24 - SOUL SCRUBBED (MINOR)
+
+### Security
+- Personal paths removed from README (Users/gencay/.hermes/sasuke-notes*.md and Downloads/notes.py)
+- soul/ directory removed from repo (7 files: AGENTS, IDENTITY, SOUL, notes/{INDEX,note1-5}.md)
+  - Note: files remain in git history; use git filter-repo for full purge
+- Internal docs ignored via .gitignore (DEPLOY_*, LAUNCH, AUDIT, TEST_PLAYBOOK, etc.)
+
+### Changed
+- Minor version bump 5.6.48 -> 5.7.0 (patch cascade rule: 5+ consecutive patches)
+
 ## [5.6.48] - 2026-06-24 — "README SHARDED"
 
 ### 📚 Documentation

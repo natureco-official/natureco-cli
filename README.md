@@ -64,7 +64,7 @@ soul/
 ```
 
 - **Sonsuz ölçeklenebilir** — `note6.md`, `note7.md`... ihtiyaç oldukça
-- **Cross-project pattern** — `/Users/gencay/.hermes/sasuke-notes*.md` ile aynı yapı
+- **Cross-project pattern** — mirrors a global sharded memory system (e.g. `~/.notes/{1-5}.md`)
 - **Hafıza kaybı yok** — detay 6 sharded dosyada, SOUL.md'de sadece referanslar
 - **Patch-cascade safe** — release workflow `note4.md`'de belgelenmiş, gelecekte tutarlı
 
@@ -507,7 +507,7 @@ Tool: bash (python3 notes.py)
 ✅ Toplam: 3 not
 ✅ Silme başarılı: ID 2
 
-📂 /Users/gencay/Downloads/notes.py (2303 bytes)
+📂 `notes.py` (2303 bytes)
 ```
 
 ---
