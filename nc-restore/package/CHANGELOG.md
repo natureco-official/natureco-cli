@@ -2,43 +2,6 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
-## [5.6.47] - 2026-06-24 — "SOUL SHARDED"
-
-### ✨ Added
-- **soul/notes/ — Sharded memory system for NatureCo CLI agent**
-  - `INDEX.md` (2 KB) — file map, navigation
-  - `note1.md` (3 KB) — Patron & persona (Gencay, "Patron" hitap, çilek yasağı)
-  - `note2.md` (4 KB) — Project structure, 120+ commands, build/publish workflow
-  - `note3.md` (3.8 KB) — Tokens, red lines, masking fixes (npm `.npmrc`, PyPI `/tmp/pypi_token.txt`, GitHub `/Users/gencay/.natureco/github_token`)
-  - `note4.md` (6 KB) — 7-step release workflow (local commit → tag → push → publish → cache-bust → GitHub release → verify)
-  - `note5.md` (5 KB) — Skills, tools, channels, MCP, integrations
-- **SOUL.md updated** to index-based: "read soul/notes/INDEX.md" + 1-line quick reference
-- **Infinite scalability** — `note6.md`, `note7.md`... as needed
-- **Pattern mirrors** `/Users/gencay/.hermes/sasuke-notes*.md` for cross-project memory
-- 1009 + 125 = 1134 new lines, ~28 KB detailed context
-
-## [5.6.46] - 2026-06-24 — "README OVERHAUL"
-
-### 📚 Documentation
-- **README.md full rewrite** — 5.6.x serisine uygun:
-  - Hero slogan: "Yapay Zekânın Gücü artık parmaklarının ucunda / Terminalin hızını NatureCo ile keşfet"
-  - ASCII art banner
-  - Node badge: `>=16.0.0` (package.json engines ile uyumlu)
-  - npm version, downloads, GitHub stars badge'leri
-  - Quick Start 4 adım: install → setup → chat → code
-  - 51 komut / 10 kategori, gerçek örnekler
-  - Discord `https://discord.gg/4FwumbWph`, Twitter `https://twitter.com/naturecoofficial`
-  - GitHub: `natureco-official/natureco-cli`
-  - Karşılaştırma tablosu (Claude Code / Hermes / OpenClaw)
-  - 30s setup wizard tanıtımı
-
-### 🎯 Versiyon Notu
-- 5.6.45 → 5.6.46 (patch bump, README-only release)
-- Kod değişikliği yok, npm sayfası güncellendi
-- Yeni kullanıcılar README üzerinden kurulum yapabilir
-
----
-
 ## [4.2.0] - 2026-06-22 — "LAUNCH READY"
 
 ### 🚀 Headline
