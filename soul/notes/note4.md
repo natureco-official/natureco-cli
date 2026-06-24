@@ -87,6 +87,131 @@ Patch ekle → 5.6.48 (5! MINOR'A GEÇ!)
   → VEYA: 5.6.47 → 5.7.0 direkt atla
 ```
 
+## ⚡ YAYIN WORKFLOW'U — HIZLI REFERANS
+
+**Her yayın işleminde (NatureCo CLI veya Codedna) bu sırayı takip et:**
+
+### ADIM 1: Lokal commit
+```bash
+cd <proje-dizini>
+# NatureCo CLI
+cd /Users/gencay/Projects/natureco-cli
+# VEYA Codedna
+# cd /Users/gencay/Downloads/codedna_translated
+
+# Versiyon güncelle (2-3 yerde)
+# NatureCo CLI: package.json version
+# Codedna: pyproject.toml + codedna/__init__.py + CHANGELOG.md
+
+# Syntax check
+node --check bin/natureco.js  # NatureCo CLI
+# VEYA
+python3 -c "import ast; ast.parse(open('codedna/cli.py').read())"  # Codedna
+
+# Stage + commit
+git add -A
+git -c user.name="Parton" -c user.email="gencay@natureco.me" commit -m "<mesaj>"
+```
+
+### ADIM 2: Tag
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z - <description>"
+```
+
+### ADIM 3: Push (token'lı, sonra temizle)
+```bash
+# GitHub PAT'ı dosyadan oku (*** maskelenmesin diye)
+GITHUB_TOKEN=$(cat /Users/gencay/.natureco/github_token)
+
+# NatureCo CLI
+git remote set-url origin "https://${GITHUB_TOKEN}@github.com/natureco-official/natureco-cli.git"
+
+# Codedna
+# git remote set-url origin "https://${GITHUB_TOKEN}@github.com/natureco-official/codedna.git"
+
+# Push
+git push origin master
+git push origin vX.Y.Z
+
+# Token'ı remote'tan temizle (ÖNEMLİ!)
+git remote set-url origin "https://github.com/natureco-official/natureco-cli.git"
+# VEYA codedna için
+# git remote set-url origin "https://github.com/natureco-official/codedna.git"
+```
+
+### ADIM 4: Publish (NatureCo CLI için npm, Codedna için PyPI)
+```bash
+# NatureCo CLI — npm
+cd /Users/gencay/Projects/natureco-cli
+npm publish --access public
+
+# Codedna — PyPI (token /tmp/pypi_token.txt'ten)
+cd /Users/gencay/Downloads/codedna_translated
+rm -rf dist/
+uv build
+python3 /tmp/upload_codedna_X_Y_Z.py
+```
+
+### ADIM 5: Local install güncelle (sadece Codedna için)
+```bash
+# Cache-bust
+uv tool uninstall codedna
+rm -rf ~/.local/share/uv/tools/codedna
+rm -f ~/.local/bin/codedna
+uv cache clean
+sleep 30  # CDN propagation (KRITIK!)
+
+# Fresh install
+uv tool install --force 'codedna==X.Y.Z'
+~/.local/bin/codedna --version
+```
+
+### ADIM 6: GitHub Release
+```bash
+# gh CLI ile (klasik yöntem)
+gh release create vX.Y.Z --generate-notes
+
+# VEYA Python script ile (içinde body olan)
+python3 /tmp/publish_vXXX.py  # Codedna için
+```
+
+### ADIM 7: Doğrula
+```bash
+# NatureCo CLI
+npm view natureco-cli version
+# Codedna
+curl -s "https://pypi.org/pypi/codedna/json" | python3 -c "import sys, json; print('Latest:', json.load(sys.stdin)['info']['version'])"
+
+# GitHub
+curl -s "https://api.github.com/repos/owner/repo/releases/latest" | python3 -c "import sys, json; print('Release:', json.load(sys.stdin)['tag_name'])"
+```
+
+### 📋 HIZLI KONTROL LİSTESİ
+
+Her release öncesi kontrol et:
+- [ ] Versiyon 2-3 yerde güncellendi (package.json / pyproject.toml + __init__.py + CHANGELOG.md)
+- [ ] `node --check` veya `python3 ast.parse` syntax OK
+- [ ] Git commit mesajı anlamlı
+- [ ] Tag formatı `vX.Y.Z`
+- [ ] `git remote -v` → push öncesi token'lı, sonra temiz
+- [ ] Publish öncesi CDN propagation bekle (Codedna)
+- [ ] Cache-bust yap (Codedna)
+- [ ] GitHub release body dolu
+- [ ] Doğrulama (npm view / pip show / curl API)
+
+### 🔄 TOKEN ROTATION (gerekirse)
+
+Eğer GitHub PAT veya PyPI token değişirse:
+```bash
+# Yeni token'ı kaydet
+echo "yeni_token" > /Users/gencay/.natureco/github_token
+chmod 644 /Users/gencay/.natureco/github_token
+
+# VEYA PyPI
+echo "pypi-yeni_token" > /tmp/pypi_token.txt
+chmod 600 /tmp/pypi_token.txt
+```
+
 ## Codedna Doctor Test
 
 ```bash
