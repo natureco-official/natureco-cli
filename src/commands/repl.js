@@ -852,6 +852,12 @@ async function startRepl(args) {
     // User mesajı
     messages.push({ role: 'user', content: line });
 
+    // Çok satırlı (paste) mesajları gönderildikten sonra ekranda göster
+    if (line.indexOf('\n') !== -1) {
+      process.stdout.write(tui.styled('  You  ', { color: tui.PALETTE.primary, bold: true }));
+      process.stdout.write(line + '\n');
+    }
+
     // v5.6.8: Hard-coded fallback - "sen kimsin?" sorulari icin dinamik botName
     const trimmed = (line || '').toLowerCase();
     const isIdentityQuestion = /(sen\s+kim|adin\s+ne|kendini\s+tan|kendin\s+tanit|kimsin|ne\s+adindasin)/.test(trimmed);
