@@ -8,53 +8,93 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { writeJsonAtomicSync, readJsonSafeSync } = require("../utils/atomic-file");
 
 const MEMORY_DIR = path.join(os.homedir(), ".natureco", "memory");
+
+// Soft cap on per-user fact count. Decay already prunes old/low-importance
+// facts; this just bounds the worst-case file size and prompt-injection
+// surface. Configurable via NATURECO_MAX_FACTS (default 50, was a hard 15
+// that was silently truncating new writes when full).
+const MAX_FACTS_PER_USER = (() => {
+  const raw = parseInt(process.env.NATURECO_MAX_FACTS || "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 50;
+})();
 
 function getMemoryFile(username) {
   const name = (username || "default").toLowerCase();
   return path.join(MEMORY_DIR, `${name}.json`);
 }
 
+function _emptyMemory(username) {
+  return { name: username || "User", nickname: null, botName: null, facts: [], preferences: [] };
+}
+
 function loadMemory(username) {
-  const file = getMemoryFile(username);
-  try {
-    if (!fs.existsSync(file)) {
-      return { name: username || "User", nickname: null, botName: null, facts: [], preferences: [] };
-    }
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return { name: username || "User", nickname: null, botName: null, facts: [], preferences: [] };
-  }
+  return readJsonSafeSync(getMemoryFile(username), _emptyMemory(username));
 }
 
 function saveMemory(username, memory) {
   if (!fs.existsSync(MEMORY_DIR)) fs.mkdirSync(MEMORY_DIR, { recursive: true });
   memory.lastUpdated = new Date().toISOString();
-  fs.writeFileSync(getMemoryFile(username), JSON.stringify(memory, null, 2), "utf8");
+  writeJsonAtomicSync(getMemoryFile(username), memory);
   return memory;
 }
 
 /**
- * Score azalt (eski fact'ler zamanla unutuluyor)
+ * Score azalt (eski fact'ler zamanla unutulur).
+ * Sıralama veya soft-cap UYGULAMAZ — onu enforceFactLimit yapar
+ * (push'tan sonra çağrılır, böylece yeni fact silinmez).
  */
 function decayFacts(memory) {
   if (!memory.facts) return memory;
   const now = Date.now();
   memory.facts = memory.facts.map(f => {
     if (!f.score) f.score = 5;
-    // 1 haftadan eski -1, 1 aydan eski -3
     const ageMs = now - new Date(f.updatedAt || f.createdAt || now).getTime();
     const ageDays = ageMs / (1000 * 60 * 60 * 24);
     if (ageDays > 30) f.score = Math.max(0, f.score - 3);
     else if (ageDays > 7) f.score = Math.max(0, f.score - 1);
     return f;
   });
-  // score 0 olanlari sil
   memory.facts = memory.facts.filter(f => (f.score || 0) > 0);
-  // max 15 fact tut
-  memory.facts.sort((a, b) => (b.score || 0) - (a.score || 0));
-  memory.facts = memory.facts.slice(0, 15);
+  return memory;
+}
+
+/**
+ * Soft cap: yeni fact eklenmesinden SONRA uygulanır, böylece az önce
+ * yazılan fact eviction kurbanı olmaz. En düşük score + en eski updatedAt
+ * önce gider. Cap aşılırsa stderr'e tek satır warn yazar (eski "silent
+ * truncate to 15" davranışını gözlemlenebilir hale getirir).
+ *
+ * @param {{facts: Array<object>}} memory
+ * @param {{recentValue?: string}} [opts]  Korunması zorunlu fact (yeni eklenen)
+ * @returns the same memory
+ */
+function enforceFactLimit(memory, opts = {}) {
+  if (!memory.facts || memory.facts.length <= MAX_FACTS_PER_USER) return memory;
+  const before = memory.facts.length;
+  const recent = opts.recentValue ? opts.recentValue.toLowerCase() : null;
+  // Sort by score desc, then updatedAt desc (newest+highest first).
+  // The just-pushed fact is pinned at the top regardless of its score.
+  memory.facts.sort((a, b) => {
+    if (recent) {
+      if ((a.value || "").toLowerCase() === recent) return -1;
+      if ((b.value || "").toLowerCase() === recent) return 1;
+    }
+    const sa = a.score || 0, sb = b.score || 0;
+    if (sa !== sb) return sb - sa;
+    return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+  });
+  memory.facts = memory.facts.slice(0, MAX_FACTS_PER_USER);
+  const dropped = before - memory.facts.length;
+  if (dropped > 0 && !process.env.NATURECO_QUIET_MEMORY) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[memory] cap ${MAX_FACTS_PER_USER} aşıldı, en düşük skorlu ${dropped} fact düşürüldü ` +
+      `(NATURECO_MAX_FACTS ile değiştir, NATURECO_QUIET_MEMORY=1 ile sustur)`
+    );
+  }
   return memory;
 }
 
@@ -122,6 +162,8 @@ function addMemory({ username, fact, score = 5, category = "general", botName, n
         createdAt: new Date().toISOString(),
       });
     }
+    // Limit'i ZIM push'tan sonra uygula → yeni eklenen fact düşürülmez.
+    memory = enforceFactLimit(memory, { recentValue: fact });
   }
 
   if (!memory.preferences) memory.preferences = [];
@@ -173,6 +215,18 @@ function showMemory({ username }) {
 }
 
 module.exports = {
+  // Exposed for tests / advanced consumers — not part of the tool schema.
+  _internals: {
+    MAX_FACTS_PER_USER,
+    enforceFactLimit,
+    decayFacts,
+    loadMemory,
+    saveMemory,
+    addMemory,
+    clearMemory,
+    showMemory,
+    getMemoryFile,
+  },
   name: "memory_write",
   description: "Memory'ye yeni fact/bilgi kaydet veya bot ismini/nickname'i degistir. Kalici, REPL'in extractMemoryFromMessage ozelligi.",
   inputSchema: {
