@@ -4,6 +4,10 @@ const path = require('path');
 const fs = require('fs');
 const { getConfig, setConfigValue, getAllConfig, listBackups, restoreConfig, saveConfig, CONFIG_FILE, CONFIG_BACKUP_DIR } = require('../utils/config');
 const TB = require('../utils/token-budget');
+// `tui` is referenced 25× below for styled output. Was relying on a
+// side-effect global from elsewhere in the load order; require it
+// explicitly so the file works in isolation too (caught by no-undef).
+const tui = require('../utils/tui');
 
 function config(args) {
   const [action, key, ...valueParts] = args;

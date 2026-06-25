@@ -12,6 +12,8 @@ const { loadBaileys } = require('../utils/baileys');
 const { NatureCoError, GatewayError, handleError } = require('../utils/errors');
 const pino = require('pino');
 const logger = pino({ level: 'silent' });
+// Version banner pulls packageJson at line 315 — was missing the require.
+const packageJson = require('../../package.json');
 
 async function gateway(action, ...args) {
   if (action === 'start') {

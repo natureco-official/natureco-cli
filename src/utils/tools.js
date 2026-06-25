@@ -105,10 +105,12 @@ function toOpenAIFormat(toolDefs) {
   return toolDefs
     .filter(t => !['brave_search','brave-web-search','google_search','web_search','browse','open','search','shell','bash_command','execute_command','run_command','sql','query','lookup'].includes(t.name))
     .map(t => {
-      // Alias varsa degistir
+      // Alias varsa degistir. Önceki kod ALIAS_MAP'i declare ediyordu ama
+      // değiştirmek için TOOL_ALIASES kullanıyordu (undefined) — alias hit
+      // olduğunda ReferenceError ile çöküyordu. ALIAS_MAP'e döndürüldü.
       const ALIAS_MAP = { 'brave_search':'duckduckgo_search','brave-web-search':'duckduckgo_search','google_search':'duckduckgo_search','web_search':'duckduckgo_search','browse':'browser','shell':'bash','bash_command':'bash','execute_command':'bash','run_command':'bash' };
       if (ALIAS_MAP[t.name]) {
-        t = { ...t, name: TOOL_ALIASES[t.name] };
+        t = { ...t, name: ALIAS_MAP[t.name] };
       }
     // v5.4.21: Groq uyumluluk - additionalProperties: false kaldirildi
     // ve gereksiz kisitlamalar temizlendi

@@ -17,6 +17,11 @@ const { runHooks } = require('../utils/hooks');
 const { createSession, loadSession, getLatestSession, addMessageToSession, loadLastSession, listSessions, saveSession } = require('../utils/sessions');
 const { NatureCoError, ApiError, handleError } = require('../utils/errors');
 const { getSessionStats, resetSessionStats } = require('../utils/tool-runner');
+// getBots + sendMessage / _sendMessage are referenced later (loadProviders
+// pre-warm, fallback non-streaming path) but the require was missing —
+// the code only worked when something else in the load order had already
+// required api.js.
+const { getBots, sendMessage, _sendMessage } = require('../utils/api');
 
 const ASCII_LOGO = [
   '███╗   ██╗ █████╗ ████████╗██╗   ██╗██████╗ ███████╗ ██████╗  ██████╗',

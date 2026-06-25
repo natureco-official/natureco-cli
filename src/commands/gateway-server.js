@@ -10,6 +10,31 @@ const { ApiError } = require('../utils/errors');
 const PID_FILE = path.join(os.homedir(), '.natureco', 'gateway.pid');
 const LOG_FILE = path.join(os.homedir(), '.natureco', 'gateway.log');
 
+// `https` is used in the webhook delivery path (~line 570). The require was
+// missing; the module only worked because Node's CommonJS cache happens to
+// have it loaded from elsewhere, but in a fresh process or after a worker
+// restart this would crash. Explicit.
+const https = require('https');
+// saveConfig (and the loaded `config` value, when not shadowed in scope)
+// referenced in the Discord ready handler / Mattermost HTTP path. Same
+// side-effect-global story as above.
+const { saveConfig } = require('../utils/config');
+
+/**
+ * Strip a leading slash command prefix from a messaging-channel inbound.
+ * v5.6.41+ added slash-prefix routing (e.g. `/ask`, `/help`, `/translate`)
+ * for iMessage + WhatsApp; the Telegram/IRC/SMS handlers were referencing
+ * a `cleanCommand` variable that no longer existed (3 ReferenceError sites,
+ * caught by ESLint no-undef). This helper restores the missing transform:
+ *   "/ask merhaba"  → "merhaba"
+ *   "merhaba"       → "merhaba"
+ *   "" / undefined  → ""
+ */
+function stripSlashPrefix(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text.replace(/^\/[a-zA-Z0-9_-]+\s*/, '').trim() || text.trim();
+}
+
 // Silent logger for Baileys
 const silentLogger = {
   level: 'silent',
@@ -655,9 +680,10 @@ async function startTelegramProvider(config) {
           systemPrompt += '\n\n' + memoryPrompt;
         }
         
+        const cleanCommand = stripSlashPrefix(messageText);
         const response = await sendMessage(cfg.providerApiKey || cfg.apiKey || '', botId, cleanCommand, conversationId, systemPrompt);
         const reply = response?.reply || response?.message || '';
-        
+
         if (reply) {
           log('telegram', 'Sending reply...', 'cyan');
           
@@ -1171,6 +1197,8 @@ async function processIrcMessage(config, sender, target, text, socket) {
     let systemPrompt = `You are a helpful IRC assistant. Keep responses concise. Use IRC-friendly formatting.`;
     if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
 
+    // IRC handler's parameter is `text` (see signature above), not `messageText`.
+    const cleanCommand = stripSlashPrefix(text);
     const response = await sendMessage(
       cfg.providerApiKey || cfg.apiKey || '', botId, cleanCommand,
       conversationId, systemPrompt
@@ -1732,6 +1760,9 @@ async function handleSmsWebhook(config, body, req) {
     let systemPrompt = `You are a helpful SMS assistant. Keep responses concise (SMS format).`;
     if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
 
+    // SMS handler binds the inbound to `text` (Twilio webhook body), unlike
+    // Telegram/IRC which use `messageText`.
+    const cleanCommand = stripSlashPrefix(text);
     const response = await sendMessage(
       cfg.providerApiKey || cfg.apiKey || '', botId, cleanCommand,
       conversationId, systemPrompt
@@ -1880,7 +1911,10 @@ function startHttpServer() {
               res.end(JSON.stringify({ error: 'Mattermost not connected' }));
               return;
             }
-            await sendMattermostMessage(config, target, message);
+            // Load fresh config inside the handler — the surrounding
+            // `startHttpServer` scope does not bind `config`.
+            const { getConfig: _gc1 } = require('../utils/config');
+            await sendMattermostMessage(_gc1(), target, message);
             log('http', `Mattermost message sent to channel ${target}`, 'green');
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, channel: 'mattermost', target }));
@@ -1907,7 +1941,8 @@ function startHttpServer() {
               res.end(JSON.stringify({ error: 'SMS not connected' }));
               return;
             }
-            await sendSmsMessage(config, target, message);
+            const { getConfig: _gc2 } = require('../utils/config');
+            await sendSmsMessage(_gc2(), target, message);
             log('http', `SMS sent to ${target}`, 'green');
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, channel: 'sms', target }));

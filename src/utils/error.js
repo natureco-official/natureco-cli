@@ -9,6 +9,10 @@
  *   - Error codes
  */
 
+// checkMacPermission below uses os.platform() — was relying on a global
+// `os` from another module's load order.
+const os = require('os');
+
 class ToolError extends Error {
   constructor(message, code = "TOOL_ERROR", details = {}) {
     super(message);

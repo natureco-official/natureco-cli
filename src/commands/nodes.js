@@ -4,6 +4,10 @@ const F = require('../utils/format');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+// getConfig + saveConfig referenced 8× below — missing require relied on
+// side-effect global from another module's load order.
+const { getConfig, saveConfig } = require('../utils/config');
+
 function nodes(args) {
   const [action, ...params] = args || [];
 
