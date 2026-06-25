@@ -15,12 +15,13 @@
     "DEPLOY_v2.0.0.md"
   ],
   "scripts": {
-    "test": "node bin/natureco.js help",
-    "test:unit": "node --check bin/natureco.js && node -e \"console.log('All files OK')\"",
-    "test:watch": "node --watch bin/natureco.js",
-    "test:coverage": "node --check bin/natureco.js",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "smoke": "node --check bin/natureco.js && node bin/natureco.js help",
     "postinstall": "node bin/natureco.js doctor || true",
-    "prepublishOnly": "node --check bin/natureco.js"
+    "prepublishOnly": "node --check bin/natureco.js && vitest run"
   },
   "keywords": [
     "natureco",
