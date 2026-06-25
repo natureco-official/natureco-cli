@@ -95,13 +95,16 @@ function escapeEmbeddedNewlines(str) {
   if (newlineCount === 0) return str;
 
   // Paste algılandı — output filter'a sinyal ver ve summary yaz
-  const lineCount = newlineCount + 1;
-  _pasteContext = { lineCount };
-  if (process.stdout.isTTY) {
-    process.stdout.write(`\r\x1b[2K[Pasted ~${lineCount} lines]\n`);
-  }
+  onPasteDetected(str);
 
   return str.replace(/\r\n|\r|\n/g, NEWLINE_PLACEHOLDER);
+}
+
+function onPasteDetected(pasteStr) {
+  const newlineCount = (pasteStr.match(/\r\n|\r|\n/g) || []).length;
+  const lineCount = newlineCount + 1;
+  _pasteContext = { lineCount };
+  process.stdout.write(`[Pasted ~${lineCount} lines]\n`);
 }
 
 function createPasteSafeInput(source = process.stdin) {
@@ -109,6 +112,7 @@ function createPasteSafeInput(source = process.stdin) {
 
   let inPaste = false;
   let carry = ''; // marker'ın chunk sınırında bölünmesine karşı tampon
+  let pasteBuffer = ''; // onPasteDetected için biriken paste içeriği
 
   const onData = (chunk) => {
     let str = carry + chunk.toString('utf8');
@@ -121,14 +125,19 @@ function createPasteSafeInput(source = process.stdin) {
         if (endIdx === -1) {
           const keepLen = trailingMarkerPrefixLen(str, PASTE_END);
           const flushLen = str.length - keepLen;
-          out += str.slice(0, flushLen).replace(/\r\n|\r|\n/g, NEWLINE_PLACEHOLDER);
+          const segment = str.slice(0, flushLen);
+          pasteBuffer += segment;
+          out += segment.replace(/\r\n|\r|\n/g, NEWLINE_PLACEHOLDER);
           carry = str.slice(flushLen);
           str = '';
           break;
         }
         const pasted = str.slice(0, endIdx);
+        pasteBuffer += pasted;
         out += pasted.replace(/\r\n|\r|\n/g, NEWLINE_PLACEHOLDER);
         inPaste = false;
+        onPasteDetected(pasteBuffer);
+        pasteBuffer = '';
         str = str.slice(endIdx + PASTE_END.length);
         continue;
       }

@@ -10,6 +10,7 @@ import {
   createOutputFilter,
   restoreNewlines,
   NEWLINE_PLACEHOLDER,
+  clearPasteContext,
 } from '../../src/utils/paste-safe-input.js';
 
 function collectLines(src) {
@@ -23,6 +24,8 @@ function collectLines(src) {
 }
 
 describe('paste-safe-input', () => {
+  afterEach(() => clearPasteContext());
+
   it('bracketed paste içindeki çok satırlı metni TEK bir line event olarak verir', async () => {
     const src = new PassThrough();
     const promise = collectLines(src);
@@ -78,6 +81,9 @@ describe('paste-safe-input', () => {
 });
 
 describe('createOutputFilter', () => {
+  beforeEach(() => clearPasteContext());
+  afterEach(() => clearPasteContext());
+
   function collectOutput(chunks) {
     const out = new PassThrough();
     const filter = createOutputFilter(out);
@@ -159,11 +165,18 @@ describe('createOutputFilter', () => {
 
     // Çok satırlı paste (bracket marker'sız, terminal-agnostik)
     // Son satırda \n yok — gerçek Enter ayrı bir chunk
-    src.write('line1\nline2\nline3');
-    src.write('\r'); // gerçek Enter
+    const origWrite = process.stdout.write;
+    try {
+      process.stdout.write = () => true;
+      src.write('line1\nline2\nline3');
+      src.write('\r'); // gerçek Enter
+    } finally {
+      process.stdout.write = origWrite;
+    }
     src.end();
 
     await new Promise((r) => setTimeout(r, 10));
+    clearPasteContext();
     rl.close();
 
     const output = outputChunks.join('');
