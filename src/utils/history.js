@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { CONFIG_DIR } = require('./config');
+const { writeJsonAtomicSync, readJsonSafeSync } = require('./atomic-file');
 
 const HISTORY_DIR = path.join(CONFIG_DIR, 'history');
 
@@ -20,26 +21,17 @@ function getHistoryFilePath(botId) {
 // Load conversation history for a bot
 function loadHistory(botId) {
   const filePath = getHistoryFilePath(botId);
-  
-  if (!fs.existsSync(filePath)) {
-    return [];
-  }
-
-  try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(content);
-  } catch {
-    return [];
-  }
+  const data = readJsonSafeSync(filePath, []);
+  // Normalize: older versions may have saved non-array; defensive cast.
+  return Array.isArray(data) ? data : [];
 }
 
 // Save conversation history for a bot
 function saveHistory(botId, history) {
   const filePath = getHistoryFilePath(botId);
-  
   try {
-    fs.writeFileSync(filePath, JSON.stringify(history, null, 2), 'utf8');
-  } catch (err) {
+    writeJsonAtomicSync(filePath, history);
+  } catch {
     // Silently fail - history is not critical
   }
 }

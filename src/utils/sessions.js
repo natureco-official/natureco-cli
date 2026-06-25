@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { writeJsonAtomicSync, readJsonSafeSync } = require('./atomic-file');
 
 // ── Legacy botId-based sessions ─────────────────────────────────────────────────
 
@@ -36,20 +37,12 @@ function createSession(botId, botName) {
 function _saveBotSession(botId, session) {
   ensureSessionsDir(botId);
   const sessionFile = path.join(getSessionsDir(botId), `${session.id}.json`);
-  fs.writeFileSync(sessionFile, JSON.stringify(session, null, 2), 'utf-8');
+  writeJsonAtomicSync(sessionFile, session);
 }
 
 function loadSession(botId, sessionId) {
   const sessionFile = path.join(getSessionsDir(botId), `${sessionId}.json`);
-  if (!fs.existsSync(sessionFile)) {
-    return null;
-  }
-  try {
-    const data = fs.readFileSync(sessionFile, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return null;
-  }
+  return readJsonSafeSync(sessionFile, null);
 }
 
 function getLatestSession(botId) {
@@ -110,10 +103,10 @@ function saveSession(commandName, messages, metadata = {}) {
   }
   const id = Date.now().toString(36);
   const filename = path.join(SESSIONS_DIR, `${commandName}-${id}.json`);
-  fs.writeFileSync(filename, JSON.stringify({
+  writeJsonAtomicSync(filename, {
     id, commandName, messages, metadata,
-    savedAt: new Date().toISOString()
-  }, null, 2));
+    savedAt: new Date().toISOString(),
+  });
   return filename;
 }
 
