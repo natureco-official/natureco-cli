@@ -182,9 +182,12 @@ function restoreNewlines(line) {
 
 /**
  * createOutputFilter — Readline'ın output'unda dolaşan placeholder
- * karakterlerini (NEWLINE_PLACEHOLDER) gerçek satır sonlarına (\n)
- * dönüştüren bir wrapper. Kullanıcı terminalde "␤␤LINEBREAK␤␤" gibi
- * literal placeholder yazıları GÖRMEZ.
+ * karakterlerini (NEWLINE_PLACEHOLDER) TAMAMEN gizleyen bir wrapper.
+ * Kullanıcı terminalde ne placeholder yazılarını ne de satır sonlarını
+ * görür — paste içeriği terminal ekosunda yer kaplamaz.
+ *
+ * Paste'in içeriği terminalde görünmez; repl.js line handler'ı paste
+ * algılandığında "[Pasted ~N lines]" gibi kısa bir özet yazar.
  *
  * Kullanım:
  *   const outFilter = createOutputFilter(process.stdout);
@@ -194,10 +197,10 @@ function restoreNewlines(line) {
  *   Readline, echo mekanizmasıyla her karakteri output.write() ile
  *   terminale yazar. Placeholder karakterleri de tek tek yazılır.
  *   Bu fonksiyon bir state machine tutar: karakterleri placeholder
- *   ile eşleştirir, tam eşleşme olursa \n yazar, olmazsa karakteri
- *   olduğu gibi geçirir. Kısmi eşleşmeler (chunk sınırında bölünmüş
- *   placeholder) sonraki write()'da tamamlanmak üzere partial
- *   buffer'da bekletilir.
+ *   ile eşleştirir, tam eşleşme olursa placeholder'ı ATAR (terminalde
+ *   hiçbir iz kalmaz), olmazsa karakteri olduğu gibi geçirir. Kısmi
+ *   eşleşmeler (chunk sınırında bölünmüş placeholder) sonraki
+ *   write()'da tamamlanmak üzere partial buffer'da bekletilir.
  */
 function createOutputFilter(output = process.stdout) {
   let partial = '';
@@ -217,7 +220,7 @@ function createOutputFilter(output = process.stdout) {
             partial += ch;
             i++;
             if (partial === NEWLINE_PLACEHOLDER) {
-              result += '\n';
+              // Placeholder'ı terminalde gösterme — output'tan tamamen çıkar
               partial = '';
             }
           } else {
