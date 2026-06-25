@@ -104,7 +104,8 @@ function onPasteDetected(pasteStr) {
   const newlineCount = (pasteStr.match(/\r\n|\r|\n/g) || []).length;
   const lineCount = newlineCount + 1;
   _pasteContext = { lineCount };
-  process.stdout.write(`[Pasted ~${lineCount} lines]\n`);
+  // Mevcut satırı temizle (prompt + öncesinde yazılan text) ve özet yaz
+  process.stdout.write(`\r\x1b[2K[Pasted ~${lineCount} lines]\n`);
 }
 
 function createPasteSafeInput(source = process.stdin) {
