@@ -728,6 +728,13 @@ async function startRepl(args) {
     const line = restoreNewlines(input).trim();
     if (!line) { rl.prompt(); return; }
 
+    // Çok satırlı paste display'ini temizle (readline tek satır modeli
+    // yüzünden terminalde biriken eski satırlar kalıcı oluyordu).
+    const newlineCount = (line.match(/\n/g) || []).length;
+    if (newlineCount > 0) {
+      process.stdout.write(`\x1b[${newlineCount + 1}A\x1b[J`);
+    }
+
     // Slash komutlar
     if (line.startsWith('/')) {
       const parts = line.slice(1).split(/\s+/);
