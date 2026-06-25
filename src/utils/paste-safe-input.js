@@ -80,12 +80,13 @@ function isLoneEnterKeystroke(str) {
 function escapeEmbeddedNewlines(str) {
   if (!str || isLoneEnterKeystroke(str)) return str;
   const newlineCount = (str.match(/\r\n|\r|\n/g) || []).length;
-  // Terminal-agnostik paste tespiti: sadece içinde birden çok satır
-  // barındıran chunk'lar paste kabul edilir. Tek satır + \n normal
-  // yazım olabilir (test/paste-safe-input.test.js "normal yazılan
-  // satırlar ayrı ayrı submit edilir" senaryosu).
+  // Terminal-agnostik paste tespiti:
+  // Gerçek terminalde tuş vuruşları tek tek karakter olarak gelir.
+  // İçinde satır sonu BARINDIRAN ve sadece bir satır sonundan İBARET
+  // OLMAYAN her chunk paste'tir — kaç satır olduğu fark etmez.
+  // (Tek istisna: test ortamında PassThrough kullanılır, orada da
+  //  testler karakter-karakter yazacak şekilde güncellenmiştir.)
   if (newlineCount === 0) return str;
-  if (newlineCount === 1 && str.length < 100) return str;
   return str.replace(/\r\n|\r|\n/g, NEWLINE_PLACEHOLDER);
 }
 

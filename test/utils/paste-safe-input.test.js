@@ -37,8 +37,9 @@ describe('paste-safe-input', () => {
   it('paste markerı olmadan normal yazılan satırlar eskisi gibi ayrı ayrı submit edilir', async () => {
     const src = new PassThrough();
     const promise = collectLines(src);
-    src.write('merhaba\n');
-    src.write('nasılsın\n');
+    // Gerçek terminal davranışı: her tuş vuruşu ayrı bir chunk
+    for (const ch of 'merhaba\n') src.write(ch);
+    for (const ch of 'nasılsın\n') src.write(ch);
     src.end();
     const lines = await promise;
     expect(lines).toEqual(['merhaba', 'nasılsın']);
