@@ -92,18 +92,21 @@ describe('createOutputFilter', () => {
     expect(result).toBe('merhaba');
   });
 
-  it('placeholder karakterleri terminalde TAMAMEN gizli — hiçbir iz kalmaz', () => {
+  it('placeholder karakterleri terminalde görünmez, onun yerine \\n geçer', () => {
+    // Readline eko simülasyonu: placeholder karakterleri tek tek yazılır
     const phChars = NEWLINE_PLACEHOLDER.split('');
+    // Arasına normal metin koy: line1 + placeholder + line2
     const chunks = [
       ...'line1'.split(''),
       ...phChars,
       ...'line2'.split(''),
     ];
     const result = collectOutput(chunks);
-    expect(result).toBe('line1line2');
+    expect(result).toBe('line1\nline2');
   });
 
   it('kısmi placeholder (chunk sınırında bölünmüş) doğru işlenir', () => {
+    // Placeholder'ı ikiye bölerek yaz
     const mid = Math.floor(NEWLINE_PLACEHOLDER.length / 2);
     const part1 = NEWLINE_PLACEHOLDER.slice(0, mid);
     const part2 = NEWLINE_PLACEHOLDER.slice(mid);
@@ -118,7 +121,7 @@ describe('createOutputFilter', () => {
     filter.write(part2);
     filter.write('b');
 
-    expect(collected.join('')).toBe('ab');
+    expect(collected.join('')).toBe('a\nb');
   });
 
   it('placeholder olmayan kısmi dize buffer\'da bekletilmez — hemen yazılır', () => {
