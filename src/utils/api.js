@@ -83,14 +83,35 @@ function parseToolCallsFromResponse(message, provider) {
 }
 
 /**
+ * Anthropic Messages API requires `system` to be either a non-empty string
+ * or omitted entirely. Sending `undefined` (which JSON.stringify drops to
+ * silent absence) leaves the model unanchored; sending `''` returns 400
+ * "system: cannot be empty" on recent API revisions. Always pass a
+ * meaningful default when no system message is present.
+ */
+const DEFAULT_ANTHROPIC_SYSTEM =
+  'You are a helpful AI assistant running inside the natureco CLI.';
+
+function extractSystemForAnthropic(messages) {
+  const systemMsg = messages.find(m => m.role === 'system');
+  if (!systemMsg) return DEFAULT_ANTHROPIC_SYSTEM;
+  // content may be a string or an array of content blocks; both round-trip.
+  if (typeof systemMsg.content === 'string') {
+    return systemMsg.content.trim() || DEFAULT_ANTHROPIC_SYSTEM;
+  }
+  if (Array.isArray(systemMsg.content) && systemMsg.content.length > 0) {
+    return systemMsg.content;
+  }
+  return DEFAULT_ANTHROPIC_SYSTEM;
+}
+
+/**
  * v5.5.0: System mesajı provider'a göre ayarla
  * - OpenAI: messages[].role=system
  * - Anthropic: ayrı 'system' field
  */
 function buildRequestBody(messages, model, options, provider) {
   if (provider === 'anthropic') {
-    // System mesajını ayır
-    const systemMsg = messages.find(m => m.role === 'system');
     const userMsgs = messages.filter(m => m.role !== 'system');
     return {
       model,
@@ -98,7 +119,7 @@ function buildRequestBody(messages, model, options, provider) {
         role: m.role,
         content: m.content
       })),
-      system: systemMsg ? systemMsg.content : undefined,
+      system: extractSystemForAnthropic(messages),
       max_tokens: options.max_tokens || 4096,
       temperature: options.temperature || 0.7,
       ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {})
@@ -588,11 +609,10 @@ async function sendMessageOpenAICompatible(providerConfig, messages, tools) {
  */
 async function sendMessageAnthropic(providerConfig, messages, tools) {
   const endpoint = `${providerConfig.url}/v1/messages`;
-  
-  // Anthropic requires system message separate
-  const systemMessage = messages.find(m => m.role === 'system');
+
+  // Anthropic requires system message separate; never send empty string.
   const userMessages = messages.filter(m => m.role !== 'system');
-  
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -603,7 +623,7 @@ async function sendMessageAnthropic(providerConfig, messages, tools) {
     body: JSON.stringify({
       model: providerConfig.model,
       max_tokens: 2000,
-      system: systemMessage?.content || '',
+      system: extractSystemForAnthropic(messages),
       messages: userMessages,
       tools: tools,
     }),
@@ -1082,7 +1102,6 @@ async function streamOpenAICompletion(providerConfig, messages, tools) {
 async function streamAnthropicCompletion(providerConfig, messages) {
   const endpoint = `${providerConfig.url}/v1/messages`;
 
-  const systemMessage = messages.find(m => m.role === 'system');
   const userMessages = messages.filter(m => m.role !== 'system');
 
   const response = await fetch(endpoint, {
@@ -1095,7 +1114,7 @@ async function streamAnthropicCompletion(providerConfig, messages) {
     body: JSON.stringify({
       model: providerConfig.model,
       max_tokens: 2000,
-      system: systemMessage?.content || '',
+      system: extractSystemForAnthropic(messages),
       messages: userMessages,
       stream: true,
     }),
@@ -1147,5 +1166,12 @@ module.exports = {
   streamProviderCompletion,
   streamOpenAICompletion,
   streamAnthropicCompletion,
+  // Exposed for tests + advanced consumers (does not appear in the
+  // public API surface of natureco's user-facing docs).
+  _internals: {
+    extractSystemForAnthropic,
+    DEFAULT_ANTHROPIC_SYSTEM,
+    buildRequestBody,
+  },
   _sendMessage: sendMessage,
 };
