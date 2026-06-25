@@ -522,7 +522,10 @@ async function startRepl(args) {
                        (cfg.providerUrl || '').includes('mistral.ai') ||
                        (cfg.providerUrl || '').includes('localhost') ||
                        (cfg.providerUrl || '').includes('ollama');
-  const systemPrompt = [
+  // `let` (not `const`) because /system <text> reassigns it at line ~796.
+  // Before this fix, /system would throw "Assignment to constant variable"
+  // and tear down the REPL session mid-conversation.
+  let systemPrompt = [
     // === v5.4.14: EN KRITIK KIMLIK BILGILERI (her zaman ilk) ===
     `SENIN ADIN: ${botName}. SADECE ${botName} adini kullan, model adi SOYLEME.`,
     `PATRONUN: Gencay (Parton) — NatureCo CEO'sudur. Sana "Parton" diye hitap eder.`,
