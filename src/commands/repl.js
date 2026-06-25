@@ -24,7 +24,7 @@ const chalk = require('chalk');
 const tui = require('../utils/tui');
 const { loadToolDefinitions, toOpenAIFormat, executeTool } = require('../utils/tools');
 const { accumulateToolCallDeltas, finalizeToolCalls } = require('../utils/streaming-tools');
-const { createPasteSafeInput, enableBracketedPaste, disableBracketedPaste, restoreNewlines } = require('../utils/paste-safe-input');
+const { createPasteSafeInput, createOutputFilter, enableBracketedPaste, disableBracketedPaste, restoreNewlines } = require('../utils/paste-safe-input');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
 const MODEL_NAMES_TO_HIDE = ['MiniMax-M2.5', 'MiniMaxM2.5', 'minimaxm25', 'Claude-3', 'GPT-4', 'ChatGPT'];
@@ -620,7 +620,7 @@ async function startRepl(args) {
 
   const rl = readline.createInterface({
     input: createPasteSafeInput(process.stdin),
-    output: process.stdout,
+    output: createOutputFilter(process.stdout),
     prompt: tui.styled('\n  You  ', { color: tui.PALETTE.primary, bold: true }),
     terminal: true,
   });

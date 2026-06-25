@@ -8,12 +8,27 @@
  * yapıştırdığında readline bunu 10 ayrı mesaj gibi okur ve her birini hemen
  * gönderir — kullanıcı paste'i bitirmeden cevaplar gelmeye başlar.
  *
- * Çözüm: Terminalin "bracketed paste" (ESC[200~ ... ESC[201~) işaretleyicilerini
- * dinleyip, bu işaretler arasındaki tüm veriyi tek parça olarak topluyoruz.
- * İçindeki gerçek satır sonlarını geçici bir placeholder ile değiştirip
- * readline'a TEK satır gibi besliyoruz. Kullanıcı gerçekten Enter'a basana kadar
- * hiçbir 'line' event'i tetiklenmez. Enter'a basıldığında, alınan satırdaki
- * placeholder'lar gerçek "\n" karakterine geri çevrilip mesaj olarak kullanılır.
+ * Çözüm: İki katmanlı bir yaklaşım:
+ *
+ * 1. INPUT KATMANI (createPasteSafeInput):
+ *    Terminalin "bracketed paste" (ESC[200~ ... ESC[201~) işaretleyicilerini
+ *    dinleyip, bu işaretler arasındaki tüm veriyi tek parça olarak topluyoruz.
+ *    Ayrıca terminal-agnostik bir heuristik: çok satırlı büyük chunk'ları da
+ *    paste olarak algılar. İçindeki gerçek satır sonlarını geçici bir
+ *    placeholder (NEWLINE_PLACEHOLDER) ile değiştirip readline'a TEK satır gibi
+ *    besliyoruz. Kullanıcı gerçekten Enter'a basana kadar hiçbir 'line' event'i
+ *    tetiklenmez.
+ *
+ * 2. OUTPUT KATMANI (createOutputFilter):
+ *    Readline'ın echo mekanizması placeholder karakterlerini terminale
+ *    yazarken araya girer. Bir state machine ile karakterleri placeholder
+ *    dizisiyle eşleştirir, tam eşleşme olursa terminale \n (yeni satır)
+ *    yazar. Böylece kullanıcı "␤␤LINEBREAK␤␤" gibi literal placeholder
+ *    yazıları görmez, satır sonlarını doğal yeni satırlar olarak deneyimler.
+ *
+ *    Enter'a basıldığında, readline'dan gelen placeholder'lı satır,
+ *    restoreNewlines() ile gerçek \n karakterlerine dönüştürülüp mesaj
+ *    olarak işlenir.
  */
 
 'use strict';
@@ -164,8 +179,100 @@ function restoreNewlines(line) {
   return line.split(NEWLINE_PLACEHOLDER).join('\n');
 }
 
+/**
+ * createOutputFilter — Readline'ın output'unda dolaşan placeholder
+ * karakterlerini (NEWLINE_PLACEHOLDER) gerçek satır sonlarına (\n)
+ * dönüştüren bir wrapper. Kullanıcı terminalde "␤␤LINEBREAK␤␤" gibi
+ * literal placeholder yazıları GÖRMEZ.
+ *
+ * Kullanım:
+ *   const outFilter = createOutputFilter(process.stdout);
+ *   const rl = readline.createInterface({ input, output: outFilter, ... });
+ *
+ * Çalışma prensibi:
+ *   Readline, echo mekanizmasıyla her karakteri output.write() ile
+ *   terminale yazar. Placeholder karakterleri de tek tek yazılır.
+ *   Bu fonksiyon bir state machine tutar: karakterleri placeholder
+ *   ile eşleştirir, tam eşleşme olursa \n yazar, olmazsa karakteri
+ *   olduğu gibi geçirir. Kısmi eşleşmeler (chunk sınırında bölünmüş
+ *   placeholder) sonraki write()'da tamamlanmak üzere partial
+ *   buffer'da bekletilir.
+ */
+function createOutputFilter(output = process.stdout) {
+  let partial = '';
+
+  const filter = {
+    write(data) {
+      const str = data.toString('utf8');
+      let result = '';
+      let i = 0;
+
+      while (i < str.length) {
+        if (partial.length > 0) {
+          // Kısmi eşleşme var — devamını bekle
+          const expected = NEWLINE_PLACEHOLDER[partial.length];
+          const ch = str[i];
+          if (ch === expected) {
+            partial += ch;
+            i++;
+            if (partial === NEWLINE_PLACEHOLDER) {
+              result += '\n';
+              partial = '';
+            }
+          } else {
+            // Eşleşme bozuldu — partial buffer'ı boşalt
+            result += partial;
+            partial = '';
+            // ch'i tekrar dene (yeni placeholder başlangıcı olabilir)
+            // continue ile aynı i değerinde else-if'e düş
+          }
+        } else {
+          const ch = str[i];
+          if (ch === NEWLINE_PLACEHOLDER[0]) {
+            partial = ch;
+            i++;
+            // Tek karakterlik placeholder değil, bekle
+          } else {
+            result += ch;
+            i++;
+          }
+        }
+      }
+
+      if (result) return output.write(result);
+      return true;
+    },
+
+    end(...args) {
+      if (partial) {
+        output.write(partial);
+        partial = '';
+      }
+      return output.end(...args);
+    },
+
+    get columns() { return output.columns; },
+    get rows() { return output.rows; },
+    get isTTY() { return output.isTTY; },
+
+    on(...args) { return output.on(...args); },
+    off(...args) { return output.off ? output.off(...args) : undefined; },
+    addListener(...args) { return output.addListener(...args); },
+    removeListener(...args) { return output.removeListener(...args); },
+    emit(...args) { return output.emit(...args); },
+    getColorDepth(...args) {
+      return typeof output.getColorDepth === 'function'
+        ? output.getColorDepth(...args)
+        : undefined;
+    },
+  };
+
+  return filter;
+}
+
 module.exports = {
   createPasteSafeInput,
+  createOutputFilter,
   enableBracketedPaste,
   disableBracketedPaste,
   restoreNewlines,
