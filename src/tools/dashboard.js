@@ -15,8 +15,9 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { getDashboardPort } = require("../utils/ports");
 
-const PORT = 7421;
+const PORT = getDashboardPort();
 const DASHBOARD_HTML = `
 <!DOCTYPE html>
 <html lang="tr">

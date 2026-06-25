@@ -18,9 +18,10 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const url = require('url');
+const { getDashboardPort, getDashboardHost } = require('./ports');
 
-const PORT = 7421;
-const HOST = '127.0.0.1';
+const PORT = getDashboardPort();
+const HOST = getDashboardHost();
 
 const NATURECO_DIR = path.join(os.homedir(), '.natureco');
 
