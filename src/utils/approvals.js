@@ -1,14 +1,24 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const net = require('net');
 const chalk = require('chalk');
 const inquirer = require('./inquirer-wrapper');
 const { NatureCoError } = require('./errors');
+const { writeJsonAtomicSync, readJsonSafeSync } = require('./atomic-file');
 
 const APPROVALS_FILE = path.join(os.homedir(), '.natureco', 'exec-approvals.json');
-const APPROVALS_SOCKET_PATH = path.join(os.homedir(), '.natureco', 'exec-approvals.sock');
 const DEFAULT_TIMEOUT_MS = 1800000; // 30 min
+
+// 0o600 = owner read/write only. The allowlist controls which commands
+// auto-execute without prompting; on a shared machine, world-read leaks
+// the user's automation surface and world-write lets another local
+// account inject auto-approved commands. Treat it like ssh keys.
+const APPROVALS_FILE_MODE = 0o600;
+const APPROVALS_DIR_MODE = 0o700;
+
+function _emptyApprovals() {
+  return { version: 1, defaults: { security: 'full', ask: 'off' }, agents: {} };
+}
 
 class ExecApprovalError extends NatureCoError {
   constructor(message, options = {}) {
@@ -33,20 +43,22 @@ function getApprovalsPath() {
 }
 
 function loadApprovals() {
-  if (!fs.existsSync(APPROVALS_FILE)) {
-    return { version: 1, defaults: { security: 'full', ask: 'off' }, agents: {} };
-  }
-  try {
-    return JSON.parse(fs.readFileSync(APPROVALS_FILE, 'utf8'));
-  } catch {
-    return { version: 1, defaults: { security: 'full', ask: 'off' }, agents: {} };
-  }
+  return readJsonSafeSync(APPROVALS_FILE, _emptyApprovals());
 }
 
 function saveApprovals(data) {
   const dir = path.dirname(APPROVALS_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(APPROVALS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true, mode: APPROVALS_DIR_MODE });
+  } else {
+    // Tighten the dir even if it pre-existed with looser bits.
+    try { fs.chmodSync(dir, APPROVALS_DIR_MODE); } catch { /* best-effort */ }
+  }
+  writeJsonAtomicSync(APPROVALS_FILE, data, { mode: APPROVALS_FILE_MODE });
+  // Tighten the file even if it pre-existed with looser bits (the rename
+  // in writeJsonAtomicSync preserves the temp's mode, but only when we
+  // pass it through — defensively chmod again in case of older installs).
+  try { fs.chmodSync(APPROVALS_FILE, APPROVALS_FILE_MODE); } catch { /* best-effort */ }
 }
 
 function resolveEffectivePolicy(agentId) {
@@ -294,4 +306,7 @@ module.exports = {
   getApprovalsPath,
   DANGEROUS_PATTERNS,
   SAFE_COMMANDS,
+  APPROVALS_FILE,
+  APPROVALS_FILE_MODE,
+  APPROVALS_DIR_MODE,
 };

@@ -78,9 +78,10 @@ function readJsonSafeSync(filePath, fallback) {
  *
  * @param {string} filePath
  * @param {any} value
+ * @param {{mode?: number}} [opts]  e.g. {mode: 0o600} for secrets/PII
  */
-function writeJsonAtomicSync(filePath, value) {
-  writeFileAtomicSync(filePath, JSON.stringify(value, null, 2));
+function writeJsonAtomicSync(filePath, value, opts = {}) {
+  writeFileAtomicSync(filePath, JSON.stringify(value, null, 2), opts);
 }
 
 module.exports = {
