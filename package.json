@@ -24,7 +24,7 @@
     "lint:errors-only": "eslint src/ bin/ test/ --quiet",
     "smoke": "node --check bin/natureco.js && node bin/natureco.js help",
     "postinstall": "node bin/natureco.js doctor || true",
-    "prepublishOnly": "node --check bin/natureco.js && vitest run"
+    "prepublishOnly": "node --check bin/natureco.js && eslint src/ bin/ test/ --quiet && vitest run"
   },
   "keywords": [
     "natureco",
