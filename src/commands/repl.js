@@ -25,6 +25,8 @@ const tui = require('../utils/tui');
 const { loadToolDefinitions, toOpenAIFormat, executeTool } = require('../utils/tools');
 const { accumulateToolCallDeltas, finalizeToolCalls } = require('../utils/streaming-tools');
 const { createPasteSafeInput, createOutputFilter, enableBracketedPaste, disableBracketedPaste, restoreNewlines, clearPasteContext } = require('../utils/paste-safe-input');
+const { getMemoryStore } = require('../utils/memory-store');
+const { buildSkillIndex } = require('../utils/skill-index');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
 const MODEL_NAMES_TO_HIDE = ['MiniMax-M2.5', 'MiniMaxM2.5', 'minimaxm25', 'Claude-3', 'GPT-4', 'ChatGPT'];
@@ -502,6 +504,12 @@ async function startRepl(args) {
   const { buildSoulContext, summarizeSoul } = require("../tools/soul");
   const soulSummary = buildSoulContext();  // 3 dosya birlesik ozet
 
+  // v5.7.14: Hermes-style memory store (MEMORY.md / USER.md) + skill index
+  const memoryStore = getMemoryStore();
+  memoryStore.load();
+  const memorySnapshotBlock = memoryStore.getSystemPromptBlock();
+  const skillsIndexBlock = buildSkillIndex();
+
   // Resume?
   let messages = [];
   if (resumeId) {
@@ -572,6 +580,12 @@ async function startRepl(args) {
     messages.length > 0 ? 'Bu oturum daha onceki konusmalarin devami.' : '',
     // v5.4.11: Cross-session context (Sasuke Brain)
     crossSessionContext ? `GECMISTE KONUSULAN KONULAR: Bu konulari biliyorsun, tekrar sorma:\n${crossSessionContext}` : '',
+
+    // === v5.7.14: Hermes-style memory store (MEMORY.md / USER.md) ===
+    memorySnapshotBlock,
+
+    // === v5.7.14: Skill index (progressive disclosure) ===
+    skillsIndexBlock,
 
 
   ].filter(Boolean).join(' ');

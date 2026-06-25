@@ -1,185 +1,154 @@
 /**
- * memory_write - Memory'ye fact/kayit yaz (v5.1.1)
+ * memory-store — Hermes-style flat-file memory (MEMORY.md / USER.md)
  *
- * REPL'in extractMemoryFromMessage ozelligini tool olarak expose eder.
- * Parton'un vizyonu: "Benim asistanim, her seyimi hatirlayacak"
+ * Two stores:
+ *   - MEMORY.md: agent's notes (environment facts, project conventions, tool quirks)
+ *   - USER.md: what the agent knows about the user (preferences, habits, workflow)
+ *
+ * Entry delimiter: § (section sign). Multiline entries allowed.
+ *
+ * Frozen snapshot pattern:
+ *   - System prompt gets a snapshot captured at session start (never changes mid-session)
+ *   - Tool responses reflect live state (mutations write to disk immediately)
+ *   - Prefix cache stays stable for the entire session
+ *   - Snapshot refreshes on next session start
  */
 
-const fs = require("fs");
-const path = require("path");
-const os = require("os");
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
-const MEMORY_DIR = path.join(os.homedir(), ".natureco", "memory");
+const MEMORY_DIR = path.join(os.homedir(), '.natureco', 'memories');
+const ENTRY_DELIMITER = '\n§\n';
 
-function getMemoryFile(username) {
-  const name = (username || "default").toLowerCase();
-  return path.join(MEMORY_DIR, `${name}.json`);
-}
-
-function loadMemory(username) {
-  const file = getMemoryFile(username);
-  try {
-    if (!fs.existsSync(file)) {
-      return { name: username || "User", nickname: null, botName: null, facts: [], preferences: [] };
-    }
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return { name: username || "User", nickname: null, botName: null, facts: [], preferences: [] };
-  }
-}
-
-function saveMemory(username, memory) {
-  if (!fs.existsSync(MEMORY_DIR)) fs.mkdirSync(MEMORY_DIR, { recursive: true });
-  memory.lastUpdated = new Date().toISOString();
-  fs.writeFileSync(getMemoryFile(username), JSON.stringify(memory, null, 2), "utf8");
-  return memory;
-}
-
-/**
- * Score azalt (eski fact'ler zamanla unutuluyor)
- */
-function decayFacts(memory) {
-  if (!memory.facts) return memory;
-  const now = Date.now();
-  memory.facts = memory.facts.map(f => {
-    if (!f.score) f.score = 5;
-    // 1 haftadan eski -1, 1 aydan eski -3
-    const ageMs = now - new Date(f.updatedAt || f.createdAt || now).getTime();
-    const ageDays = ageMs / (1000 * 60 * 60 * 24);
-    if (ageDays > 30) f.score = Math.max(0, f.score - 3);
-    else if (ageDays > 7) f.score = Math.max(0, f.score - 1);
-    return f;
-  });
-  // score 0 olanlari sil
-  memory.facts = memory.facts.filter(f => (f.score || 0) > 0);
-  // max 15 fact tut
-  memory.facts.sort((a, b) => (b.score || 0) - (a.score || 0));
-  memory.facts = memory.facts.slice(0, 15);
-  return memory;
-}
-
-
-/**
- * v5.4.9: Memory yazma sonrasi verification — geri oku ve gercekten yazildigini dogrula
- * Self-validation mekanizmasi: tool cagirip "success" demesine ragmen dosya bos olabilir
- */
-function verifyMemoryWrite(username, expectedFact, expectedBotName) {
-  try {
-    const memFile = getMemoryFile(username);
-    if (!fs.existsSync(memFile)) {
-      return { success: false, error: "Memory dosyasi olusturulamadi: " + memFile };
-    }
-    const mem = JSON.parse(fs.readFileSync(memFile, "utf8"));
-
-    // Fact verification
-    if (expectedFact) {
-      const found = (mem.facts || []).some(f => f.value === expectedFact);
-      if (!found) {
-        return { success: false, error: "Fact memory'de bulunamadi: " + expectedFact };
-      }
-    }
-
-    // BotName verification
-    if (expectedBotName && mem.botName !== expectedBotName) {
-      return { success: false, error: "BotName guncellenmedi: " + mem.botName };
-    }
-
-    return { success: true, message: "Memory dogrulandi" };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
-}
-
-
-function addMemory({ username, fact, score = 5, category = "general", botName, nickname, name }) {
-  // Username yoksa ve 'name' parametresi varsa, onu username olarak kullan
-  // (Parton'un "patron" diye hitap etmesi durumu icin)
-  const effectiveUsername = username || (name && name.toLowerCase()) || 'default';
-  if (!effectiveUsername || effectiveUsername === 'default') {
-    // Hicbir username yok, default.json'a yaz
+class MemoryStore {
+  constructor(charLimit = 3000) {
+    this._memoryEntries = [];
+    this._userEntries = [];
+    this._charLimit = charLimit;
+    this._snapshot = { memory: '', user: '' };
   }
 
-  let memory = loadMemory(effectiveUsername);
-  memory = decayFacts(memory);
-
-  // identity updates (botName, nickname, name) — name sadece memory.name, username degil
-  if (botName) memory.botName = botName;
-  if (nickname !== undefined) memory.nickname = nickname;
-  if (name) memory.name = name; // Bu memory.name (kullanici gercek adi), username degil
-
-  if (fact) {
-    // duplicate kontrol
-    const existing = memory.facts.find(f => (f.value || f).toLowerCase() === fact.toLowerCase());
-    if (existing) {
-      existing.score = Math.min(10, (existing.score || 5) + 2);
-      existing.updatedAt = new Date().toISOString();
-    } else {
-      memory.facts.push({
-        value: fact,
-        score,
-        category,
-        updatedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      });
+  _ensureDir() {
+    if (!fs.existsSync(MEMORY_DIR)) {
+      fs.mkdirSync(MEMORY_DIR, { recursive: true });
     }
   }
 
-  if (!memory.preferences) memory.preferences = [];
-  memory = saveMemory(effectiveUsername, memory);
+  _pathFor(target) {
+    return target === 'user'
+      ? path.join(MEMORY_DIR, 'USER.md')
+      : path.join(MEMORY_DIR, 'MEMORY.md');
+  }
 
-  // v5.4.9: Verification - geri oku ve dogrula
-  const verifyResult = verifyMemoryWrite(effectiveUsername, fact, botName);
-  if (!verifyResult.success) {
-    return {
-      success: false,
-      error: "Memory yazildi ama dogrulanamadi: " + verifyResult.error,
-      username: effectiveUsername,
+  _readEntries(filePath) {
+    if (!fs.existsSync(filePath)) return [];
+    const content = fs.readFileSync(filePath, 'utf8').trim();
+    if (!content) return [];
+    return content.split(ENTRY_DELIMITER).map(e => e.trim()).filter(Boolean);
+  }
+
+  _writeEntries(filePath, entries) {
+    this._ensureDir();
+    const content = entries.join(ENTRY_DELIMITER);
+    fs.writeFileSync(filePath, content + '\n', 'utf8');
+  }
+
+  _renderBlock(label, entries) {
+    if (!entries || entries.length === 0) return '';
+    return `=== ${label} ===\n${entries.join('\n')}\n=== ${label} sonu ===`;
+  }
+
+  load() {
+    this._ensureDir();
+    this._memoryEntries = this._readEntries(this._pathFor('memory'));
+    this._userEntries = this._readEntries(this._pathFor('user'));
+    this._memoryEntries = [...new Map(this._memoryEntries.map(e => [e, e])).values()];
+    this._userEntries = [...new Map(this._userEntries.map(e => [e, e])).values()];
+    this._snapshot = {
+      memory: this._renderBlock('memory', this._memoryEntries),
+      user: this._renderBlock('user', this._userEntries),
     };
   }
 
-  return {
-    success: true,
-    message: "Memory guncellendi ve dogrulandi",
-    username: effectiveUsername,
-    verified: true,
-    totalFacts: memory.facts.length,
-    facts: memory.facts.map(f => ({ value: f.value, score: f.score, category: f.category })),
-    botName: memory.botName,
-    nickname: memory.nickname,
-    name: memory.name,
-  };
+  getSnapshot() {
+    return this._snapshot;
+  }
+
+  getSystemPromptBlock() {
+    const parts = [];
+    if (this._snapshot.memory) parts.push(this._snapshot.memory);
+    if (this._snapshot.user) parts.push(this._snapshot.user);
+    return parts.join('\n\n');
+  }
+
+  list(target) {
+    const entries = target === 'user' ? this._userEntries : this._memoryEntries;
+    return JSON.stringify({ success: true, entries, count: entries.length });
+  }
+
+  add(target, content) {
+    if (!content || !content.trim()) {
+      return JSON.stringify({ success: false, error: 'Content cannot be empty.' });
+    }
+    content = content.trim();
+    const entries = target === 'user' ? this._userEntries : this._memoryEntries;
+    if (entries.includes(content)) {
+      return JSON.stringify({ success: false, error: 'Duplicate entry.' });
+    }
+    const currentTotal = entries.reduce((sum, e) => sum + e.length + 3, 0);
+    if (currentTotal + content.length > this._charLimit) {
+      return JSON.stringify({ success: false, error: `Memory ${target} is full (limit ~${this._charLimit} chars). Remove some entries first.` });
+    }
+    entries.push(content);
+    this._writeEntries(this._pathFor(target), entries);
+    return JSON.stringify({ success: true, message: 'Memory entry added.', count: entries.length });
+  }
+
+  remove(target, content) {
+    if (!content || !content.trim()) {
+      return JSON.stringify({ success: false, error: 'Content cannot be empty.' });
+    }
+    content = content.trim();
+    const entries = target === 'user' ? this._userEntries : this._memoryEntries;
+    const idx = entries.findIndex(e => e.includes(content));
+    if (idx === -1) {
+      return JSON.stringify({ success: false, error: 'No matching entry found.' });
+    }
+    const removed = entries.splice(idx, 1);
+    this._writeEntries(this._pathFor(target), entries);
+    return JSON.stringify({ success: true, message: 'Memory entry removed.', removed: removed[0] });
+  }
+
+  replace(target, oldContent, newContent) {
+    if (!oldContent || !newContent) {
+      return JSON.stringify({ success: false, error: 'Both old and new content required.' });
+    }
+    oldContent = oldContent.trim();
+    newContent = newContent.trim();
+    const entries = target === 'user' ? this._userEntries : this._memoryEntries;
+    const idx = entries.findIndex(e => e.includes(oldContent));
+    if (idx === -1) {
+      return JSON.stringify({ success: false, error: 'No matching entry found.' });
+    }
+    entries[idx] = newContent;
+    this._writeEntries(this._pathFor(target), entries);
+    return JSON.stringify({ success: true, message: 'Memory entry updated.' });
+  }
 }
 
-function clearMemory({ username }) {
-  if (!username) return { success: false, error: "username gerekli" };
-  const file = getMemoryFile(username);
-  if (fs.existsSync(file)) fs.unlinkSync(file);
-  return { success: true, message: `Memory temizlendi: ${username}` };
+let _defaultStore = null;
+
+function getMemoryStore() {
+  if (!_defaultStore) {
+    _defaultStore = new MemoryStore();
+    _defaultStore.load();
+  }
+  return _defaultStore;
 }
 
-function showMemory({ username }) {
-  if (!username) return { success: false, error: "username gerekli" };
-  const memory = loadMemory(username);
-  return {
-    success: true,
-    username,
-    name: memory.name,
-    nickname: memory.nickname,
-    botName: memory.botName,
-    totalFacts: (memory.facts || []).length,
-    facts: memory.facts || [],
-    preferences: memory.preferences || [],
-  };
+function resetMemoryStore() {
+  _defaultStore = null;
 }
 
-
-module.exports = {
-  getMemoryFile,
-  loadMemory,
-  saveMemory,
-  decayFacts,
-  verifyMemoryWrite,
-  addMemory,
-  clearMemory,
-  showMemory,
-};
+module.exports = { MemoryStore, getMemoryStore, resetMemoryStore, ENTRY_DELIMITER };
