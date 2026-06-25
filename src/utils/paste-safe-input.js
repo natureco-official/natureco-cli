@@ -64,6 +64,13 @@ function isLoneEnterKeystroke(str) {
 
 function escapeEmbeddedNewlines(str) {
   if (!str || isLoneEnterKeystroke(str)) return str;
+  const newlineCount = (str.match(/\r\n|\r|\n/g) || []).length;
+  // Terminal-agnostik paste tespiti: sadece içinde birden çok satır
+  // barındıran chunk'lar paste kabul edilir. Tek satır + \n normal
+  // yazım olabilir (test/paste-safe-input.test.js "normal yazılan
+  // satırlar ayrı ayrı submit edilir" senaryosu).
+  if (newlineCount === 0) return str;
+  if (newlineCount === 1 && str.length < 100) return str;
   return str.replace(/\r\n|\r|\n/g, NEWLINE_PLACEHOLDER);
 }
 
