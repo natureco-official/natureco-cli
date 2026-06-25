@@ -19,6 +19,9 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "lint": "eslint src/ bin/ test/",
+    "lint:fix": "eslint src/ bin/ test/ --fix",
+    "lint:errors-only": "eslint src/ bin/ test/ --quiet",
     "smoke": "node --check bin/natureco.js && node bin/natureco.js help",
     "postinstall": "node bin/natureco.js doctor || true",
     "prepublishOnly": "node --check bin/natureco.js && vitest run"
@@ -82,6 +85,9 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
+    "globals": "^15.15.0",
     "vitest": "^4.1.9"
   }
 }
