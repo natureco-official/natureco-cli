@@ -9,6 +9,7 @@ const { getConfig } = require('./config');
 const { getToolDefinitions, executeToolCalls } = require('./tool-runner');
 const { MCPClient } = require('./mcp-client');
 const TB = require('./token-budget');
+const { accumulateToolCallDeltas } = require('./streaming-tools');
 
 /**
  * v5.5.0: Provider-specific format detection
@@ -1046,15 +1047,7 @@ async function streamOpenAICompletion(providerConfig, messages, tools) {
 
         if (delta.tool_calls) {
           hasToolCalls = true;
-          for (const tc of delta.tool_calls) {
-            const idx = tc.index;
-            if (!toolCalls[idx]) {
-              toolCalls[idx] = { id: tc.id || '', type: 'function', function: { name: '', arguments: '' } };
-            }
-            if (tc.id) toolCalls[idx].id = tc.id;
-            if (tc.function?.name) toolCalls[idx].function.name += tc.function.name;
-            if (tc.function?.arguments) toolCalls[idx].function.arguments += tc.function.arguments;
-          }
+          accumulateToolCallDeltas(toolCalls, delta.tool_calls);
         }
 
         const token = delta.content || '';

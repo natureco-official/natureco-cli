@@ -23,6 +23,7 @@ const { spawn } = require('child_process');
 const chalk = require('chalk');
 const tui = require('../utils/tui');
 const { loadToolDefinitions, toOpenAIFormat, executeTool } = require('../utils/tools');
+const { accumulateToolCallDeltas, finalizeToolCalls } = require('../utils/streaming-tools');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
 const MODEL_NAMES_TO_HIDE = ['MiniMax-M2.5', 'MiniMaxM2.5', 'minimaxm25', 'Claude-3', 'GPT-4', 'ChatGPT'];
@@ -313,17 +314,10 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
                 onChunk(delta.content);
               }
 
-              // Tool calls (streaming delta)
+              // Tool calls (streaming delta) — shared accumulator,
+              // see src/utils/streaming-tools.js for the per-index pattern.
               if (delta.tool_calls) {
-                for (const tcDelta of delta.tool_calls) {
-                  const idx = tcDelta.index;
-                  if (!toolCalls[idx]) {
-                    toolCalls[idx] = { index: idx, id: '', name: '', args: '' };
-                  }
-                  if (tcDelta.id) toolCalls[idx].id = tcDelta.id;
-                  if (tcDelta.function?.name) toolCalls[idx].name += tcDelta.function.name;
-                  if (tcDelta.function?.arguments) toolCalls[idx].args += tcDelta.function.arguments;
-                }
+                accumulateToolCallDeltas(toolCalls, delta.tool_calls);
               }
             } catch {}
           }
@@ -338,17 +332,15 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
 
     fullText = result.streamText;
 
-    // Tool call var mı?
-    if (result.toolCalls && result.toolCalls.length > 0 && result.toolCalls[0].name) {
+    // Tool call var mı? finalizeToolCalls drops empty entries + synthesizes ids,
+    // so we only need to check the resulting length.
+    const finalized = finalizeToolCalls(result.toolCalls);
+    if (finalized.length > 0) {
       // Assistant mesajını ekle (tool_calls ile)
       currentMessages.push({
         role: 'assistant',
         content: result.streamText || null,
-        tool_calls: result.toolCalls.map(tc => ({
-          id: tc.id || `call_${Date.now()}_${tc.index}`,
-          type: 'function',
-          function: { name: tc.name, arguments: tc.args },
-        })),
+        tool_calls: finalized,
       });
       // Her tool call'ı çalıştır, sonuçları tool mesajı olarak ekle
       const toolResults = await processToolCalls(result.toolCalls, onToolCall);
