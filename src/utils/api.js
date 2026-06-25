@@ -14,22 +14,12 @@ const { accumulateToolCallDeltas } = require('./streaming-tools');
 /**
  * v5.5.0: Provider-specific format detection
  * Groq, OpenAI, Anthropic, Mistral, DeepSeek, OpenRouter, Ollama, MiniMax
+ *
+ * Canonical implementation lives in src/utils/provider-detect.js;
+ * re-exported here so the historical `detectProvider` reference inside
+ * api.js continues to work without touching every call site.
  */
-function detectProvider(providerUrl, model) {
-  const url = (providerUrl || '').toLowerCase();
-  const m = (model || '').toLowerCase();
-  if (url.includes('anthropic.com') || m.includes('claude')) return 'anthropic';
-  if (url.includes('groq.com') || m.includes('groq') || m.includes('llama-3') || m.includes('mixtral')) return 'groq';
-  if (url.includes('openrouter.ai')) return 'openrouter';
-  if (url.includes('api.deepseek.com') || m.includes('deepseek')) return 'deepseek';
-  if (url.includes('mistral.ai') || m.includes('mistral') || m.includes('codestral')) return 'mistral';
-  if (url.includes('together.xyz') || m.includes('together')) return 'together';
-  if (url.includes('fireworks.ai') || m.includes('fireworks')) return 'fireworks';
-  if (url.includes('perplexity.ai') || m.includes('pplx') || m.includes('sonar')) return 'perplexity';
-  if (url.includes('localhost') || url.includes('127.0.0.1') || url.includes('ollama')) return 'ollama';
-  if (url.includes('minimax.io') || url.includes('minimax')) return 'minimax';
-  return 'openai'; // default
-}
+const { detectProvider, isMiniMax } = require('./provider-detect');
 
 /**
  * v5.5.0: Tool definitions'ı provider'a göre normalize et
@@ -556,9 +546,8 @@ function formatToolsForAnthropic() {
  */
 async function sendMessageOpenAICompatible(providerConfig, messages, tools) {
   const baseUrl = providerConfig.url.replace(/\/+$/, '');
-  // MiniMax özel endpoint tespiti
-  const isMiniMax = baseUrl.includes('minimax.io') || baseUrl.includes('minimaxi.com') || baseUrl.includes('minimax.cn');
-  const endpoint = isMiniMax
+  // MiniMax özel endpoint tespiti — provider-detect.js'deki kanonik tanım.
+  const endpoint = isMiniMax(baseUrl)
     ? `${baseUrl}/v1/text/chatcompletion_v2`
     : `${baseUrl}/chat/completions`;
   const requestBody = {
@@ -1013,9 +1002,8 @@ async function streamProviderCompletion(providerConfig, messages, tools) {
 
 async function streamOpenAICompletion(providerConfig, messages, tools) {
   const baseUrl = providerConfig.url.replace(/\/+$/, '');
-  // MiniMax özel endpoint tespiti (streaming için de aynı)
-  const isMiniMax = baseUrl.includes('minimax.io') || baseUrl.includes('minimaxi.com') || baseUrl.includes('minimax.cn');
-  const endpoint = isMiniMax
+  // MiniMax özel endpoint tespiti (streaming için de aynı) — provider-detect.js.
+  const endpoint = isMiniMax(baseUrl)
     ? `${baseUrl}/v1/text/chatcompletion_v2`
     : `${baseUrl}/chat/completions`;
 

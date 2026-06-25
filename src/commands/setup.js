@@ -631,22 +631,23 @@ module.exports = setup;
 async function validateApiKey(providerUrl, apiKey) {
   return new Promise((resolve) => {
     const https = require('https');
-    const url = new URL(providerUrl);
-    const isMM = url.hostname.includes('minimax') || url.hostname.includes('minimaxi');
-    const endpoint = isMM 
+    const { isMiniMax, isGroq, isAnthropic } = require('../utils/provider-detect');
+    const isMM = isMiniMax(providerUrl);
+    const endpoint = isMM
       ? providerUrl.replace(/\/+$/, '') + '/v1/text/chatcompletion_v2'
       : providerUrl.replace(/\/+$/, '') + '/chat/completions';
 
     // Her provider icin test modeli
     let testModel = 'gpt-3.5-turbo';
-    if (providerUrl.includes('groq.com')) testModel = 'llama-3.1-8b-instant';
-    else if (providerUrl.includes('anthropic.com')) testModel = 'claude-3-haiku-20240307';
+    if (isGroq(providerUrl)) testModel = 'llama-3.1-8b-instant';
+    else if (isAnthropic(providerUrl)) testModel = 'claude-3-haiku-20240307';
     else if (isMM) testModel = 'MiniMax-M2.5';
     else if (providerUrl.includes('gemini')) testModel = 'gemini-1.5-flash';
     else if (providerUrl.includes('mistral.ai')) testModel = 'mistral-tiny';
     else if (providerUrl.includes('openrouter.ai')) testModel = 'meta-llama/llama-3.1-8b-instruct:free';
     else if (providerUrl.includes('deepseek.com')) testModel = 'deepseek-chat';
-    
+
+
     const data = JSON.stringify({
       model: testModel,
       messages: [{ role: 'user', content: 'hi' }],
