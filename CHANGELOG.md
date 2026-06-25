@@ -2,6 +2,95 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.7.1] - 2026-06-25 — "BUG FIX SPRINT"
+
+Comprehensive audit-driven sprint: 7 real runtime bugs fixed, 6 new
+utility modules with ~90%+ test coverage, ESLint + flat config installed,
+test scripts wired to vitest (previously `npm test` was just running
+`--help`). Pure quality / stability — no public API change.
+
+### 🐛 Fixed (runtime bugs)
+- **REPL `/system <text>` crashed with TypeError** (`commands/repl.js`):
+  systemPrompt was `const` but the slash handler reassigned it. → `let`.
+- **Telegram + IRC + SMS message handlers ReferenceError on every inbound**
+  (`commands/gateway-server.js`): `cleanCommand` variable never declared
+  in those scopes. Added `stripSlashPrefix(text)` helper mirroring the
+  v5.6.41+ WhatsApp transform; all three channels now derive it correctly.
+- **Tool-alias rewrites threw ReferenceError** (`utils/tools.js`): typo
+  `TOOL_ALIASES[t.name]` where the local was `ALIAS_MAP`. Fixed.
+- **5 silent `no-undef` ReferenceErrors** across `commands/{chat,nodes,
+  gateway,config}.js` + `utils/error.js` — missing `require()` calls
+  that had been hidden by CommonJS load-order side effects (would
+  crash on a fresh process or worker restart).
+
+### 🔒 Security
+- **exec-approvals.json was world-readable (0644)** — local privilege
+  escalation hedef. Now 0o600 (file) + 0o700 (parent dir), with
+  auto-tightening of pre-existing loose installs. Removed dangling
+  `APPROVALS_SOCKET_PATH` constant + unused `net` require (socket never
+  existed; storage is the JSON file).
+- **Anthropic `system` field sent as `''` or `undefined`** (api.js): now
+  always non-empty via `extractSystemForAnthropic(messages)` helper with
+  a meaningful default. Prevents 400 "system: cannot be empty" on
+  recent Messages API revisions + unanchored-model drift.
+
+### ⚙️ Reliability
+- **Crash-safe atomic file writes** for sessions, history, memory,
+  approvals (new `utils/atomic-file.js`: temp-write + rename(2)).
+  Prior `fs.writeFileSync` left truncated JSON on SIGTERM / OOM /
+  power loss.
+- **Memory fact cap silent fail fixed** (`tools/memory_write.js`): the
+  hardcoded `slice(0, 15)` ran BEFORE push, so once 15 high-score
+  facts were saved, every new write was the next iteration's eviction
+  victim — silently. Now: `MAX_FACTS_PER_USER` default 50 (env
+  `NATURECO_MAX_FACTS`), cap applied AFTER push, just-written fact
+  pinned at top, `console.warn` on breach (`NATURECO_QUIET_MEMORY=1`
+  to silence).
+- **Global `unhandledRejection` + `uncaughtException` handlers**
+  (`utils/process-errors.js`, installed as the first statement in
+  `bin/natureco.js`): structured audit log entry + friendly Turkish
+  stderr + exit 1, instead of Node's default ugly stack dump.
+- **Dashboard port + host de-hardcoded** (`utils/ports.js`):
+  `NATURECO_DASHBOARD_PORT` + `NATURECO_DASHBOARD_HOST` env overrides
+  with range/format validation. Previously 7421 was inlined in two
+  separate modules; drift risk eliminated.
+
+### 🧹 Refactor (DRY)
+- **Streaming tool-call delta accumulator** extracted to
+  `utils/streaming-tools.js`. The per-index buffer + string-concat
+  pattern was duplicated in `utils/api.js` and `commands/repl.js` —
+  any drift between them would silently break tool calling on
+  Groq / MiniMax / DeepSeek / OpenAI.
+- **Provider detection** centralized in `utils/provider-detect.js`.
+  Three call sites (`utils/api.js`, `commands/setup.js`) used three
+  different versions of the URL→provider mapping; the setup.js variant
+  was already incorrect (missed `minimax.cn`). Helper makes
+  `detectProvider`, `isMiniMax`, `isAnthropic`, `isGroq`, `isOllama`
+  the single source of truth.
+
+### 🧪 Testing
+- **`npm test` actually runs tests now** — was previously just
+  `node bin/natureco.js help` (a load-smoke). Wired to `vitest run`.
+- **+95 unit tests** across 9 new spec files. Coverage of the new
+  utility modules: streaming-tools 97%, provider-detect 100%,
+  process-errors 88%, ports ~93%, atomic-file ~93%, memory_write
+  internals ~85%.
+- **Test suite: 12 files / 270 tests → 21 files / 365 tests.**
+- `@vitest/coverage-v8` dev dep added; `npm run test:coverage` works.
+- **prepublishOnly gate strengthened**: now runs `node --check` +
+  `eslint --quiet` + `vitest run` in sequence. A broken publish to
+  `npm install -g natureco-cli` users is now strictly blocked.
+
+### 🔧 Tooling
+- **ESLint v9 flat config added** (`eslint.config.js`):
+  `@eslint/js` recommended + warn-level checks for unused-vars,
+  useless-escape, case-declarations, control-regex. Test files get
+  ES-module sourceType + vitest globals; `src/tools/browser*.js`
+  get browser globals for Playwright page.evaluate context.
+  Scripts: `npm run lint`, `lint:fix`, `lint:errors-only`.
+  After the no-undef fixes: 0 errors (293 unused-vars warnings
+  remain for a follow-up sprint).
+
 ## [5.7.0] - 2026-06-24 - SOUL SCRUBBED (MINOR)
 
 ### Security
