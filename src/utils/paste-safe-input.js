@@ -38,6 +38,12 @@ const { PassThrough } = require('stream');
 const PASTE_START = '\x1b[200~';
 const PASTE_END = '\x1b[201~';
 
+// Input proxy ile output filter arasında paste durumunu paylaşır.
+// escapeEmbeddedNewlines paste algıladığında bu context'i set eder,
+// output filter tüm ekoyu yutar (terminalde hiçbir şey gözükmez),
+// repl.js line handler'ı context'i temizler.
+let _pasteContext = null; // { lineCount } or null
+
 // Yapıştırılan içindeki satır sonlarını gizlemek için kullanılan placeholder.
 // Gerçek kullanıcı girdisinde pratikte hiç geçmeyecek bir dizi.
 const NEWLINE_PLACEHOLDER = '\u2424\u2424LINEBREAK\u2424\u2424';
@@ -87,6 +93,14 @@ function escapeEmbeddedNewlines(str) {
   // (Tek istisna: test ortamında PassThrough kullanılır, orada da
   //  testler karakter-karakter yazacak şekilde güncellenmiştir.)
   if (newlineCount === 0) return str;
+
+  // Paste algılandı — output filter'a sinyal ver ve summary yaz
+  const lineCount = newlineCount + 1;
+  _pasteContext = { lineCount };
+  if (process.stdout.isTTY) {
+    process.stdout.write(`\r\x1b[2K[Pasted ~${lineCount} lines]\n`);
+  }
+
   return str.replace(/\r\n|\r|\n/g, NEWLINE_PLACEHOLDER);
 }
 
@@ -207,35 +221,56 @@ function createOutputFilter(output = process.stdout) {
 
   const filter = {
     write(data) {
+      // Paste aktifken tüm ekoyu yut — terminalde hiçbir şey gözükmez
+      if (_pasteContext !== null) {
+        // Placeholder state machine'i çalıştır (sonraki write'lar için
+        // partial buffer temiz kalsın) ama output'a hiçbir şey yazma.
+        const str = data.toString('utf8');
+        let i = 0;
+        while (i < str.length) {
+          if (partial.length > 0) {
+            const expected = NEWLINE_PLACEHOLDER[partial.length];
+            const ch = str[i];
+            if (ch === expected) {
+              partial += ch;
+              i++;
+              if (partial === NEWLINE_PLACEHOLDER) partial = '';
+            } else {
+              partial = '';
+            }
+          } else {
+            if (str[i] === NEWLINE_PLACEHOLDER[0]) {
+              partial = str[i];
+            }
+            i++;
+          }
+        }
+        return true;
+      }
+
       const str = data.toString('utf8');
       let result = '';
       let i = 0;
 
       while (i < str.length) {
         if (partial.length > 0) {
-          // Kısmi eşleşme var — devamını bekle
           const expected = NEWLINE_PLACEHOLDER[partial.length];
           const ch = str[i];
           if (ch === expected) {
             partial += ch;
             i++;
             if (partial === NEWLINE_PLACEHOLDER) {
-              // Placeholder'ı terminalde gösterme — output'tan tamamen çıkar
               partial = '';
             }
           } else {
-            // Eşleşme bozuldu — partial buffer'ı boşalt
             result += partial;
             partial = '';
-            // ch'i tekrar dene (yeni placeholder başlangıcı olabilir)
-            // continue ile aynı i değerinde else-if'e düş
           }
         } else {
           const ch = str[i];
           if (ch === NEWLINE_PLACEHOLDER[0]) {
             partial = ch;
             i++;
-            // Tek karakterlik placeholder değil, bekle
           } else {
             result += ch;
             i++;
@@ -274,6 +309,9 @@ function createOutputFilter(output = process.stdout) {
   return filter;
 }
 
+function setPasteContext(ctx) { _pasteContext = ctx; }
+function clearPasteContext() { _pasteContext = null; }
+
 module.exports = {
   createPasteSafeInput,
   createOutputFilter,
@@ -281,4 +319,6 @@ module.exports = {
   disableBracketedPaste,
   restoreNewlines,
   NEWLINE_PLACEHOLDER,
+  setPasteContext,
+  clearPasteContext,
 };

@@ -24,7 +24,7 @@ const chalk = require('chalk');
 const tui = require('../utils/tui');
 const { loadToolDefinitions, toOpenAIFormat, executeTool } = require('../utils/tools');
 const { accumulateToolCallDeltas, finalizeToolCalls } = require('../utils/streaming-tools');
-const { createPasteSafeInput, createOutputFilter, enableBracketedPaste, disableBracketedPaste, restoreNewlines } = require('../utils/paste-safe-input');
+const { createPasteSafeInput, createOutputFilter, enableBracketedPaste, disableBracketedPaste, restoreNewlines, clearPasteContext } = require('../utils/paste-safe-input');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
 const MODEL_NAMES_TO_HIDE = ['MiniMax-M2.5', 'MiniMaxM2.5', 'minimaxm25', 'Claude-3', 'GPT-4', 'ChatGPT'];
@@ -728,13 +728,8 @@ async function startRepl(args) {
     const line = restoreNewlines(input).trim();
     if (!line) { rl.prompt(); return; }
 
-    // Çok satırlı paste: placeholder'lar output'tan gizlendiği için
-    // terminalde tek satırda birikmiş olan paste ekosunu temizle,
-    // yerine özet yaz.
-    const newlineCount = (line.match(/\n/g) || []).length;
-    if (newlineCount > 0) {
-      process.stdout.write(`\x1b[1A\x1b[J[Pasted ~${newlineCount + 1} lines]\n`);
-    }
+    // Çok satırlı paste: output filter'a echo'yu durdurma sinyalini ver
+    clearPasteContext();
 
     // Slash komutlar
     if (line.startsWith('/')) {
