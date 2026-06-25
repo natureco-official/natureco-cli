@@ -24,6 +24,7 @@ const chalk = require('chalk');
 const tui = require('../utils/tui');
 const { loadToolDefinitions, toOpenAIFormat, executeTool } = require('../utils/tools');
 const { accumulateToolCallDeltas, finalizeToolCalls } = require('../utils/streaming-tools');
+const { createPasteSafeInput, enableBracketedPaste, disableBracketedPaste, restoreNewlines } = require('../utils/paste-safe-input');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
 const MODEL_NAMES_TO_HIDE = ['MiniMax-M2.5', 'MiniMaxM2.5', 'minimaxm25', 'Claude-3', 'GPT-4', 'ChatGPT'];
@@ -615,8 +616,10 @@ async function startRepl(args) {
   let totalInputTokens = 0;
   let totalOutputTokens = 0;
 
+  enableBracketedPaste(process.stdout);
+
   const rl = readline.createInterface({
-    input: process.stdin,
+    input: createPasteSafeInput(process.stdin),
     output: process.stdout,
     prompt: tui.styled('\n  You  ', { color: tui.PALETTE.primary, bold: true }),
     terminal: true,
@@ -643,6 +646,7 @@ async function startRepl(args) {
     }
     // Global buffer temizle
     if (global._fixBuffer) global._fixBuffer = '';
+    disableBracketedPaste(process.stdout);
     console.log(chalk.gray('\n  👋 Görüşürüz!\n'));
     process.exit(exitCode);
   };
@@ -721,7 +725,7 @@ async function startRepl(args) {
   process.on('SIGTERM', () => cleanup(0));
 
   rl.on('line', async (input) => {
-    const line = input.trim();
+    const line = restoreNewlines(input).trim();
     if (!line) { rl.prompt(); return; }
 
     // Slash komutlar
