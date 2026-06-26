@@ -432,7 +432,7 @@ async function cmdWizard() {
     cfg.providerApiKey = apiKey;
     // v5.6.0: API key dogrula
     console.log('\n  Doğrulanıyor...');
-    const isValid = await validateApiKey(cfg.providerUrl, apiKey);
+    const isValid = await validateApiKey(providerUrl, apiKey);
     if (!isValid) {
       console.log('  ❌ API key gecersiz! Lutfen kontrol edin.');
       const retry = await inquirer.prompt([{
