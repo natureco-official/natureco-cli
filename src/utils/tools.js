@@ -68,6 +68,7 @@ const EMOJI_MAP = {
   google_meet: '📹',
   // Orchestrator
   workflow: '⚙️',
+  social_open: '🔗', youtube_ac: '🎬', memory_provider: '🗄️', sub_agent: '👤',
 };
 
 // ── Toolset grouping ─────────────────────────────────────────────────────
@@ -122,6 +123,8 @@ const TOOLSET_MAP = {
   async_delegation: 'agent', blueprint: 'planning', workflow: 'orchestrator',
   spotify: 'media', homeassistant: 'iot', microsoft_graph: 'office',
   computer_use: 'automation', google_meet: 'communication',
+  social_open: 'communication', youtube_ac: 'media',
+  sub_agent: 'agent', memory_provider: 'memory',
 };
 
 // ── check_fn'ler (tool availability kontrolleri) ────────────────────────
@@ -227,16 +230,17 @@ function loadToolDefinitions() {
 }
 
 const ALIAS_MAP = {
-  'brave_search': 'duckduckgo', 'brave-web-search': 'duckduckgo',
-  'google_search': 'duckduckgo', 'web_search': 'duckduckgo',
+  'brave_search': 'duckduckgo_search', 'brave-web-search': 'duckduckgo_search',
+  'google_search': 'duckduckgo_search', 'web_search': 'duckduckgo_search',
   'browse': 'browser', 'shell': 'bash', 'bash_command': 'bash',
   'execute_command': 'bash', 'run_command': 'bash',
+  'http': 'http_request',
 };
 
 const BLOCKED_NAMES = new Set([
   'brave_search', 'brave-web-search', 'google_search', 'web_search',
   'browse', 'open', 'search', 'shell', 'bash_command', 'execute_command',
-  'run_command', 'sql', 'query', 'lookup',
+  'run_command', 'sql', 'query', 'lookup', 'http',
 ]);
 
 // ── check_fn TTL cache (Hermes-style, ~30s) ────────────────────────────
