@@ -20,6 +20,27 @@ function allToolNames() {
   } catch { return []; }
 }
 
+function loadUserMemory(username) {
+  try {
+    const file = path.join(os.homedir(), '.natureco', 'memory', `${(username || 'default').toLowerCase()}.json`);
+    if (fs.existsSync(file)) {
+      const mem = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const facts = (mem.facts || []).map(f => f.value || f).filter(Boolean);
+      const name = mem.name || '';
+      const parts = [];
+      if (name) parts.push(`Kullanici adi: ${name}`);
+      if (facts.length > 0) parts.push(`Bilinenler: ${facts.slice(0, 10).join('; ')}`);
+      return parts.join('\n');
+    }
+  } catch {}
+  return '';
+}
+
+function memoryContext() {
+  const cfg = loadConfig();
+  return loadUserMemory(cfg.userName);
+}
+
 function apiCall(providerUrl, apiKey, body) {
   return new Promise((resolve, reject) => {
     const base = providerUrl.replace(/\/+$/, '');
@@ -84,8 +105,10 @@ async function workflow(params) {
     } catch {}
 
     if (isSimple) {
-      // Passthrough: just chat with LLM, no tools
-      const chatBody = { model, stream: false, messages: [{ role: 'system', content: 'Sen yardimci bir asistansin. Kisa ve oz yanit ver.' }, { role: 'user', content: task }], temperature: 0.7, max_tokens: 1000 };
+      // Passthrough: just chat with LLM, no tools — include user memory
+      const memCtx = memoryContext();
+      const sysMsg = 'Sen yardimci bir asistansin. Kisa ve oz yanit ver.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '');
+      const chatBody = { model, stream: false, messages: [{ role: 'system', content: sysMsg }, { role: 'user', content: task }], temperature: 0.7, max_tokens: 1000 };
       try {
         const chatResult = await apiCall(providerUrl, providerApiKey, chatBody);
         const reply = chatResult.choices?.[0]?.message?.content || '';
@@ -96,10 +119,12 @@ async function workflow(params) {
     }
 
     // Phase 1: LLM plans the workflow
+    const memCtx = memoryContext();
     const planPrompt = {
       role: 'system',
       content: 'Sen bir workflow planlama asistanisin. Verilen gorev icin hangi tool\'larin kullanilacagini ve hangi sirayla calisacagini belirle. SADECE JSON formatinda yanit ver, baska bir sey yazma.\n\nKullanilabilir tool\'lar:\n' +
         tools.map(t => '- ' + t).join('\n') +
+        (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') +
         '\n\nJSON format:\n{\n  "workflowName": "...",\n  "description": "...",\n  "steps": [\n    { "step": 1, "tool": "tool_name", "purpose": "...", "params": { ... } }\n  ]\n}\n\nHer adim icin params kismina tool\'un gerektirdigi parametreleri ekle. Adimlar birbirine bagimli olabilir, onceki adimin outputu sonraki adimin inputu olarak kullanilabilir.'
     };
     const planBody = {
