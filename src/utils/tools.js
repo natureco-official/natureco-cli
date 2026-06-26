@@ -20,7 +20,7 @@ const EMOJI_MAP = {
   // Web
   duckduckgo: '🦆', duckduckgo_search: '🦆', web_search: '🌐', web_readability: '📄', firecrawl: '🔥', searxng: '🔬', searxng_search: '🔬', http_request: '🌍', http: '🌍', exa_search: '🔬', parallel_search: '⚡',
   // Browser
-  browser: '🖥️',
+  browser: '🖥️', browser_use: '🌐',
   // Memory
   memory: '🧠', memory_write: '🧠', memory_search: '🔍',
   // Skills
@@ -84,7 +84,7 @@ const TOOLSET_MAP = {
   parallel_search: 'web',
   duckduckgo_search: 'web', searxng_search: 'web',
   // Browser
-  browser: 'browser',
+  browser: 'browser', browser_use: 'browser',
   // Memory
   memory: 'memory', memory_write: 'memory', memory_search: 'memory',
   // Skills
