@@ -246,7 +246,9 @@ function apiRequest(providerUrl, providerApiKey, body, stream = false) {
     const isMM = isMiniMax(providerUrl);
     const endpoint = isMM
       ? `${providerUrl.replace(/\/+$/, '')}/v1/text/chatcompletion_v2`
-      : `${providerUrl.replace(/\/+$/, '')}/chat/completions`;
+      : isGemini(providerUrl)
+        ? `${providerUrl.replace(/\/+$/, '')}/openai/chat/completions`
+        : `${providerUrl.replace(/\/+$/, '')}/chat/completions`;
     const req = https.request(endpoint, {
       method: 'POST',
       headers: {
@@ -275,6 +277,7 @@ function apiRequest(providerUrl, providerApiKey, body, stream = false) {
 
 async function sendStreaming(providerUrl, providerApiKey, messages, model, onChunk, onToolCall) {
   const isMM = isMiniMax(providerUrl);
+  const isGM = isGemini(providerUrl);
   const toolDefs = getToolDefs();
   const toolParam = toOpenAIFormat(toolDefs);
   guardrails.reset();
@@ -315,7 +318,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
     iterations++;
     // v5.7.18: Preflight compress before each iteration to prevent context bloat
     currentMessages = preflightCompress(currentMessages);
-    const shouldStream = !isMM; // MiniMax streaming endpoint doesn't support tool_calls
+    const shouldStream = !isMM && !isGM; // MiniMax + Gemini non-stream (tool_calls reliability)
     const body = {
       model,
       messages: currentMessages,
@@ -324,7 +327,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
       max_tokens: 2048,
     };
     if (toolParam) body.tools = toolParam;
-    if (isMM) body.tool_choice = 'auto'; // MiniMax için explicit
+    if (isMM || isGM) body.tool_choice = 'auto'; // MiniMax + Gemini için explicit
 
     if (!shouldStream) {
       // MiniMax (non-stream) — tool_calls desteklemiyor varsayalım
