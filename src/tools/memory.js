@@ -119,13 +119,38 @@ function _searchSessions(query, maxResults) {
   return results;
 }
 
+// ── Bridge to JSON fact store (memory_write) ──────────────────────────────
+function _loadJsonFacts(username) {
+  try {
+    const file = path.join(MEMORY_DIR, `${(username || 'default').toLowerCase()}.json`);
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {}
+  return { facts: [], name: null };
+}
+
+function _saveJsonFact(username, fact, category) {
+  try {
+    const file = path.join(MEMORY_DIR, `${(username || 'default').toLowerCase()}.json`);
+    const mem = _loadJsonFacts(username);
+    const now = new Date().toISOString();
+    const existing = mem.facts.find(f => (f.value || '').toLowerCase() === fact.toLowerCase());
+    if (existing) { existing.score = Math.min(10, (existing.score || 5) + 2); existing.updatedAt = now; }
+    else { mem.facts.push({ value: fact, score: 5, category: category || 'personal', createdAt: now, updatedAt: now }); }
+    if (mem.facts.length > 50) mem.facts.sort((a,b) => (b.score||0)-(a.score||0)).slice(0, 50);
+    if (!fs.existsSync(path.dirname(file))) fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(mem, null, 2));
+  } catch {}
+}
+
 async function execute(args) {
   const store = getMemoryStore();
-  const { action, target = 'memory', content, oldContent, scope, maxResults = 10 } = args;
+  const { action, target = 'memory', content, oldContent, scope, maxResults = 10, username } = args;
 
   switch (action) {
     case 'add':
       if (!content) return JSON.stringify({ success: false, error: 'content required for add' });
+      // Bridge: also save to JSON fact store for target=user
+      if (target === 'user') _saveJsonFact(username || 'default', content, 'personal');
       return store.add(target, content);
     case 'remove':
       if (!content) return JSON.stringify({ success: false, error: 'content required for remove' });
@@ -133,8 +158,26 @@ async function execute(args) {
     case 'replace':
       if (!content || !oldContent) return JSON.stringify({ success: false, error: 'content and oldContent required for replace' });
       return store.replace(target, oldContent, content);
-    case 'list':
-      return store.list(target);
+    case 'list': {
+      // Bridge: include JSON facts for target=user
+      let result = store.list(target);
+      if (target === 'user') {
+        try {
+          const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+          if (parsed.success) {
+            const jsonMem = _loadJsonFacts(username || 'default');
+            if (jsonMem.facts && jsonMem.facts.length > 0) {
+              const storedFacts = jsonMem.facts.map(f => `- ${f.value} (onem: ${f.score || 5})`);
+              parsed.entries.push('--- JSON hafiza ---');
+              parsed.entries.push(...storedFacts);
+              parsed.count = parsed.entries.length;
+              result = JSON.stringify(parsed);
+            }
+          }
+        } catch {}
+      }
+      return result;
+    }
     case 'search': {
       if (!content) return JSON.stringify({ success: false, error: 'content (query) required for search' });
       const s = scope || 'all';
