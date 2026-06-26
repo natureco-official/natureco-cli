@@ -1,82 +1,62 @@
 const { getConfig } = require('../utils/config');
+const { getActiveProvider, getProviderNames, DEFAULT_PROVIDER } = require('../utils/search-provider');
+require('../providers/search/tavily');
+require('../providers/search/duckduckgo');
+require('../providers/search/searxng');
+require('../providers/search/exa');
 
 module.exports = {
   name: 'web_search',
-  description: 'Search the web for current information using Tavily',
+  description: 'Search the web for current information using the configured search provider (Tavily, DuckDuckGo, SearXNG, Exa). Switch via NATURECO_SEARCH_PROVIDER env or config.searchProvider.',
   inputSchema: {
     type: 'object',
     properties: {
-      query: {
-        type: 'string',
-        description: 'Search query'
-      }
+      query: { type: 'string', description: 'Search query' },
+      maxResults: { type: 'number', description: 'Maximum results (default: 5)' },
+      provider: { type: 'string', description: 'Override provider: tavily, duckduckgo, searxng, exa (default: configured or tavily)' },
     },
     required: ['query']
   },
-  
+
   async execute(params) {
     try {
       const config = getConfig();
-      const apiKey = config.tavilyApiKey || process.env.TAVILY_API_KEY;
-      
-      if (!apiKey) {
-        return {
-          success: false,
-          error: 'Tavily API key gerekli. Kur: natureco config set tavilyApiKey tvly_xxx\nÜcretsiz key: https://tavily.com'
-        };
+      const providerName = params.provider || process.env.NATURECO_SEARCH_PROVIDER || config.searchProvider;
+      let Provider;
+
+      if (providerName) {
+        const { getProvider } = require('../utils/search-provider');
+        Provider = getProvider(providerName);
       }
-      
-      const response = await fetch('https://api.tavily.com/search', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          api_key: apiKey,
-          query: params.query,
-          search_depth: 'basic',
-          max_results: 5
-        })
+      if (!Provider) {
+        Provider = getActiveProvider(config);
+      }
+
+      const provider = new Provider(config);
+      const result = await provider.search(params.query, {
+        maxResults: params.maxResults || 5,
       });
-      
-      if (!response.ok) {
-        return {
-          success: false,
-          error: `Tavily API error: ${response.status} ${response.statusText}`
-        };
+
+      if (!result.success && providerName && !params.provider) {
+        const allProviders = getProviderNames();
+        for (const name of allProviders) {
+          if (name === providerName) continue;
+          const { getProvider } = require('../utils/search-provider');
+          const FallbackProvider = getProvider(name);
+          if (!FallbackProvider) continue;
+          const fallback = new FallbackProvider(config);
+          const fallbackResult = await fallback.search(params.query, { maxResults: params.maxResults || 5 });
+          if (fallbackResult.success) {
+            fallbackResult.fallback = true;
+            fallbackResult.fallbackReason = result.error;
+            return fallbackResult;
+          }
+        }
       }
-      
-      const data = await response.json();
-      
-      if (data.error) {
-        return {
-          success: false,
-          error: data.error
-        };
-      }
-      
-      if (!data.results || data.results.length === 0) {
-        return {
-          success: true,
-          message: 'Sonuç bulunamadı',
-          query: params.query,
-          results: []
-        };
-      }
-      
-      return {
-        success: true,
-        query: params.query,
-        results: data.results.map(r => ({
-          title: r.title,
-          snippet: r.content,
-          url: r.url
-        })),
-        count: data.results.length
-      };
+
+      return result;
     } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
+      return { success: false, error: error.message };
     }
   }
 };

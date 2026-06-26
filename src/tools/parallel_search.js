@@ -1,77 +1,68 @@
 const { getConfig } = require('../utils/config');
+const { getProviderNames, getProvider } = require('../utils/search-provider');
+require('../providers/search/tavily');
+require('../providers/search/duckduckgo');
+require('../providers/search/searxng');
+require('../providers/search/exa');
 
 module.exports = {
   name: 'parallel_search',
-  description: 'Free web search using Parallel (no API key required)',
+  description: 'Run search across multiple search providers in parallel and merge results. Uses configured providers (DuckDuckGo, SearXNG, Exa, Tavily).',
   inputSchema: {
     type: 'object',
     properties: {
       query: { type: 'string', description: 'Search query' },
-      maxResults: { type: 'number', description: 'Maximum results (default: 5)', default: 5 }
+      maxResults: { type: 'number', description: 'Maximum results per provider (default: 3)' },
+      providers: { type: 'array', items: { type: 'string' }, description: 'Providers to use (default: all available, except Tavily which needs API key)' },
     },
-    required: ['query']
+    required: ['query'],
   },
 
   async execute(params) {
     try {
-      const query = encodeURIComponent(params.query);
-      const maxResults = params.maxResults || 5;
+      const config = getConfig();
+      const query = params.query;
+      const maxResults = params.maxResults || 3;
+      const allProviders = getProviderNames();
 
-      const response = await fetch(
-        `https://api.duckduckgo.com/?q=${query}&format=json&no_html=1&skip_disambig=1`,
-        { headers: { 'User-Agent': 'NatureCo-CLI/2.0' } }
+      let providersToUse = params.providers || allProviders;
+      providersToUse = providersToUse.filter(name => allProviders.includes(name));
+
+      if (providersToUse.length === 0) {
+        return { success: false, error: 'Kullanilabilir search provider bulunamadi' };
+      }
+
+      const results = await Promise.allSettled(
+        providersToUse.map(async (name) => {
+          const Provider = getProvider(name);
+          if (!Provider) throw new Error(`Provider bulunamadi: ${name}`);
+          const provider = new Provider(config);
+          const result = await provider.search(query, { maxResults });
+          return { provider: name, result };
+        })
       );
 
-      if (!response.ok) {
-        return { success: false, error: `Parallel search error: ${response.status}` };
-      }
-
-      const data = await response.json();
-      const results = [];
-
-      if (data.AbstractText) {
-        results.push({
-          title: data.Heading || 'Summary',
-          snippet: data.AbstractText,
-          url: data.AbstractURL || ''
-        });
-      }
-
-      if (data.Results && Array.isArray(data.Results)) {
-        for (const r of data.Results) {
-          if (results.length >= maxResults) break;
-          if (r.Text && r.FirstURL) {
-            results.push({ title: r.Text.split(' - ')[0] || r.Text, snippet: r.Text, url: r.FirstURL });
-          }
-        }
-      }
-
-      if (data.RelatedTopics && Array.isArray(data.RelatedTopics)) {
-        for (const r of data.RelatedTopics) {
-          if (results.length >= maxResults) break;
-          if (r.Text && r.FirstURL) {
-            results.push({ title: r.Text.split(' - ')[0] || r.Text, snippet: r.Text, url: r.FirstURL });
-          }
-          if (r.Topics && Array.isArray(r.Topics)) {
-            for (const t of r.Topics) {
-              if (results.length >= maxResults) break;
-              if (t.Text && t.FirstURL) {
-                results.push({ title: t.Text.split(' - ')[0] || t.Text, snippet: t.Text, url: t.FirstURL });
-              }
-            }
+      const merged = [];
+      for (const r of results) {
+        if (r.status === 'fulfilled' && r.value.result.success) {
+          for (const item of r.value.result.results || []) {
+            merged.push({
+              ...item,
+              _provider: r.value.provider,
+            });
           }
         }
       }
 
       return {
         success: true,
-        query: params.query,
-        results,
-        count: results.length,
-        source: 'parallel'
+        query,
+        results: merged.slice(0, maxResults * providersToUse.length),
+        count: merged.length,
+        providersUsed: providersToUse,
       };
     } catch (error) {
       return { success: false, error: error.message };
     }
-  }
+  },
 };
