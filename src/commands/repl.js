@@ -736,9 +736,8 @@ async function startRepl(args) {
     for (const f of facts) {
       const v = (f.value || f || '').trim();
       const lv = v.toLowerCase();
-      // "Kullanici adi: Gencay" veya "Kullanıcı adı Gencay" veya "isim: Gencay"
-      const match = lv.match(/(?:kullanici\s*adi|kullanıcı\s*adı|isim|name|adı?)\s*:?\s*(.+)/);
-      if (match) return match[1].trim();
+      const match = lv.match(/(?:kullanici\s*adi?|kullanıcı\s*adı?|isim|name)\s*:?\s*(.+)/);
+      if (match && match[1].trim().length > 2) return match[1].trim();
     }
     return null;
   })();

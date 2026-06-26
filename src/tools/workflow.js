@@ -26,7 +26,14 @@ function loadUserMemory(username) {
     if (fs.existsSync(file)) {
       const mem = JSON.parse(fs.readFileSync(file, 'utf8'));
       const facts = (mem.facts || []).map(f => f.value || f).filter(Boolean);
-      const name = mem.name || '';
+      let name = mem.name || '';
+      // Extract name from facts if not saved as memory.name
+      if (!name) {
+        for (const f of facts) {
+          const match = f.toLowerCase().match(/(?:kullanici\s*adi?|kullanıcı\s*adı?|isim|name)\s*:?\s*(.+)/);
+          if (match && match[1].trim().length > 2) { name = match[1].trim(); break; }
+        }
+      }
       const parts = [];
       if (name) parts.push(`Kullanici adi: ${name}`);
       if (facts.length > 0) parts.push(`Bilinenler: ${facts.slice(0, 10).join('; ')}`);
@@ -94,7 +101,7 @@ async function workflow(params) {
     // Phase 0: Check if simple chat (passthrough) — no planning needed
     const simpleCheckPrompt = {
       role: 'system',
-      content: 'Gorevin basit bir selamlasma/sohbet mi yoksa arac gerektiren bir islem mi oldugunu belirle. Sadece "simple" veya "complex" yaz, kesinlikle baska bir sey yazma. Noktalama isareti koyma.\n\nSimple: selamlasma, nasilsin, bugun ne yaptin, havadan sudan, genel bilgi sorusu\nComplex: dosya islemleri, kod yazma, arastirma, karsilastirma, duzenleme, otomasyon, proje yonetimi, debug'
+      content: 'Gorevin basit bir selamlasma/sohbet mi yoksa arac gerektiren bir islem mi oldugunu belirle. Sadece "simple" veya "complex" yaz, kesinlikle baska bir sey yazma. Noktalama isareti koyma.\n\nSimple: selamlasma, nasilsin, bugun ne yaptin, havadan sudan, genel bilgi sorusu, ben kimim, adim ne, kullanici bilgisi sorgulama, hatirlatma talebi\nComplex: dosya islemleri, kod yazma, arastirma, karsilastirma, duzenleme, otomasyon, proje yonetimi, debug, internette arama gerektiren isler'
     };
     const simpleBody = { model, stream: false, messages: [simpleCheckPrompt, { role: 'user', content: task }], temperature: 0, max_tokens: 20 };
     let isSimple = false;
