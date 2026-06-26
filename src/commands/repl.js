@@ -1044,7 +1044,8 @@ async function startRepl(args) {
       const wfResult = await executeTool('workflow', { action: 'run', task: line }, wfToolDefs);
       const wf = wfResult?.result || {};
       if (wf.success !== false) {
-        process.stdout.write(tui.styled('  ✓ workflow\n', { color: tui.PALETTE.success }));
+        const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
+        process.stdout.write(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
       } else {
         process.stdout.write(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
       }
@@ -1082,9 +1083,12 @@ async function startRepl(args) {
           }
           return `  ${s} ${t}: ${summary}`;
         }).join('\n');
+        const skillInfo = wf.skillsLoaded && wf.skillsLoaded.length > 0
+          ? `\n\nKullanilan skill'ler: ${wf.skillsLoaded.join(', ')}`
+          : '';
         messages.push({
           role: 'system',
-          content: `=== WORKFLOW SONUCLARI ===\nSu araclar calisti:\n${report}\n\nKullaniciya bu sonuclari anlamli bir sekilde ozetle.\n=== SONUC BITTI ===`,
+          content: `=== WORKFLOW SONUCLARI ===\nSu araclar calisti:\n${report}${skillInfo}\n\nKullaniciya bu sonuclari anlamli bir sekilde ozetle.\n=== SONUC BITTI ===`,
           _internal: true
         });
         const apiMessages = messages.filter(m => !m._internal);

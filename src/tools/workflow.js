@@ -6,6 +6,8 @@ const os = require('os');
 const WORKFLOW_DIR = path.join(os.homedir(), '.natureco', 'workflows');
 const WORKFLOW_HISTORY = path.join(os.homedir(), '.natureco', 'workflow-history.json');
 
+const { buildSkillIndex } = require('../utils/skill-index');
+
 function ensureDir(dir) { try { fs.mkdirSync(dir, { recursive: true }); } catch {} }
 function loadConfig() {
   try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; }
@@ -94,6 +96,8 @@ async function workflow(params) {
     return { success: false, error: 'Provider ayarli degil. Once: natureco setup' };
   }
 
+  const skillsIndexBlock = buildSkillIndex();
+
   // ── RUN: Execute a complete workflow ──────────────────────────────────
   if (action === 'run') {
     if (!task) return { success: false, error: 'task gerekli' };
@@ -114,7 +118,7 @@ async function workflow(params) {
     if (isSimple) {
       // Passthrough: just chat with LLM, no tools — include user memory
       const memCtx = memoryContext();
-      const sysMsg = 'Sen yardimci bir asistansin. Kisa ve oz yanit ver.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '');
+      const sysMsg = 'Sen yardimci bir asistansin. Kisa ve oz yanit ver.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') + '\n\n' + skillsIndexBlock;
       const chatBody = { model, stream: false, messages: [{ role: 'system', content: sysMsg }, { role: 'user', content: task }], temperature: 0.7, max_tokens: 1000 };
       try {
         const chatResult = await apiCall(providerUrl, providerApiKey, chatBody);
@@ -127,12 +131,13 @@ async function workflow(params) {
 
     // Phase 1: LLM plans the workflow
     const memCtx = memoryContext();
-    const planPrompt = {
-      role: 'system',
-      content: 'Sen bir workflow planlama asistanisin. Verilen gorev icin hangi tool\'larin kullanilacagini ve hangi sirayla calisacagini belirle. SADECE JSON formatinda yanit ver, baska bir sey yazma.\n\nKullanilabilir tool\'lar:\n' +
-        tools.map(t => '- ' + t).join('\n') +
-        (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') +
-        '\n\nJSON format:\n{\n  "workflowName": "...",\n  "description": "...",\n  "steps": [\n    { "step": 1, "tool": "tool_name", "purpose": "...", "params": { ... } }\n  ]\n}\n\nHer adim icin params kismina tool\'un gerektirdigi parametreleri ekle. Adimlar birbirine bagimli olabilir, onceki adimin outputu sonraki adimin inputu olarak kullanilabilir.'
+      const planPrompt = {
+        role: 'system',
+        content: 'Sen bir workflow planlama asistanisin. Verilen gorev icin hangi tool\'larin kullanilacagini ve hangi sirayla calisacagini belirle. SADECE JSON formatinda yanit ver, baska bir sey yazma.\n\nKullanilabilir tool\'lar:\n' +
+          tools.map(t => '- ' + t).join('\n') +
+          '\n\nKullanilabilir skill\'ler (gorevle ilgili skill varsa plana skill_view adimi olarak ekle):\n' + skillsIndexBlock +
+          (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') +
+          '\n\nJSON format:\n{\n  "workflowName": "...",\n  "description": "...",\n  "skillsLoaded": ["..."],\n  "steps": [\n    { "step": 1, "tool": "tool_name", "purpose": "...", "params": { ... } }\n  ]\n}\n\nHer adim icin params kismina tool\'un gerektirdigi parametreleri ekle. Adimlar birbirine bagimli olabilir, onceki adimin outputu sonraki adimin inputu olarak kullanilabilir.\n\nGorevle ilgili skill varsa ILK adim olarak skill_view ile yukle, ardindan diger adimlara gec.'
     };
     const planBody = {
       model, stream: false,
@@ -203,7 +208,8 @@ async function workflow(params) {
         role: 'system',
         content: 'Bir sonraki adimi calistiriyorsun. Sana verilen tool\'u ve parametreleri kullanarak islemi gerceklestir. Tool cagrisini dogru formatta yap.\n\nTool: ' + step.tool + '\nAmac: ' + (step.purpose || '') + '\nPlanlanan parametreler: ' + JSON.stringify(step.params || {}) +
           '\n\nOnceki adim sonuclari:\n' + stepResults.map(r => 'Adim ' + r.step + ' (' + r.tool + '): ' + (r.status === 'done' ? JSON.stringify(r.result).slice(0, 300) : r.status)).join('\n') +
-          '\n\nTek bir tool cagrisi yap ve sonucu bekle. Tool cagrisi yaparken Onceki adim sonuclarindaki gerekli verileri parametre olarak kullan.'
+          '\n\nKullanilabilir skill\'ler:\n' + skillsIndexBlock +
+          '\n\nTek bir tool cagrisi yap ve sonucu bekle. Tool cagrisi yaparken Onceki adim sonuclarindaki gerekli verileri parametre olarak kullan. Ilgili skill varsa once skill_view ile yukle, sonra asil tool\'u cagir.'
       };
       const executeBody = {
         model, stream: false,
@@ -251,6 +257,10 @@ async function workflow(params) {
     history.unshift({ id: wfId, name: plan.workflowName || task.slice(0, 50), task, status: wfEntry.status, steps: plan.steps.length, completedAt: wfEntry.completedAt });
     fs.writeFileSync(WORKFLOW_HISTORY, JSON.stringify(history.slice(0, 50), null, 2));
 
+    const skillsLoaded = stepResults
+      .filter(r => r.tool === 'skill_view' && r.status === 'done')
+      .map(r => r.args?.name || 'bilinmeyen-skill');
+
     return {
       success: true,
       workflowId: wfId,
@@ -260,6 +270,7 @@ async function workflow(params) {
       completedSteps: stepResults.filter(r => r.status === 'done').length,
       failedSteps: stepResults.filter(r => r.status === 'error' || r.status === 'skipped').length,
       status: wfEntry.status,
+      skillsLoaded: skillsLoaded.length > 0 ? skillsLoaded : undefined,
       plan: plan.steps.map(s => ({ step: s.step, tool: s.tool, purpose: s.purpose })),
       results: stepResults.map(r => ({
         step: r.step, tool: r.tool, status: r.status,
@@ -276,7 +287,8 @@ async function workflow(params) {
     const planPrompt = {
       role: 'system',
       content: 'Kullanilabilir tool\'lar:\n' + tools.map(t => '- ' + t).join('\n') +
-        '\n\nGorev icin bir workflow plani JSON formatinda olustur. JSON disinda hicbir sey yazma.\nFormat: { "workflowName": "...", "description": "...", "estimatedSteps": N, "steps": [{ "step": 1, "tool": "...", "purpose": "...", "params": {...}, "expectedOutput": "..." }] }'
+        '\n\nKullanilabilir skill\'ler:\n' + skillsIndexBlock +
+        '\n\nGorev icin bir workflow plani JSON formatinda olustur. JSON disinda hicbir sey yazma.\nFormat: { "workflowName": "...", "description": "...", "estimatedSteps": N, "skillsLoaded": ["..."], "steps": [{ "step": 1, "tool": "...", "purpose": "...", "params": {...}, "expectedOutput": "..." }] }\n\nGorevle ilgili skill varsa plana skill_view adimi olarak ekle.'
     };
     const planBody = {
       model, stream: false,
