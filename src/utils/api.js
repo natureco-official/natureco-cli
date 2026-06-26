@@ -21,7 +21,7 @@ const guardrails = new ToolGuardrails();
  * re-exported here so the historical `detectProvider` reference inside
  * api.js continues to work without touching every call site.
  */
-const { detectProvider, isMiniMax } = require('./provider-detect');
+const { detectProvider, isMiniMax, isGemini } = require('./provider-detect');
 
 /**
  * v5.5.0: Tool definitions'ı provider'a göre normalize et
@@ -548,10 +548,12 @@ function formatToolsForAnthropic() {
  */
 async function sendMessageOpenAICompatible(providerConfig, messages, tools) {
   const baseUrl = providerConfig.url.replace(/\/+$/, '');
-  // MiniMax özel endpoint tespiti — provider-detect.js'deki kanonik tanım.
+  // v5.9.5: buildChatEndpoint handles MiniMax, Gemini, and OpenAI-compatible.
   const endpoint = isMiniMax(baseUrl)
     ? `${baseUrl}/v1/text/chatcompletion_v2`
-    : `${baseUrl}/chat/completions`;
+    : isGemini(baseUrl)
+      ? `${baseUrl}/openai/chat/completions`
+      : `${baseUrl}/chat/completions`;
   const requestBody = {
     model: providerConfig.model,
     messages: messages,
@@ -1019,10 +1021,12 @@ async function streamProviderCompletion(providerConfig, messages, tools) {
 
 async function streamOpenAICompletion(providerConfig, messages, tools) {
   const baseUrl = providerConfig.url.replace(/\/+$/, '');
-  // MiniMax özel endpoint tespiti (streaming için de aynı) — provider-detect.js.
+  // v5.9.5: buildChatEndpoint handles MiniMax, Gemini, and OpenAI-compatible.
   const endpoint = isMiniMax(baseUrl)
     ? `${baseUrl}/v1/text/chatcompletion_v2`
-    : `${baseUrl}/chat/completions`;
+    : isGemini(baseUrl)
+      ? `${baseUrl}/openai/chat/completions`
+      : `${baseUrl}/chat/completions`;
 
   const requestBody = {
     model: providerConfig.model,

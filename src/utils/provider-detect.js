@@ -69,10 +69,29 @@ function isOllama(url) {
   return u.includes('localhost') || u.includes('127.0.0.1') || u.includes('ollama');
 }
 
+function isGemini(url) {
+  const u = (url || '').toLowerCase();
+  return u.includes('generativelanguage.googleapis.com') || u.includes('gemini');
+}
+
+/**
+ * Build the correct chat completions endpoint for a given provider URL.
+ * Handles MiniMax (non-standard path), Gemini (OpenAI-compat path under /openai/),
+ * and standard OpenAI-compatible providers.
+ */
+function buildChatEndpoint(providerUrl) {
+  const base = (providerUrl || '').replace(/\/+$/, '');
+  if (isMiniMax(base)) return `${base}/v1/text/chatcompletion_v2`;
+  if (isGemini(base)) return `${base}/openai/chat/completions`;
+  return `${base}/chat/completions`;
+}
+
 module.exports = {
   detectProvider,
   isAnthropic,
   isGroq,
   isMiniMax,
   isOllama,
+  isGemini,
+  buildChatEndpoint,
 };

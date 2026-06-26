@@ -137,6 +137,9 @@ function getConfig() {
 function isMiniMax(url) {
   return url && (url.includes('minimax.io') || url.includes('minimaxi.com') || url.includes('minimax.cn'));
 }
+function isGemini(url) {
+  return url && (url.includes('generativelanguage.googleapis.com') || url.includes('gemini'));
+}
 
 function loadMemory(username) {
   const file = path.join(MEMORY_DIR, `${(username || 'default').toLowerCase()}.json`);
@@ -344,10 +347,12 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
     }
 
     // OpenAI uyumlu streaming (veya MiniMax /v1/text/chatcompletion_v2)
-    // v4.8.2: MiniMax tool calling sadece özel endpoint'inde çalışıyor
+    // v5.9.5: Gemini /openai/chat/completions — provider-detect.js buildChatEndpoint
     const endpoint = isMM
       ? `${providerUrl.replace(/\/+$/, '')}/v1/text/chatcompletion_v2`
-      : `${providerUrl.replace(/\/+$/, '')}/chat/completions`;
+      : isGemini(providerUrl)
+        ? `${providerUrl.replace(/\/+$/, '')}/openai/chat/completions`
+        : `${providerUrl.replace(/\/+$/, '')}/chat/completions`;
     const result = await new Promise((resolve, reject) => {
       const req = https.request(endpoint, {
         method: 'POST',
