@@ -68,7 +68,7 @@ const EMOJI_MAP = {
   google_meet: '📹',
   // Orchestrator
   workflow: '⚙️',
-  social_open: '🔗', youtube_ac: '🎬', memory_provider: '🗄️', sub_agent: '👤',
+  social_open: '🔗', youtube_ac: '🎬', memory_provider: '🗄️',
 };
 
 // ── Toolset grouping ─────────────────────────────────────────────────────
