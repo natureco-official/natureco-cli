@@ -1,23 +1,26 @@
 /**
- * memory — Unified memory tool (Hermes-style)
+ * memory — Unified memory tool (Hermes-style, merged with memory_write + memory_search)
  *
- * Single tool with action=add|remove|replace|list, target=memory|user
+ * Single tool with action=add|remove|replace|list|search, target=memory|user
  *
- * Coexists with existing memory_write / memory_search tools.
- * New system prompt uses memory-store snapshot; this tool mutates live state.
+ * Uses memory-store (MEMORY.md / USER.md) for add/remove/replace/list.
+ * Search action uses the legacy memory_write/search JSON files for cross-session query.
  */
 
 const { getMemoryStore } = require('../utils/memory-store');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 const name = 'memory';
-const description = 'Persistent memory across sessions. Use action=add to save facts, action=list to see everything, action=remove to delete by substring match. target=memory for environment facts, target=user for user preferences and traits.';
+const description = 'Persistent memory across sessions. action=add to save facts, action=list to see everything, action=remove to delete by substring, action=search to query all past sessions and memory files. target=memory for environment facts, target=user for user preferences.';
 const parameters = {
   type: 'object',
   properties: {
     action: {
       type: 'string',
-      enum: ['add', 'remove', 'replace', 'list'],
-      description: 'Operation: add (append entry), remove (by substring match), replace (find by substring, replace), list (show all)',
+      enum: ['add', 'remove', 'replace', 'list', 'search'],
+      description: 'Operation: add (append entry), remove (by substring match), replace (find by substring, replace), list (show all), search (query all memory + sessions)',
     },
     target: {
       type: 'string',
@@ -26,19 +29,99 @@ const parameters = {
     },
     content: {
       type: 'string',
-      description: 'Content to add/remove/replace. For replace, this is the new content.',
+      description: 'Content to add/remove/replace. For replace, this is the new content. For search, the query string.',
     },
     oldContent: {
       type: 'string',
       description: 'For replace: substring to match existing entry.',
     },
+    scope: {
+      type: 'string',
+      enum: ['all', 'memory', 'sessions'],
+      description: 'For search: scope to search (all=memory files + sessions, memory=only memory files, sessions=only session history)',
+    },
+    maxResults: {
+      type: 'number',
+      description: 'For search: max results (default 10)',
+    },
   },
-  required: ['action', 'target'],
+  required: ['action'],
 };
+
+// ── Legacy search helpers (from memory_search.js) ────────────────────────
+
+const MEMORY_DIR = path.join(os.homedir(), '.natureco', 'memory');
+const SESSION_DIR = path.join(os.homedir(), '.natureco', 'sessions');
+
+function _searchInObject(obj, query, pathStr) {
+  const results = [];
+  if (!obj || typeof obj !== 'object') return results;
+  if (typeof obj === 'string' && obj.toLowerCase().includes(query)) {
+    return [{ path: pathStr, content: obj.slice(0, 200) }];
+  }
+  for (const [key, val] of Object.entries(obj)) {
+    const newPath = pathStr ? pathStr + '.' + key : key;
+    if (typeof val === 'string' && val.toLowerCase().includes(query)) {
+      results.push({ path: newPath, content: val.slice(0, 200) });
+    } else if (Array.isArray(val)) {
+      val.forEach((item, i) => {
+        const ip = newPath + '[' + i + ']';
+        if (typeof item === 'string' && item.toLowerCase().includes(query)) {
+          results.push({ path: ip, content: item.slice(0, 200) });
+        } else if (typeof item === 'object') {
+          results.push(..._searchInObject(item, query, ip));
+        }
+      });
+    } else if (typeof val === 'object' && val !== null) {
+      results.push(..._searchInObject(val, query, newPath));
+    }
+  }
+  return results;
+}
+
+function _searchFiles(dir, query, sourceLabel) {
+  const results = [];
+  if (!fs.existsSync(dir)) return results;
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+  for (const file of files) {
+    try {
+      const data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
+      const hits = _searchInObject(data, query.toLowerCase(), '');
+      for (const h of hits) {
+        results.push({ source: sourceLabel, file, path: h.path, content: h.content });
+      }
+    } catch { /* skip corrupt files */ }
+  }
+  return results;
+}
+
+function _searchSessions(query, maxResults) {
+  const results = [];
+  if (!fs.existsSync(SESSION_DIR)) return results;
+  const files = fs.readdirSync(SESSION_DIR).filter(f => f.endsWith('.json'));
+  for (const file of files) {
+    if (results.length >= maxResults) break;
+    try {
+      const session = JSON.parse(fs.readFileSync(path.join(SESSION_DIR, file), 'utf8'));
+      const msgs = session.messages || [];
+      for (const msg of msgs) {
+        const text = msg.content || '';
+        if (typeof text === 'string' && text.toLowerCase().includes(query)) {
+          results.push({
+            source: 'session', file, role: msg.role || '?',
+            preview: text.slice(0, 200),
+          });
+          if (results.length >= maxResults) break;
+        }
+      }
+    } catch { /* skip corrupt */ }
+  }
+  return results;
+}
 
 async function execute(args) {
   const store = getMemoryStore();
-  const { action, target = 'memory', content, oldContent } = args;
+  const { action, target = 'memory', content, oldContent, scope, maxResults = 10 } = args;
 
   switch (action) {
     case 'add':
@@ -52,6 +135,20 @@ async function execute(args) {
       return store.replace(target, oldContent, content);
     case 'list':
       return store.list(target);
+    case 'search': {
+      if (!content) return JSON.stringify({ success: false, error: 'content (query) required for search' });
+      const s = scope || 'all';
+      const results = [];
+      if (s === 'all' || s === 'memory') {
+        const memHits = _searchFiles(MEMORY_DIR, content, 'memory');
+        results.push(...memHits);
+      }
+      if (s === 'all' || s === 'sessions') {
+        const sessHits = _searchSessions(content, maxResults);
+        results.push(...sessHits);
+      }
+      return JSON.stringify({ success: true, query: content, count: results.length, results: results.slice(0, maxResults) });
+    }
     default:
       return JSON.stringify({ success: false, error: `Unknown action: ${action}` });
   }

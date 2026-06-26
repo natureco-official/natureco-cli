@@ -67,6 +67,7 @@ const terminal = require('../src/commands/terminal');
 const transcripts = require('../src/commands/transcripts');
 const wiki = require('../src/commands/wiki');
 const browser = require('../src/commands/browser');
+const tools = require('../src/commands/tools');
 
 const program = new Command();
 
@@ -621,6 +622,13 @@ program
   .description('NatureCo XP/Level sistemi')
   .action((action) => {
     xp(action ? [action] : []);
+  });
+
+program
+  .command('tools [action] [name]')
+  .description('Tool registry (list|enable|disable)')
+  .action((action, name) => {
+    tools(action ? [action, name].filter(Boolean) : []);
   });
 
 program

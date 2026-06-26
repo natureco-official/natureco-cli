@@ -2,42 +2,159 @@
  * NatureCo CLI — Tool Definitions for OpenAI-compatible APIs
  *
  * src/tools/*.js dosyalarını OpenAI uyumlu function calling format'ına dönüştürür.
- * Her tool'un:
- *   - name: tool adı
- *   - description: ne yaptığı
- *   - parameters: JSON schema
- *
- * REPL bu listeyi API'ye gönderir, model tool çağrısı yapar,
- * biz tool'u çalıştırır, sonucu modele geri veririz.
+ * v5.7.17: Emoji + toolset + check_fn + registry entegrasyonu.
  */
 
 const fs = require('fs');
 const path = require('path');
+const { globalRegistry } = require('./registry');
 
 const TOOLS_DIR = path.join(__dirname, '..', 'tools');
 
-/**
- * src/tools/*.js dosyalarını oku, her birinin export'ladığı
- * tool metadata'sını topla. Eğer tool'un export'unda
- * { name, description, parameters, execute } varsa kullan,
- * yoksa dosya adından otomatik üret.
- */
+// ── Emoji map (central, tek kaynak) ──────────────────────────────────────
+const EMOJI_MAP = {
+  // File operations
+  read_file: '📖', write_file: '✏️', edit_file: '🖊️', list_dir: '📂', file_search: '🔍', grep_search: '🔎', filesystem: '🗄️',
+  // Terminal
+  bash: '💻', shell_command: '⌨️',
+  // Web
+  duckduckgo: '🦆', duckduckgo_search: '🦆', web_search: '🌐', web_readability: '📄', firecrawl: '🔥', searxng: '🔬', searxng_search: '🔬', http_request: '🌍', http: '🌍', exa_search: '🔬', parallel_search: '⚡',
+  // Browser
+  browser: '🖥️',
+  // Memory
+  memory: '🧠', memory_write: '🧠', memory_search: '🔍',
+  // Skills
+  skill_view: '📚', skills_list: '📋', skill_generate: '✨', skills_autoload: '🔄', skills_marketplace: '🏪', skill_manage: '🛠️',
+  // Agent
+  delegate_task: '👥', llm_task: '🤖', sub_agent: '👤',
+  // Documents
+  document_extract: '📄', notebook_edit: '📓', notes_add: '📝',
+  // Git
+  git: '🔀',
+  // Plan / Todo
+  plan: '📋', todo_write: '✅',
+  // Media
+  image_generation: '🎨', video_generation: '🎬', music_generation: '🎵', media_understanding: '📺', text_to_speech: '🔊', speech_to_text: '🎤', voice_chat: '🗣️',
+  // macOS
+  mac_alarm: '⏰', mac_app_open: '🚀', mac_app_quit: '⏹️', mac_notify: '🔔', macos_screenshot: '📸', phone_control: '📱', phone_control_enhanced: '📱',
+  // Calendar
+  calendar_add: '📅',
+  // Reminder
+  reminder_add: '⏰',
+  // Dashboard
+  dashboard: '📊',
+  kanban: '📋',
+  // Canvas
+  canvas: '🎨',
+  // Plugin
+  plugin: '🔌',
+  // Soul
+  soul: '💫',
+  // Cron
+  cron_create: '⏱️',
+  // Thread
+  thread_ownership: '🔗',
+  // Audio understanding
+  audio_understanding: '🎵',
+  // Code execution
+  code_execution: '⚡',
+  // Cross-session
+  cross_session_memory: '🔗',
+  // Delegate
+  delegate_task: '👥',
+  // Todo
+  todo_write: '✅',
+  // Music
+  music_generation: '🎵',
+  // Phone
+  phone_control_enhanced: '📱',
+  // Mac alarm
+  mac_alarm: '⏰',
+  // Cron create
+  cron_create: '⏱️',
+  // Plan
+  plan: '📋',
+};
 
-/**
- * v5.6.1: Provider'a gore tool filtrele
- * Groq validator cok kati — sadece basit tool'lar
- * Anthropic, OpenAI tam tool seti kullanir
- */
+// ── Toolset grouping ─────────────────────────────────────────────────────
+const TOOLSET_MAP = {
+  // File
+  read_file: 'file', write_file: 'file', edit_file: 'file', list_dir: 'file',
+  file_search: 'file', grep_search: 'file', filesystem: 'file',
+  // Terminal
+  bash: 'terminal', shell_command: 'terminal',
+  // Web
+  duckduckgo: 'web', web_search: 'web', web_readability: 'web', firecrawl: 'web',
+  searxng: 'web', http_request: 'web', http: 'web', exa_search: 'web',
+  parallel_search: 'web',
+  duckduckgo_search: 'web', searxng_search: 'web',
+  // Browser
+  browser: 'browser',
+  // Memory
+  memory: 'memory', memory_write: 'memory', memory_search: 'memory',
+  // Skills
+  skill_view: 'skills', skills_list: 'skills', skill_generate: 'skills',
+  skills_autoload: 'skills', skills_marketplace: 'skills', skill_manage: 'skills',
+  // Agent
+  delegate_task: 'agent', llm_task: 'agent',
+  // Documents
+  document_extract: 'documents', notebook_edit: 'documents', notes_add: 'documents',
+  // Git
+  git: 'git',
+  // Plan / Todo
+  plan: 'planning', todo_write: 'planning',
+  // Media
+  image_generation: 'media', video_generation: 'media', music_generation: 'media',
+  media_understanding: 'media', text_to_speech: 'media', speech_to_text: 'media',
+  voice_chat: 'media', audio_understanding: 'media',
+  // macOS
+  mac_alarm: 'macos', mac_app_open: 'macos', mac_app_quit: 'macos', mac_notify: 'macos',
+  macos_screenshot: 'macos', phone_control: 'macos', phone_control_enhanced: 'macos',
+  // Calendar
+  calendar_add: 'calendar',
+  // Reminder
+  reminder_add: 'reminders',
+  // Other
+  dashboard: 'dashboard', canvas: 'canvas', plugin: 'plugins', soul: 'soul',
+  kanban: 'planning',
+  cron_create: 'cron', thread_ownership: 'threads', code_execution: 'sandbox',
+  cross_session_memory: 'memory',
+};
+
+// ── check_fn'ler (tool availability kontrolleri) ────────────────────────
+function _checkBrowser() {
+  try {
+    require.resolve('playwright');
+    return true;
+  } catch { return false; }
+}
+
+function _checkDuckDuckGo() {
+  return true; // API-based, always available
+}
+
+function _checkMacOSTools() {
+  return process.platform === 'darwin';
+}
+
+const CHECK_FN_MAP = {
+  browser: _checkBrowser,
+  mac_alarm: _checkMacOSTools,
+  mac_app_open: _checkMacOSTools,
+  mac_app_quit: _checkMacOSTools,
+  mac_notify: _checkMacOSTools,
+  macos_screenshot: _checkMacOSTools,
+  phone_control: _checkMacOSTools,
+  phone_control_enhanced: _checkMacOSTools,
+};
+
+// ── Provider filtering ───────────────────────────────────────────────────
 function getToolsForProvider(allTools, providerUrl) {
   const url = (providerUrl || '').toLowerCase();
-
-  // Groq icin minimum tool seti
   if (url.includes('groq.com')) {
-    const allowed = ['read_file', 'write_file', 'bash', 'shell_command', 'list_dir', 'soul', 'memory_write', 'memory_search'];
+    const allowed = ['read_file', 'write_file', 'bash', 'shell_command', 'list_dir', 'soul', 'memory', 'memory_write', 'memory_search', 'filesystem', 'grep_search'];
     return allTools.filter(t => allowed.includes(t.name));
   }
-
-  // Anthropic, OpenAI, MiniMax tam set
   return allTools;
 }
 
@@ -45,7 +162,6 @@ function loadToolDefinitions() {
   const tools = [];
   const files = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.js'));
 
-  // v5.6.1: Provider tespiti - Groq icin sadece temel tool'lar
   let isGroq = false;
   try {
     const { getConfig } = require('./config');
@@ -55,105 +171,109 @@ function loadToolDefinitions() {
     }
   } catch (e) {}
 
+  let disabledTools = new Set();
+  try {
+    const { getConfig } = require('./config');
+    const cfg = getConfig();
+    if (Array.isArray(cfg.disabledTools)) disabledTools = new Set(cfg.disabledTools);
+  } catch (e) {}
+
   const GROQ_ALLOWED = new Set([
     'read_file', 'write_file', 'list_dir', 'bash', 'shell_command',
-    'soul', 'memory_write', 'memory_search', 'filesystem', 'grep_search'
+    'soul', 'memory', 'memory_write', 'memory_search', 'filesystem', 'grep_search'
   ]);
 
   for (const file of files) {
     try {
       const toolPath = path.join(TOOLS_DIR, file);
       const mod = require(toolPath);
+      const toolName = mod.name || path.basename(file, '.js');
 
-      // Groq icin sadece temel tool'lar
-      if (isGroq) {
-        const toolName = mod.name || path.basename(file, '.js');
-        if (!GROQ_ALLOWED.has(toolName)) continue;
-      }
+      if (isGroq && !GROQ_ALLOWED.has(toolName)) continue;
+      if (disabledTools.has(toolName)) continue;
 
-      // Tool metadata çıkar
       const meta = {
-        name: mod.name || path.basename(file, '.js'),
+        name: toolName,
         description: mod.description || `${path.basename(file, '.js')} tool`,
         parameters: mod.parameters || mod.inputSchema || { type: 'object', properties: {} },
         execute: mod.execute || (mod.default && mod.default.execute) || null,
+        emoji: EMOJI_MAP[toolName] || '',
+        toolset: TOOLSET_MAP[toolName] || 'general',
+        checkFn: CHECK_FN_MAP[toolName] || null,
       };
 
-      // Eğer execute fonksiyonu varsa ekle (CLI'da çalıştırmak için)
       if (meta.execute) {
         tools.push(meta);
+        // Registry'ye kaydet
+        globalRegistry.register({
+          name: meta.name,
+          toolset: meta.toolset,
+          schema: { name: meta.name, description: meta.description, parameters: meta.parameters },
+          handler: meta.execute,
+          checkFn: meta.checkFn,
+          emoji: meta.emoji,
+        });
       }
     } catch (e) {
-      // Sessizce atla — bozuk tool dosyaları kritik değil
+      // Sessizce atla
     }
   }
-
   return tools;
 }
 
-/**
- * OpenAI uyumlu API'ye gönderilecek format:
- *   [{ type: "function", function: { name, description, parameters } }]
- */
-function toOpenAIFormat(toolDefs) {
-  // v5.6.6: Yasakli tool'lari filtrele, alias'lari cozumle
-  // v5.6.6: Inline tool filtre - model halusinasyonla cagirabilecegi tool'lari engelle
-  toolDefs = toolDefs.filter(t => 
-    !['brave_search','brave-web-search','google_search','web_search','browse','open','search','shell','bash_command','execute_command','run_command','sql','query','lookup'].includes(t.name)
-  );
+const ALIAS_MAP = {
+  'brave_search': 'duckduckgo', 'brave-web-search': 'duckduckgo',
+  'google_search': 'duckduckgo', 'web_search': 'duckduckgo',
+  'browse': 'browser', 'shell': 'bash', 'bash_command': 'bash',
+  'execute_command': 'bash', 'run_command': 'bash',
+};
 
+const BLOCKED_NAMES = new Set([
+  'brave_search', 'brave-web-search', 'google_search', 'web_search',
+  'browse', 'open', 'search', 'shell', 'bash_command', 'execute_command',
+  'run_command', 'sql', 'query', 'lookup',
+]);
+
+function toOpenAIFormat(toolDefs) {
   return toolDefs
-    .filter(t => !['brave_search','brave-web-search','google_search','web_search','browse','open','search','shell','bash_command','execute_command','run_command','sql','query','lookup'].includes(t.name))
-    .map(t => {
-      // Alias varsa degistir. Önceki kod ALIAS_MAP'i declare ediyordu ama
-      // değiştirmek için TOOL_ALIASES kullanıyordu (undefined) — alias hit
-      // olduğunda ReferenceError ile çöküyordu. ALIAS_MAP'e döndürüldü.
-      const ALIAS_MAP = { 'brave_search':'duckduckgo_search','brave-web-search':'duckduckgo_search','google_search':'duckduckgo_search','web_search':'duckduckgo_search','browse':'browser','shell':'bash','bash_command':'bash','execute_command':'bash','run_command':'bash' };
-      if (ALIAS_MAP[t.name]) {
-        t = { ...t, name: ALIAS_MAP[t.name] };
+    .filter(t => !BLOCKED_NAMES.has(t.name))
+    .filter(t => {
+      if (t.checkFn) {
+        try { return t.checkFn() !== false; } catch { return false; }
       }
-    // v5.4.21: Groq uyumluluk - additionalProperties: false kaldirildi
-    // ve gereksiz kisitlamalar temizlendi
-    const cleanParams = JSON.parse(JSON.stringify(t.parameters || {}));
-    if (cleanParams.properties) {
-      Object.keys(cleanParams.properties).forEach(key => {
-        const prop = cleanParams.properties[key];
-        // "type": ["number", "string"] union types Groq'da hata verir
-        // Sadece ilk tipi al
-        if (Array.isArray(prop.type)) {
-          prop.type = prop.type[0];
-        }
-        // additionalProperties kaldir
-        delete prop.additionalProperties;
-      });
-    }
-    // Groq icin required kismi bazen sorun cikarir - olduugu gibi birak
-    // ama type validation'u gevset
-    return {
-      type: 'function',
-      function: {
-        name: t.name,
-        description: t.description,
-        parameters: cleanParams,
-      },
-    };
-  });
+      return true;
+    })
+    .map(t => {
+      let name = t.name;
+      if (ALIAS_MAP[name]) name = ALIAS_MAP[name];
+
+      const cleanParams = JSON.parse(JSON.stringify(t.parameters || {}));
+      if (cleanParams.properties) {
+        Object.keys(cleanParams.properties).forEach(key => {
+          const prop = cleanParams.properties[key];
+          if (Array.isArray(prop.type)) prop.type = prop.type[0];
+          delete prop.additionalProperties;
+        });
+      }
+
+      return {
+        type: 'function',
+        function: { name, description: t.description, parameters: cleanParams },
+      };
+    });
 }
 
-/**
- * Tool çağrısını çalıştır
- * @param toolName - tool adı
- * @param args - tool argümanları (object)
- * @param toolDefs - loadToolDefinitions() sonucu
- * @returns { result, error }
- */
 async function executeTool(toolName, args, toolDefs) {
   const tool = toolDefs.find(t => t.name === toolName);
-  if (!tool) {
-    return { error: `Tool bulunamadı: ${toolName}` };
-  }
-  if (!tool.execute) {
-    return { error: `Tool execute fonksiyonu yok: ${toolName}` };
+  if (!tool) return { error: `Tool bulunamadı: ${toolName}` };
+  if (!tool.execute) return { error: `Tool execute fonksiyonu yok: ${toolName}` };
+  // checkFn — tool disabled? (re-check at runtime)
+  if (tool.checkFn) {
+    try {
+      if (tool.checkFn() === false) return { error: `${toolName} şu anda kullanılamıyor (check_fn engelledi)` };
+    } catch {
+      return { error: `${toolName} kontrol hatası` };
+    }
   }
   try {
     const result = await tool.execute(args || {});
@@ -164,7 +284,6 @@ async function executeTool(toolName, args, toolDefs) {
 }
 
 module.exports = {
-  loadToolDefinitions,
-  toOpenAIFormat,
-  executeTool,
+  loadToolDefinitions, toOpenAIFormat, executeTool, getToolsForProvider,
+  EMOJI_MAP, TOOLSET_MAP, CHECK_FN_MAP,
 };
