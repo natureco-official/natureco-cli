@@ -32,7 +32,8 @@ function apiRequest(method, endpoint, body) {
     const apiKey = getApiKey();
     if (!apiKey) return reject(new Error('BROWSER_USE_API_KEY gerekli. Sign up: https://cloud.browser-use.com'));
 
-    const url = new URL(endpoint, BASE_URL);
+    const fullUrl = BASE_URL + (endpoint.startsWith('/') ? endpoint : '/' + endpoint);
+    const url = new URL(fullUrl);
     const options = {
       method,
       hostname: url.hostname,
