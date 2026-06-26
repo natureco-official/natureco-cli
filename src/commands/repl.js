@@ -241,7 +241,7 @@ function extractFacts(messages, currentFacts) {
   return newFacts;
 }
 
-function apiRequest(providerUrl, providerApiKey, body, stream = false) {
+function apiRequest(providerUrl, providerApiKey, body, stream = false, retries = 3) {
   return new Promise((resolve, reject) => {
     const isMM = isMiniMax(providerUrl);
     const endpoint = isMM
@@ -249,29 +249,38 @@ function apiRequest(providerUrl, providerApiKey, body, stream = false) {
       : isGemini(providerUrl)
         ? `${providerUrl.replace(/\/+$/, '')}/openai/chat/completions`
         : `${providerUrl.replace(/\/+$/, '')}/chat/completions`;
-    const req = https.request(endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${providerApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      timeout: 60000,
-    }, (res) => {
-      if (stream) { resolve(res); return; }
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          try { resolve(JSON.parse(data)); } catch (e) { reject(new Error('Parse hatası')); }
-        } else {
-          reject(new Error(`HTTP ${res.statusCode}: ${data.slice(0, 200)}`));
-        }
+    const doRequest = (attempt) => {
+      const req = https.request(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${providerApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 60000,
+      }, (res) => {
+        if (stream) { resolve(res); return; }
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            try { resolve(JSON.parse(data)); } catch (e) { reject(new Error('Parse hatası')); }
+          } else if (res.statusCode === 429 && attempt < retries) {
+            const delay = Math.pow(2, attempt) * 1000;
+            setTimeout(() => doRequest(attempt + 1), delay);
+          } else {
+            const msg = res.statusCode === 429
+              ? 'HTTP 429: API rate limit aşıldı. Lütfen bekleyin veya planınızı yükseltin.'
+              : `HTTP ${res.statusCode}: ${data.slice(0, 200)}`;
+            reject(new Error(msg));
+          }
+        });
       });
-    });
-    req.on('error', reject);
-    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
-    req.write(JSON.stringify(body));
-    req.end();
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+      req.write(JSON.stringify(body));
+      req.end();
+    };
+    doRequest(0);
   });
 }
 

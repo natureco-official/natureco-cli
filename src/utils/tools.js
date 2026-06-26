@@ -60,6 +60,12 @@ const EMOJI_MAP = {
   code_execution: '⚡',
   // Cross-session
   cross_session_memory: '🔗',
+  // v5.10.0: New tools
+  url_safety: '🛡️', approval: '✅', checkpoint: '💾', file_state: '🔍',
+  pii_redact: '🔒', clarify: '❓', session_search: '🔎', x_search: '🐦',
+  discord: '💬', send_message: '📨', async_delegation: '⏳', blueprint: '📐',
+  spotify: '🎧', homeassistant: '🏠', microsoft_graph: '📊', computer_use: '🖱️',
+  google_meet: '📹',
 };
 
 // ── Toolset grouping ─────────────────────────────────────────────────────
@@ -105,6 +111,15 @@ const TOOLSET_MAP = {
   kanban: 'planning',
   cron_create: 'cron', thread_ownership: 'threads', code_execution: 'sandbox',
   cross_session_memory: 'memory',
+  // v5.10.0: New tools
+  url_safety: 'security', approval: 'security', pii_redact: 'security',
+  checkpoint: 'system', file_state: 'system',
+  clarify: 'agent',
+  session_search: 'memory',
+  x_search: 'web', discord: 'communication', send_message: 'communication',
+  async_delegation: 'agent', blueprint: 'planning',
+  spotify: 'media', homeassistant: 'iot', microsoft_graph: 'office',
+  computer_use: 'automation', google_meet: 'communication',
 };
 
 // ── check_fn'ler (tool availability kontrolleri) ────────────────────────
@@ -132,6 +147,8 @@ const CHECK_FN_MAP = {
   macos_screenshot: _checkMacOSTools,
   phone_control: _checkMacOSTools,
   phone_control_enhanced: _checkMacOSTools,
+  // v5.10.0: google_meet create macOS-only; computer_use partial cross-platform
+  google_meet: () => process.platform === 'darwin' || true, // only 'create' is macOS-only, 'open' cross-platform
 };
 
 // ── Provider filtering ───────────────────────────────────────────────────
