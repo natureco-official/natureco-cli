@@ -70,6 +70,31 @@ async function workflow(params) {
   if (action === 'run') {
     if (!task) return { success: false, error: 'task gerekli' };
 
+    // Phase 0: Check if simple chat (passthrough) — no planning needed
+    const simpleCheckPrompt = {
+      role: 'system',
+      content: 'Gorevin basit bir selamlasma/sohbet mi yoksa arac gerektiren bir islem mi oldugunu belirle. Sadece "simple" veya "complex" yaz, baska bir sey yazma.\n\nSimple: selamlasma, nasilsin, bugun ne yaptin, havadan sudan, genel bilgi sorusu\nComplex: dosya islemleri, kod yazma, arastirma, karsilastirma, duzenleme, otomasyon, proje yonetimi, debug'
+    };
+    const simpleBody = { model, stream: false, messages: [simpleCheckPrompt, { role: 'user', content: task }], temperature: 0, max_tokens: 10 };
+    let isSimple = false;
+    try {
+      const simpleResult = await apiCall(providerUrl, providerApiKey, simpleBody);
+      const simpleAnswer = (simpleResult.choices?.[0]?.message?.content || '').trim().toLowerCase();
+      isSimple = simpleAnswer === 'simple';
+    } catch {}
+
+    if (isSimple) {
+      // Passthrough: just chat with LLM, no tools
+      const chatBody = { model, stream: false, messages: [{ role: 'system', content: 'Sen yardimci bir asistansin. Kisa ve oz yanit ver.' }, { role: 'user', content: task }], temperature: 0.7, max_tokens: 1000 };
+      try {
+        const chatResult = await apiCall(providerUrl, providerApiKey, chatBody);
+        const reply = chatResult.choices?.[0]?.message?.content || '';
+        return { success: true, workflowId: 'passthrough', name: 'Direct Chat', status: 'completed', totalSteps: 0, completedSteps: 0, results: [{ step: 0, tool: 'chat', status: 'done', result: { reply } }], passthrough: true, reply };
+      } catch (e) {
+        return { success: false, error: 'Sohbet yaniti alinamadi: ' + e.message };
+      }
+    }
+
     // Phase 1: LLM plans the workflow
     const planPrompt = {
       role: 'system',
