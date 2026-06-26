@@ -527,9 +527,20 @@ async function processToolCalls(toolCalls, onToolCall) {
   }
 
   // Notify UI done + build messages
+  // v5.9.7: Skip internal meta-tools (_loop_warning, _no_progress) from tool messages
+  //         Inject loop warning as user message instead (Gemini requires real tool names)
+  //         Gemini also requires 'name' field in tool response messages
   const messages = [];
   for (const { name, id, result } of results) {
     if (onToolCall) onToolCall({ name, args: null, status: 'done', result });
+
+    if (name === '_loop_warning' || name === '_no_progress') {
+      if (name === '_loop_warning') {
+        const warnContent = typeof result?.result === 'string' ? result.result : '';
+        if (warnContent) messages.push({ role: 'user', content: '[System: ' + warnContent + ']' });
+      }
+      continue;
+    }
 
     let content;
     if (result.error) {
@@ -544,7 +555,7 @@ async function processToolCalls(toolCalls, onToolCall) {
       }
     }
 
-    messages.push({ role: 'tool', tool_call_id: id, content });
+    messages.push({ role: 'tool', tool_call_id: id, name, content });
   }
 
   return messages;
