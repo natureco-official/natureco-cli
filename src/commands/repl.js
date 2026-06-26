@@ -567,10 +567,13 @@ async function startRepl(args) {
 
     // === TOOL KURALLARI ===
     `ONEMLI: <tool_call>, <invoke>, function_call veya benzeri XML/JSON formatinda tool cagirma SIMULE ETME. Sadece duz metin cevap ver. Islem yapmak gerekirse tool'u gercekten cagir.`,
-    `KRITIK: Kullanici kisisel bilgi verdiginde (ad, tercih, is, vb.) MUTLAKA memory_write tool'unu cagir. Bu sayede sonraki oturumlarda hatirlayabilirsin.`,
-    `KRITIK: 'adim X', 'adin X olsun', 'sana X diyeyim' gibi ifadelerde memory_write ile botName degistir. Bundan sonra kendini o isimle tanit.`,
+    `KRITIK: Skill index'teki skill'lerden biri gorevle eslesiyorsa mutlaka skill_view(name) ile yukle ve talimatlarini uygula.`,
+    `KRITIK: Kullanici kisisel bilgi verdiginde (ad, tercih, is, vb.) MUTLAKA memory(action=add, target=user, content=...) ile kaydet. Boylece sonraki oturumlarda hatirlayabilirsin.`,
+    `KRITIK: Kendinle ilgili notlari (ortam bilgisi, proje kurallari, arac ipuclari) memory(action=add, target=memory, content=...) ile kaydet.`,
+    `KRITIK: Kullanici adini veya hitap seklinin degismesini istediginde memory(action=add, target=user, content=...) ile kaydet.`,
+    `Kullanici hakkinda bilgin gerektiginde memory(action=list, target=user) ile hatirlanani getir.`,
 
-    // === HAFIZA ENTEGRASYONU ===
+    // === HAFIZA ENTEGRASYONU (eski JSON memory) ===
     memory.facts && memory.facts.length > 0
       ? `Kullanici hakkinda bildiklerin (MUTLAKA kullan, dogal sekilde referans ver): ${memory.facts.slice(0, 8).map(f => f.value || f).join('; ')}`
       : '',

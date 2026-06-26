@@ -66,8 +66,8 @@ function buildSkillIndex() {
     if (!byCategory[s.category]) byCategory[s.category] = [];
     byCategory[s.category].push(s);
   }
-  const lines = ['## Skills'];
-  lines.push('Before replying, scan the skills below. If a skill matches your task, load it with skill_view(name) and follow its instructions.');
+  const lines = ['## Skills (mandatory)'];
+  lines.push('Before replying, scan the skills below. If a skill matches or is even partially relevant to your task, you MUST load it with skill_view(name) and follow its instructions. Err on the side of loading — it is always better to have context you do not need than to miss critical steps, pitfalls, or established workflows.');
   lines.push('<available_skills>');
   for (const [cat, catSkills] of Object.entries(byCategory)) {
     lines.push(`  ${cat}:`);
