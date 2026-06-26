@@ -1,7 +1,7 @@
 /**
  * mac_alarm - macOS Clock app ile alarm kur (v5.1.1)
  *
- * Parton'un istegi: "Saat uygulamasi uzerinden saat 18:00 alarm kur"
+ * macOS alarm — saat uygulamasi uzerinden alarm kurar
  * Eski reminder_add date parse edemiyordu. Bu tool AppleScript ile
  * Clock.app'in events sistemine yazar (alarm orada saklanir).
  */

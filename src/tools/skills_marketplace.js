@@ -1,7 +1,7 @@
 /**
  * skills_marketplace - Skill marketplace (v5.0.0)
  *
- * Parton'un vizyonu: "herkes kendi skill'ini paylassin, CLI otomatik yuklesin"
+ * Skills marketplace — skill paylasimi ve otomatik yukleme
  *
  * Format: ~/.natureco/marketplace/<skill_name>.json
  * Source: NatureCo GitHub repo (community-contributed) veya local
@@ -16,7 +16,7 @@ const MARKETPLACE_DIR = path.join(os.homedir(), ".natureco", "marketplace");
 const SKILLS_DIR = path.join(os.homedir(), ".natureco", "skills");
 
 /**
- * Marketplace URL'leri — Parton kendi GitHub repo'sunu koyacak
+ * Marketplace URL'leri — kullanici GitHub repo'su
  */
 const MARKETPLACE_SOURCES = [
   {
@@ -32,7 +32,7 @@ const MARKETPLACE_SOURCES = [
 ];
 
 /**
- * Built-in skill paketleri — Parton'un NatureCo vizyonu icin onemli
+ * Built-in skill paketleri
  */
 const BUILTIN_SKILLS = {
   "seo-audit": {

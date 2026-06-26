@@ -8,7 +8,7 @@
  *   natureco naturehub trending         Trend olan konular
  *   natureco naturehub config           Ayarları göster
  *
- * API endpoint: api.natureco.me/naturehub/* (placeholder, gerçek API Parton sağlayacak)
+ * API endpoint: api.natureco.me/naturehub/* (placeholder)
  */
 
 const chalk = require('chalk');

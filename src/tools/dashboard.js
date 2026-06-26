@@ -1,7 +1,7 @@
 /**
  * dashboard - Web Dashboard v2 (v5.4.0)
  *
- * Parton'un vizyonu: "CLI'yi web'den de kontrol edebileyim"
+ * Dashboard — CLI'yi web'den kontrol eder
  *
  * Ozellikler:
  *   - Real-time tool execution (WebSocket)
@@ -189,7 +189,7 @@ const DASHBOARD_HTML = `
     </div>
 
     <div class="footer">
-      <p>NatureCo CLI v5.4.0 - Parton & Sasuke - <span id="lastUpdate"></span></p>
+      <p>NatureCo CLI v5.4.0 - <span id="lastUpdate"></span></p>
     </div>
   </div>
   <script>

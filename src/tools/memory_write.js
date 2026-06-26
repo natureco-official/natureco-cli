@@ -2,7 +2,7 @@
  * memory_write - Memory'ye fact/kayit yaz (v5.1.1)
  *
  * REPL'in extractMemoryFromMessage ozelligini tool olarak expose eder.
- * Parton'un vizyonu: "Benim asistanim, her seyimi hatirlayacak"
+ * Kalici hafiza — faktlari kaydeder, puanlar, eskiyenleri temizler
  */
 
 const fs = require("fs");
@@ -133,7 +133,7 @@ function verifyMemoryWrite(username, expectedFact, expectedBotName) {
 
 function addMemory({ username, fact, score = 5, category = "general", botName, nickname, name }) {
   // Username yoksa ve 'name' parametresi varsa, onu username olarak kullan
-  // (Parton'un "patron" diye hitap etmesi durumu icin)
+  // (hitap bicimi icin)
   const effectiveUsername = username || (name && name.toLowerCase()) || 'default';
   if (!effectiveUsername || effectiveUsername === 'default') {
     // Hicbir username yok, default.json'a yaz
@@ -232,8 +232,8 @@ module.exports = {
   inputSchema: {
     type: "object",
     properties: {
-      username: { type: "string", description: "Kullanici adi (ornek: 'gencay' veya 'parton')" },
-      fact: { type: "string", description: 'Yeni fact (ornek: "Kullanici Naruto karakterini seviyor", "Istanbul\'da yasiyor")' },
+      username: { type: "string", description: "Kullanici adi (ornek: 'ahmet' veya 'default')" },
+      fact: { type: "string", description: 'Yeni fact (ornek: "Kullanici kahve seviyor", "Istanbul\'da yasiyor")' },
       score: { type: "number", description: "Onem derecesi 1-10 (default 5)" },
       category: { type: "string", description: "Kategori: personal, preference, work, hobby, fact (default general)" },
       botName: { type: "string", description: "Bot adini degistir (memory.botName)" },

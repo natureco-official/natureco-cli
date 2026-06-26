@@ -1,7 +1,7 @@
 /**
  * cross_session_memory - Oturumlar arasi hafiza (v5.3.1)
  *
- * Parton'un vizyonu: "Hafta sonra gelince de beni hatirlayacak"
+ * Cross-session hafiza — oturumlar arasi baglam korur
  *
  * Ozellikler:
  *   - Tum session'lari tarihsel sirayla yukler

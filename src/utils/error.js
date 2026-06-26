@@ -1,7 +1,7 @@
 /**
  * error.js — Standardized error handling (v5.3.1)
  *
- * Parton: "Teknik acidan kusursuz olalim"
+ * Hata yonetimi — teknik olarak kusursuz
  * Tum tool'lar bu helper'i kullanir:
  *   - Standart error format
  *   - Retry stratejisi

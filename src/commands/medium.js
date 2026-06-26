@@ -1,7 +1,7 @@
 /**
  * natureco medium — Medium makale yayınlama (Phase 6)
  *
- * Parton'un hedefi: ayda en az 4 Medium makalesi.
+ * Medium entegrasyonu — makale yayinlama.
  * Bu komut CLI'dan taslak yayınlamayı sağlar.
  *
  * Kullanım:

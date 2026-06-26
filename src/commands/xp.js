@@ -1,7 +1,7 @@
 /**
  * natureco xp — NatureCo XP/Level sistemi (Phase 6)
  *
- * Parton'un hedeflerinden biri: kullanıcıları ödüllendirmek.
+ * XP/Level sistemi — kullanıcıları ödüllendirir.
  * XP kazanma yolları:
  *   - Komut çalıştırma (1 XP)
  *   - Audit log kaydı (0.1 XP)

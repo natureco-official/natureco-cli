@@ -1,7 +1,7 @@
 /**
  * skill_generate - Self-generating skill (v5.1.0)
  *
- * Parton'un vizyonu: "Ihtiyaca gore skill yoksa kendi uretsin"
+ * Skill generator — ihtiyaca gore skill uretir
  *
  * Akis:
  * 1. Kullanici bir istek yapar (ornek: "tum pdf'leri birlestir")

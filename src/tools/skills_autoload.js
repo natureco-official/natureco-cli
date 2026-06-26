@@ -1,7 +1,7 @@
 /**
  * skills_autoload - Otomatik skill yukleme (v5.0.0)
  *
- * Parton'un vizyonu: "Ihtiyaca gore skill'ler otomatik yuklensin"
+ * Skills otomatik yukleme — ihtiyaca gore skill'leri algilayip yukler
  *
  * Mantik:
  * 1. Kullanici bir istek yapar

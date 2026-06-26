@@ -1,7 +1,7 @@
 /**
  * plugin.js — Plugin sistemi (v5.4.0)
  *
- * Parton'un vizyonu: "Topluluk plugin uretsin, istedigi gibi genisletebilsin"
+ * Plugin sistemi — topluluk plugin uretimi ve yuklemesi
  *
  * Mimari:
  *   ~/.natureco/plugins/

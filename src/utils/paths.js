@@ -2,7 +2,7 @@
  * paths.js — Path helper utilities (v5.2.0)
  *
  * Tum tool'larda ~/Desktop/test.txt gibi path'leri dogru handle etmek icin.
- * Parton'un gercek testinde "File does not exist" bug'i duzeltildi.
+ * "File does not exist" bug'i duzeltildi.
  */
 
 const os = require("os");

@@ -9,7 +9,7 @@ const { spawn } = require("child_process");
 const path = require("path");
 const os = require("os");
 
-// v5.2.0: Agent alias mapping (Parton'un testinden — "review" diye bir agent yok)
+// v5.2.0: Agent alias mapping
 const AGENT_ALIASES = {
   "review": "general",          // eskiden review diye bir vardi, simdi general
   "analyze": "explore",

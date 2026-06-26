@@ -1,7 +1,7 @@
 /**
  * voice_chat - Sesli asistan (v5.3.0)
  *
- * Parton'un vizyonu: "Bilgisayarla konusayim"
+ * Voice chat — sesli iletisim
  *
  * Mikrofon → Whisper STT → REPL'e metin olarak gönder
  * Bot cevabı → TTS ile sesli oku

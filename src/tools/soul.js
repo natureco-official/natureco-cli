@@ -1,11 +1,11 @@
 /**
  * soul - SOUL.md, IDENTITY.md, AGENTS.md okuyucu (v5.4.12)
  *
- * Parton'un vizyonu: "Uc dosya birlestir, beni tam tanisin"
+ * Soul dosyasi — kimlik, kisisellik ve calisma tarzini tanimlar
  *
  * 3 dosya sirayla okunur, ozetlenir ve system prompt'a enjekte edilir:
  *   1. SOUL.md     - KISILIK (nasil hissederim, kirmizi cizgiler, degerler)
- *   2. IDENTITY.md - KIMLIK (kim oldugum, Parton'la bag, calisma tarzi)
+ *   2. IDENTITY.md - KIMLIK (kim oldugu, baglam, calisma tarzi)
  *   3. AGENTS.md  - CALISMA ORTAMI (kurallar, tools, heartbeats)
  *
  * 3 seviyede arar:

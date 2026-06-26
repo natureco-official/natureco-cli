@@ -1,7 +1,7 @@
 /**
  * plan - Plan modu (v5.3.1)
  *
- * Parton'un vizyonu: "Karmasik isleri once planlasin, sonra calistirayim"
+ * Planlama — karmasik isleri adimlara bolup calistirir
  *
  * Ozellikler:
  *   - Sadece plan yapar, hicbir tool calistirmaz

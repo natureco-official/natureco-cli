@@ -1,7 +1,7 @@
 /**
  * calendar_add - macOS Calendar'a etkinlik ekle (v4.9.1)
  *
- * Parton'un OS-level kontrol vizyonu için.
+ * OS-level calendar kontrolü
  * "Yarin saat 14:00 toplantim var" -> Takvime ekler.
  */
 

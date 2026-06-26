@@ -36,11 +36,11 @@ function fixModelNameLeak(text, botName) {
   let fixed = text;
   for (const modelName of MODEL_NAMES_TO_HIDE) {
     const regex = new RegExp(modelName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    fixed = fixed.replace(regex, botName || 'İchigo');
+    fixed = fixed.replace(regex, botName || 'asistan');
   }
-  fixed = fixed.replace(/Ben\s+MiniMax[^.,!?\n]*/gi, 'Ben İchigo');
-  fixed = fixed.replace(/I'm\s+MiniMax[^.,!?\n]*/gi, "I'm İchigo");
-  fixed = fixed.replace(/I am\s+Claude[^.,!?\n]*/gi, 'I am İchigo');
+  fixed = fixed.replace(/Ben\s+MiniMax[^.,!?\n]*/gi, 'Ben ' + (botName || 'asistan'));
+  fixed = fixed.replace(/I'm\s+MiniMax[^.,!?\n]*/gi, "I'm " + (botName || 'asistan'));
+  fixed = fixed.replace(/I am\s+Claude[^.,!?\n]*/gi, 'I am ' + (botName || 'asistan'));
   return fixed;
 }
 global.fixModelNameLeak = fixModelNameLeak;
@@ -102,7 +102,7 @@ function loadMemory(username) {
   try {
     if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch {}
-  return { name: username || 'Kullanıcı', nickname: null, botName: 'İchigo', facts: [], preferences: [], history: [] };
+  return { name: username || 'Kullanıcı', nickname: null, botName: 'Asistan', facts: [], preferences: [], history: [] };
 }
 
 function saveMemory(username, memory) {
@@ -513,7 +513,7 @@ async function startRepl(args) {
 
   // v5.6.19: Oncelik config.botName, sonra memory.botName
   if (!memory.botName) {
-    memory.botName = cfg.botName || 'İchigo';
+    memory.botName = cfg.botName || 'Asistan';
   }
   // BotName'i memory'ye persist et (her oturumda ayni kalsin)
   try {
@@ -576,7 +576,7 @@ async function startRepl(args) {
 
   // System prompt oluştur (memory + identity + persistent bağlam)
   // v5.4.6: Bot adı zorlaması EN GÜÇLÜ + SOUL.md EN BAŞTA
-  const botName = memory.botName || 'İchigo';
+  const botName = memory.botName || 'Asistan';
   const userName = memory.name || memory.nickname || 'kanka';
   // v5.6.5: Kucuk model tespiti (Groq, Mistral Small, Ollama) - SOUL injection skip
   const isSmallModel = (cfg.providerUrl || '').includes('groq.com') || 
@@ -612,14 +612,14 @@ async function startRepl(args) {
   console.log(tui.C.muted('  Provider: ') + tui.C.brand(providerUrl.replace(/https?:\/\//, '')));
   console.log(tui.C.muted('  Model:    ') + tui.C.brand(model));
   console.log(tui.C.muted('  Kullanıcı: ') + tui.C.brand((memory.nickname || cfg.userName) + (memory.nickname ? ` (${cfg.userName})` : '')));
-  console.log(tui.C.muted('  Bot:      ') + tui.C.brand(memory.botName || 'İchigo'));
+  console.log(tui.C.muted('  Bot:      ') + tui.C.brand(memory.botName || 'Asistan'));
   if (messages.length > 1) {
     console.log(tui.C.muted('  Oturum:   ') + tui.C.amber(`${messages.filter(m => m.role === 'user' || m.role === 'assistant').length} mesaj (resume)`));
   }
   console.log(tui.C.muted('  Komutlar: ') + tui.C.yellow('/help') + tui.C.muted(' · ') + tui.C.yellow('/memory') + tui.C.muted(' · ') + tui.C.yellow('/sessions') + tui.C.muted(' · ') + tui.C.yellow('/exit'));
   console.log('');
   // v5.4.7: Hard-coded kimlik
-  const displayBotName = memory.botName || 'İchigo';
+  const displayBotName = memory.botName || 'Asistan';
   const displayUserName = userName || 'kanka';
   console.log(tui.C.brand('  👋 Ben ' + displayBotName + ', ' + displayUserName + '. Sen nasilsin?'));
   console.log('');
@@ -683,31 +683,30 @@ async function startRepl(args) {
       // Pattern-based extraction (zaten extractFacts var)
       const newFacts = extractFacts(messages, memory.facts || []);
 
-      // Bazi user message'lari da tara - 'Parton', 'Ichigo', 'patron', 'CEO' gecerse ekle
+      // Bazi user message'lari da tara — genel kalıplarla fact çıkar
       const userMessages = messages.filter(m => m.role === 'user' && !m._internal);
       for (const msg of userMessages) {
         const text = (msg.content || '').toLowerCase();
 
         // BotName hatirlatmasi
-        if (text.includes('ichigo') && text.includes('ad')) {
-          if (memory.botName !== 'İchigo') {
-            memory.botName = 'İchigo';
-          }
+        if (text.includes('ad') && (text.includes('adin') || text.includes('ismin'))) {
+          // Bot adı sorgulanmış olabilir, mevcut adı koru
         }
 
-        // Patron/partnership
-        if ((text.includes('patron') || text.includes('patronum')) && text.length < 100) {
-          const fact = 'Kullanici benim patronum, ona patron diye hitap etmeliyim';
-          if (!(memory.facts || []).some(f => f.value === fact)) {
-            newFacts.push({ value: fact, score: 8, category: 'personal', createdAt: new Date().toISOString() });
-          }
-        }
-
-        // NatureCo CEO
-        if (text.includes('natureco') && text.includes('ceo')) {
-          const fact = "Kullanici NatureCo CEO'sudur";
-          if (!(memory.facts || []).some(f => f.value === fact)) {
-            newFacts.push({ value: fact, score: 9, category: 'work', createdAt: new Date().toISOString() });
+        // Kisilik tercihleri (genel pattern'ler)
+        const prefPatterns = [
+          { match: /(?:benim ad[ıi]m?|bana\s+.*de|ad[ıi]m?)\s+(\w+)/i, category: 'personal', key: 'ad' },
+          { match: /(?:seviyorum|hoşlan[ıi]yorum|beğeniyorum)\s+(\w+)/i, category: 'preference', key: 'sevilen' },
+          { match: /(?:yaşıyorum|oturuyorum|kalıyorum)\s+(\w+)/i, category: 'location', key: 'yer' },
+        ];
+        for (const p of prefPatterns) {
+          const m2 = msg.content.match(p.match);
+          if (m2) {
+            const val = m2[1].toLowerCase();
+            const fact = `Kullanici ${p.key}: ${val}`;
+            if (!(memory.facts || []).some(f => f.value === fact)) {
+              newFacts.push({ value: fact, score: 6, category: p.category, createdAt: new Date().toISOString() });
+            }
           }
         }
       }
@@ -774,7 +773,7 @@ async function startRepl(args) {
           console.log(chalk.cyan('\n  🧠 Memory:\n'));
           console.log('  Kullanıcı: ' + chalk.cyan(memory.name));
           console.log('  Nickname: ' + chalk.cyan(memory.nickname || '(yok)'));
-          console.log('  Bot: ' + chalk.cyan(memory.botName || 'İchigo'));
+          console.log('  Bot: ' + chalk.cyan(memory.botName || 'Asistan'));
           if (memory.facts && memory.facts.length > 0) {
             console.log('  Facts (' + memory.facts.length + '):');
             for (const f of memory.facts) {
@@ -790,7 +789,7 @@ async function startRepl(args) {
             if (fs.existsSync(path.join(MEMORY_DIR, `${(cfg.userName || 'default').toLowerCase()}.json`))) {
               fs.unlinkSync(path.join(MEMORY_DIR, `${(cfg.userName || 'default').toLowerCase()}.json`));
             }
-            memory = { name: cfg.userName, nickname: null, botName: 'İchigo', facts: [], preferences: [], history: [] };
+            memory = { name: cfg.userName, nickname: null, botName: 'Asistan', facts: [], preferences: [], history: [] };
             // System prompt'u sıfırla
             const newSysPrompt = systemPrompt.replace(/Kullanıcı hakkında bildiklerin:.*$/, '').trim();
             messages[0] = { role: 'system', content: newSysPrompt, _internal: true };
@@ -833,7 +832,7 @@ async function startRepl(args) {
           console.log(chalk.green('  ✓ Model: ') + chalk.cyan(model));
           break;
         case 'identity':
-          if (!arg) { console.log(chalk.yellow(`  Mevcut: ${memory.botName || 'İchigo'}`)); break; }
+          if (!arg) { console.log(chalk.yellow(`  Mevcut: ${memory.botName || 'Asistan'}`)); break; }
           memory.botName = arg;
           saveMemory(cfg.userName, memory);
           const newSys = systemPrompt.replace(/Sen \w+ adında/, `Sen ${arg} adında`);
@@ -884,7 +883,7 @@ async function startRepl(args) {
     if (isIdentityQuestion) {
       // v5.6.10: Hard-coded prefix minimal - model cevabini bozuyordu
       // Once sadece isim yaz, modelin devamini getirsin
-      const displayName = memory.botName || 'İchigo';
+      const displayName = memory.botName || 'Asistan';
       process.stdout.write(tui.styled('\n  AI   ', { color: tui.PALETTE.secondary, bold: true }));
       process.stdout.write('Merhaba! Ben ' + displayName + '. ');
     }
@@ -917,7 +916,7 @@ async function startRepl(args) {
       // v5.6.12: Tam metin 'reply' olarak zaten geldi (non-stream mode)
       const fullReply = String(reply || '');
       // Bot adini al
-      const displayBotName = memory.botName || 'İchigo';
+      const displayBotName = memory.botName || 'Asistan';
       // v5.6.9: Tum model adlarini ve varyasyonlari temizle
       let fixedReply = String(fullReply);
       // Bilinen model adlari - tum varyasyonlar
@@ -933,13 +932,9 @@ async function startRepl(args) {
       fixedReply = fixedReply.replace(/Ben\s+MiniMax[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
       fixedReply = fixedReply.replace(/Ben\s+Claude[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
       fixedReply = fixedReply.replace(/Ben\s+GPT[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
-      fixedReply = fixedReply.replace(/Ben\s+İchigo[\s\w\.]*/gi, 'Ben ' + displayBotName);
+      fixedReply = fixedReply.replace(/Ben\s+Asistan[\s\w\.]*/gi, 'Ben ' + displayBotName);
       // Markdown ** ile cevrili model adi
       fixedReply = fixedReply.replace(/\*\*(?:MiniMax|Claude|GPT|M2\.5|M2)[^\*]*\*\*/gi, '**' + displayBotName + '**');
-      // "İchigo" varyasyonlari
-      fixedReply = fixedReply.replace(/(İchigo)(\d)([a-zA-ZçğıöşüÇĞİÖŞÜ])/g, displayBotName + ' $3');
-      fixedReply = fixedReply.replace(/İchigo[\.\s\-_]*\d+/g, displayBotName);
-      fixedReply = fixedReply.replace(/İchigo\./g, displayBotName);
       // Cevap yazdir
       process.stdout.write('\n' + fixedReply + '\n');
       // v5.7.18: Tool call geçmişini kalıcı messages'a ekle — model sonraki turlarda tool sonuçlarını görsün
