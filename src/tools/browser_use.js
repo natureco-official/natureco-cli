@@ -24,7 +24,7 @@ function loadConfig() {
 
 function getApiKey() {
   const cfg = loadConfig();
-  return cfg.browserUseApiKey || process.env.BROWSER_USE_API_KEY || '';
+  return cfg.browserUseApiKey || cfg.BROWSER_USE_API_KEY || process.env.BROWSER_USE_API_KEY || '';
 }
 
 function apiRequest(method, endpoint, body) {
