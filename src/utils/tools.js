@@ -66,6 +66,8 @@ const EMOJI_MAP = {
   discord: '💬', send_message: '📨', async_delegation: '⏳', blueprint: '📐',
   spotify: '🎧', homeassistant: '🏠', microsoft_graph: '📊', computer_use: '🖱️',
   google_meet: '📹',
+  // Orchestrator
+  workflow: '⚙️',
 };
 
 // ── Toolset grouping ─────────────────────────────────────────────────────
@@ -117,7 +119,7 @@ const TOOLSET_MAP = {
   clarify: 'agent',
   session_search: 'memory',
   x_search: 'web', discord: 'communication', send_message: 'communication',
-  async_delegation: 'agent', blueprint: 'planning',
+  async_delegation: 'agent', blueprint: 'planning', workflow: 'orchestrator',
   spotify: 'media', homeassistant: 'iot', microsoft_graph: 'office',
   computer_use: 'automation', google_meet: 'communication',
 };
