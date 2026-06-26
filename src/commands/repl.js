@@ -894,28 +894,15 @@ async function startRepl(args) {
         model,
         // v5.6.12: Callback bos - tam metin 'reply' olarak gelecek (non-stream mode)
         () => {},
-        // Tool call callback — kullanıcıya göster
+        // Tool call callback — minimal Hermes-style one-liner
         (toolEvent) => {
           if (toolEvent.status === 'running') {
-            process.stdout.write('\n');
-            console.log(tui.styled('  🔧 Tool: ' + toolEvent.name, { color: tui.PALETTE.accent, bold: true }));
-            const argsStr = JSON.stringify(toolEvent.args).slice(0, 120);
-            console.log(tui.styled('     Args: ' + argsStr, { color: tui.PALETTE.muted }));
+            process.stdout.write(tui.styled('\r  🔧 ' + toolEvent.name + '...  ', { color: tui.PALETTE.muted }));
           } else if (toolEvent.status === 'done') {
             if (toolEvent.result.error) {
-              console.log(tui.styled('     ✗ Hata: ' + toolEvent.result.error.slice(0, 100), { color: tui.PALETTE.danger }));
+              process.stdout.write(tui.styled('\r  ✗ ' + toolEvent.name + ': ' + toolEvent.result.error.slice(0, 80) + '\n', { color: tui.PALETTE.danger }));
             } else {
-              const resultStr = typeof toolEvent.result.result === 'string'
-                ? toolEvent.result.result.slice(0, 200)
-                : JSON.stringify(toolEvent.result.result).slice(0, 200);
-              // v5.6.21: Yol gizleme
-              const cleanResult = (resultStr || '')
-                .replace(/\/?Users\/[^"\s]+/g, '~')
-                .replace(/\/?home\/[^"\s]+/g, '~')
-                .replace(/"size":\d+/g, '')
-                .replace(/"path":"[^"]*"/g, '')
-                .replace(/"fileCount":\d+/g, '');
-              console.log(tui.styled('     ✓ Sonuç: ' + cleanResult.trim(), { color: tui.PALETTE.success }));
+              process.stdout.write('\r' + ' '.repeat(60) + '\r');
             }
             process.stdout.write(tui.styled('  AI   ', { color: tui.PALETTE.secondary, bold: true }));
           }
