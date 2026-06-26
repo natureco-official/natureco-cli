@@ -1,6 +1,6 @@
 {
   "name": "natureco-cli",
-  "version": "5.9.5",
+  "version": "5.9.6",
   "description": "OpenClaw'dan daha güvenli, daha hızlı, daha ucuz AI agent CLI. Multi-agent, self-evolving skills, audit log, maliyet optimizasyonu ve NatureCo platform-native.",
   "bin": {
     "natureco": "bin/natureco.js"
