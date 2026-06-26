@@ -75,7 +75,8 @@ async function chat(botName, options = {}) {
   // Önceki v2.23 davranışı: ASCII art, bot seçimi, inquirer prompt, vb.
   // Bu refactor, eski tüm komutları (session, memory, hooks, custom commands) korur
   // ama provider URL (api.minimax.io, api.groq.com) üzerinden direkt LLM'e bağlanır
-  if (config.providerUrl && !config.providerUrl.includes('natureco.me')) {
+  // Provider ayarlı değilse veya natureco.me değilse REPL'e yönlendir
+  if (!config.providerUrl || !config.providerUrl.includes('natureco.me')) {
     // Resume parametresi REPL'e geçir
     const replArgs = [];
     if (options.resume === true || options.resume) {
