@@ -729,9 +729,20 @@ async function startRepl(args) {
   }
   console.log(tui.C.muted('  Komutlar: ') + tui.C.yellow('/help') + tui.C.muted(' · ') + tui.C.yellow('/memory') + tui.C.muted(' · ') + tui.C.yellow('/sessions') + tui.C.muted(' · ') + tui.C.yellow('/exit'));
   console.log('');
-  // v5.4.7: Hard-coded kimlik
+  // v5.4.7: Hard-coded kimlik — v5.14.5: memory fact'lerinden kullanici adini tespit et
   const displayBotName = memory.botName || 'Asistan';
-  const displayUserName = userName || 'kanka';
+  const nameFromFact = (() => {
+    const facts = memory.facts || [];
+    for (const f of facts) {
+      const v = (f.value || f || '').trim();
+      const lv = v.toLowerCase();
+      // "Kullanici adi: Gencay" veya "Kullanıcı adı Gencay" veya "isim: Gencay"
+      const match = lv.match(/(?:kullanici\s*adi|kullanıcı\s*adı|isim|name|adı?)\s*:?\s*(.+)/);
+      if (match) return match[1].trim();
+    }
+    return null;
+  })();
+  const displayUserName = memory.name || nameFromFact || memory.nickname || 'kanka';
   console.log(tui.C.brand('  👋 Ben ' + displayBotName + ', ' + displayUserName + '. Sen nasilsin?'));
   console.log('');
 
