@@ -24,7 +24,7 @@ const EMOJI_MAP = {
   // Memory
   memory: '🧠', memory_write: '🧠', memory_search: '🔍',
   // Skills
-  skill_view: '📚', skills_list: '📋', skill_generate: '✨', skills_autoload: '🔄', skills_marketplace: '🏪', skill_manage: '🛠️',
+  skill_view: '📚', skills_list: '📋', skill_generate: '✨',   skills_autoload: '🔄', skills_marketplace: '🏪', skill_manage: '🛠️', skills_download: '📥',
   // Agent
   delegate_task: '👥', llm_task: '🤖', sub_agent: '👤',
   // Documents
@@ -89,7 +89,7 @@ const TOOLSET_MAP = {
   memory: 'memory', memory_write: 'memory', memory_search: 'memory',
   // Skills
   skill_view: 'skills', skills_list: 'skills', skill_generate: 'skills',
-  skills_autoload: 'skills', skills_marketplace: 'skills', skill_manage: 'skills',
+  skills_autoload: 'skills', skills_marketplace: 'skills', skill_manage: 'skills', skills_download: 'skills',
   // Agent
   delegate_task: 'agent', llm_task: 'agent',
   // Documents
