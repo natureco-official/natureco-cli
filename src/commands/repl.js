@@ -1016,10 +1016,10 @@ async function startRepl(args) {
       process.stdout.write('Merhaba! Ben ' + displayName + '. ');
     }
 
-    // AI cevabı
+    // AI cevabı — v5.13.0: workflow orchestrator ALWAYS first
     process.stdout.write(tui.styled('\n  AI   ', { color: tui.PALETTE.secondary, bold: true }));
     try {
-      // Per-turn: rebuild volatile tier with current memory snapshot (Hermes frozen snapshot)
+      // Per-turn: rebuild volatile tier with current memory snapshot
       guardrails.reset();
       memory = loadMemory(cfg.userName);
       memoryStore.load();
@@ -1027,8 +1027,52 @@ async function startRepl(args) {
       promptOpts.memoryFacts = memory.facts || [];
       systemPrompt = rebuildSystemPrompt(promptOpts);
       messages[0] = { role: 'system', content: systemPrompt, _internal: true };
-      const apiMessages = messages.filter(m => !m._internal);
-      const reply = await sendStreaming(
+
+      // v5.13.0: Run workflow FIRST for every request
+      const wfToolDefs = getToolDefs();
+      const wfResult = await executeTool('workflow', { action: 'run', task: line }, wfToolDefs);
+      const wf = wfResult?.result || {};
+
+      if (wf.passthrough && wf.reply) {
+        // Simple chat — workflow handled it directly
+        const fullReply = String(wf.reply);
+        const displayBotName = memory.botName || 'Asistan';
+        let fixedReply = String(fullReply);
+        fixedReply = fixedReply.replace(/\bMiniMax[-\s\w\.\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bM2\.5[-\s\w\.\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bM2[\s\-\.\w\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bClaude[-\s\w\.\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bGPT[-\s\w\.\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bChatGPT\b/g, displayBotName);
+        fixedReply = fixedReply.replace(/NatureCo\s+CLI(\s*'in|'nin)?/gi, displayBotName);
+        fixedReply = fixedReply.replace(/Ben\s+MiniMax[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
+        fixedReply = fixedReply.replace(/Ben\s+Claude[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
+        fixedReply = fixedReply.replace(/Ben\s+GPT[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
+        fixedReply = fixedReply.replace(/Ben\s+Asistan[\s\w\.]*/gi, 'Ben ' + displayBotName);
+        fixedReply = fixedReply.replace(/\*\*(?:MiniMax|Claude|GPT|M2\.5|M2)[^\*]*\*\*/gi, '**' + displayBotName + '**');
+        process.stdout.write('\n' + fixedReply + '\n');
+        messages.push({ role: 'assistant', content: fixedReply });
+        totalInputTokens += Math.ceil(line.length / 4);
+        totalOutputTokens += Math.ceil(fullReply.length / 4);
+      } else if (wf.status === 'completed' || (wf.results && wf.results.length > 0)) {
+        // Complex task — inject workflow report as context, then LLM crafts final reply
+        const workflowSteps = wf.results || [];
+        const report = workflowSteps.map(r => {
+          const t = r.tool || r.name || '?';
+          const s = r.status === 'done' ? '✓' : '✗';
+          let summary = '';
+          if (r.result) {
+            try { summary = typeof r.result === 'string' ? r.result.slice(0, 400) : JSON.stringify(r.result).slice(0, 400); } catch {}
+          }
+          return `  ${s} ${t}: ${summary}`;
+        }).join('\n');
+        messages.push({
+          role: 'system',
+          content: `=== WORKFLOW SONUCLARI ===\nSu araclar calisti:\n${report}\n\nKullaniciya bu sonuclari anlamli bir sekilde ozetle.\n=== SONUC BITTI ===`,
+          _internal: true
+        });
+        const apiMessages = messages.filter(m => !m._internal);
+        const reply = await sendStreaming(
         providerUrl,
         providerApiKey,
         apiMessages,
@@ -1049,41 +1093,45 @@ async function startRepl(args) {
           }
         })
       );
-      // v5.6.12: Tam metin 'reply' olarak zaten geldi (non-stream mode)
-      const fullReply = String(reply || '');
-      // Bot adini al
-      const displayBotName = memory.botName || 'Asistan';
-      // v5.6.9: Tum model adlarini ve varyasyonlari temizle
-      let fixedReply = String(fullReply);
-      // Bilinen model adlari - tum varyasyonlar
-      fixedReply = fixedReply.replace(/\bMiniMax[-\s\w\.\d]*/gi, displayBotName);
-      fixedReply = fixedReply.replace(/\bM2\.5[-\s\w\.\d]*/gi, displayBotName);
-      fixedReply = fixedReply.replace(/\bM2[\s\-\.\w\d]*/gi, displayBotName);
-      fixedReply = fixedReply.replace(/\bClaude[-\s\w\.\d]*/gi, displayBotName);
-      fixedReply = fixedReply.replace(/\bGPT[-\s\w\.\d]*/gi, displayBotName);
-      fixedReply = fixedReply.replace(/\bChatGPT\b/g, displayBotName);
-      // NatureCo CLI referansini temizle
-      fixedReply = fixedReply.replace(/NatureCo\s+CLI(\s*'in|'nin)?/gi, displayBotName);
-      // "Ben X" pattern - tum model adlarini bot adi ile degistir
-      fixedReply = fixedReply.replace(/Ben\s+MiniMax[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
-      fixedReply = fixedReply.replace(/Ben\s+Claude[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
-      fixedReply = fixedReply.replace(/Ben\s+GPT[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
-      fixedReply = fixedReply.replace(/Ben\s+Asistan[\s\w\.]*/gi, 'Ben ' + displayBotName);
-      // Markdown ** ile cevrili model adi
-      fixedReply = fixedReply.replace(/\*\*(?:MiniMax|Claude|GPT|M2\.5|M2)[^\*]*\*\*/gi, '**' + displayBotName + '**');
-      // Cevap yazdir
-      process.stdout.write('\n' + fixedReply + '\n');
-      // v5.7.18: Tool call geçmişini kalıcı messages'a ekle — model sonraki turlarda tool sonuçlarını görsün
-      const existingLen = messages.filter(m => !m._internal).length;
-      const toolCallHistory = apiMessages.slice(existingLen);
-      for (const m of toolCallHistory) {
-        if (m.role === 'assistant' || m.role === 'tool') {
-          messages.push(m);
+        // v5.6.12: Tam metin 'reply' olarak zaten geldi (non-stream mode)
+        const fullReply = String(reply || '');
+        // Bot adini al
+        const displayBotName = memory.botName || 'Asistan';
+        // v5.6.9: Tum model adlarini ve varyasyonlari temizle
+        let fixedReply = String(fullReply);
+        fixedReply = fixedReply.replace(/\bMiniMax[-\s\w\.\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bM2\.5[-\s\w\.\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bM2[\s\-\.\w\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bClaude[-\s\w\.\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bGPT[-\s\w\.\d]*/gi, displayBotName);
+        fixedReply = fixedReply.replace(/\bChatGPT\b/g, displayBotName);
+        fixedReply = fixedReply.replace(/NatureCo\s+CLI(\s*'in|'nin)?/gi, displayBotName);
+        fixedReply = fixedReply.replace(/Ben\s+MiniMax[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
+        fixedReply = fixedReply.replace(/Ben\s+Claude[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
+        fixedReply = fixedReply.replace(/Ben\s+GPT[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
+        fixedReply = fixedReply.replace(/Ben\s+Asistan[\s\w\.]*/gi, 'Ben ' + displayBotName);
+        fixedReply = fixedReply.replace(/\*\*(?:MiniMax|Claude|GPT|M2\.5|M2)[^\*]*\*\*/gi, '**' + displayBotName + '**');
+        process.stdout.write('\n' + fixedReply + '\n');
+        const existingLen = messages.filter(m => !m._internal).length;
+        const toolCallHistory = apiMessages.slice(existingLen);
+        for (const m of toolCallHistory) {
+          if (m.role === 'assistant' || m.role === 'tool') {
+            messages.push(m);
+          }
         }
+        messages.push({ role: 'assistant', content: fixedReply });
+        totalInputTokens += apiMessages.reduce((s, m) => s + Math.ceil((m.content || '').length / 4), 0);
+        totalOutputTokens += Math.ceil((fullReply || '').length / 4);
+      } else {
+        // Workflow failed or returned unexpected format
+        const fullReply = wf.error || JSON.stringify(wf).slice(0, 400) || 'Workflow islenemedi.';
+        const displayBotName = memory.botName || 'Asistan';
+        let fixedReply = fullReply.replace(/\bMiniMax[-\s\w\.\d]*/gi, displayBotName);
+        process.stdout.write('\n' + fixedReply + '\n');
+        messages.push({ role: 'assistant', content: fixedReply });
+        totalInputTokens += Math.ceil(line.length / 4);
+        totalOutputTokens += Math.ceil(fixedReply.length / 4);
       }
-      messages.push({ role: 'assistant', content: fixedReply });
-      totalInputTokens += apiMessages.reduce((s, m) => s + Math.ceil((m.content || '').length / 4), 0);
-      totalOutputTokens += Math.ceil((fullReply || '').length / 4);
     } catch (err) {
       process.stdout.write('\n');
       console.log(chalk.red('  ❌ ' + err.message));
