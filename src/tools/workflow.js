@@ -147,7 +147,9 @@ async function workflow(params) {
         if (tc && tc.function) {
           const args = JSON.parse(tc.function.arguments || '{}');
           const toolMod = require(path.join(__dirname, '..', 'tools', step.tool + '.js'));
-          const toolResult = await (toolMod.execute || toolMod.default?.execute)(args);
+          const fn = toolMod.execute || (toolMod.default && toolMod.default.execute);
+          if (!fn) { throw new Error(step.tool + ' toolunda execute fonksiyonu bulunamadi'); }
+          const toolResult = await fn(args);
           stepResults.push({ step: step.step, tool: step.tool, status: 'done', args, result: toolResult });
         } else if (msg.content) {
           stepResults.push({ step: step.step, tool: step.tool, status: 'done', note: 'Tool cagrilmadi, model dogrudan yanit verdi', content: msg.content.slice(0, 500) });
