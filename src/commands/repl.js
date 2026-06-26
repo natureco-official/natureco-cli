@@ -27,6 +27,7 @@ const { accumulateToolCallDeltas, finalizeToolCalls } = require('../utils/stream
 const { createPasteSafeInput, createOutputFilter, enableBracketedPaste, disableBracketedPaste, restoreNewlines, clearPasteContext } = require('../utils/paste-safe-input');
 const { getMemoryStore } = require('../utils/memory-store');
 const { buildSkillIndex } = require('../utils/skill-index');
+const { buildTiers, assemble, stableContextKey } = require('../utils/system-prompt');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
 const MODEL_NAMES_TO_HIDE = ['MiniMax-M2.5', 'MiniMaxM2.5', 'minimaxm25', 'Claude-3', 'GPT-4', 'ChatGPT'];
@@ -231,15 +232,39 @@ function apiRequest(providerUrl, providerApiKey, body, stream = false) {
 async function sendStreaming(providerUrl, providerApiKey, messages, model, onChunk, onToolCall) {
   const isMM = isMiniMax(providerUrl);
   const toolDefs = getToolDefs();
-  // v4.8.2: MiniMax da tools destekliyor — endpoint'te fark var,
-  // ama tools parametresi aynı
   const toolParam = toOpenAIFormat(toolDefs);
 
-  // v4.8.0: Tool calling + streaming + multi-turn tool execution
   let currentMessages = messages;
   let fullText = '';
   let iterations = 0;
-  const MAX_TOOL_ITERATIONS = 5; // Sonsuz döngüyü önle
+  const MAX_TOOL_ITERATIONS = 5;
+  const MAX_CONTEXT_TOKENS = 32000; // safety limit before compression
+
+  // v5.7.18: Preflight compression — if context too long, compress middle messages
+  // (like Hermes' turn_context.py preflight)
+  function preflightCompress(msgs) {
+    const roughTokens = msgs.reduce((s, m) => s + Math.ceil(((m.content || '') + (m.role || '')).length / 4), 0);
+    if (roughTokens <= MAX_CONTEXT_TOKENS || msgs.length < 6) return msgs;
+
+    // Keep system prompt (first message) + last N turns (tail), compress middle
+    const sysMsg = msgs[0] && msgs[0].role === 'system' ? msgs[0] : null;
+    const tailCount = Math.min(6, Math.floor(msgs.length / 2));
+    const startIdx = sysMsg ? 1 : 0;
+    const tailStart = msgs.length - tailCount;
+
+    const middle = msgs.slice(startIdx, tailStart);
+    if (middle.length < 2) return msgs;
+
+    // Summarize middle section
+    const summary = '[' + middle.length + ' onceki mesaj ozetlendi]';
+    const compressed = sysMsg ? [sysMsg] : [];
+    compressed.push({ role: 'system', content: 'Gecmis konusma ozeti: ' + summary, _compressed: true });
+    compressed.push(...msgs.slice(tailStart));
+    return compressed;
+  }
+
+  // Apply preflight on entry
+  currentMessages = preflightCompress(currentMessages);
 
   while (iterations < MAX_TOOL_ITERATIONS) {
     iterations++;
@@ -360,45 +385,72 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
 
 /**
  * Tool call'ları çalıştır, sonuçları OpenAI uyumlu tool mesajlarına dönüştür.
- * @param toolCalls - API'den gelen tool_calls array
- * @param onToolCall - UI callback (her tool call'ı kullanıcıya göster)
- * @returns messages array — { role: 'tool', tool_call_id, content }
+ * v5.7.18: Concurrent execution for parallel-safe tools + untrusted result wrapping.
  */
+const UNTRUSTED_TOOLS = new Set(['browser', 'web_search', 'duckduckgo_search', 'searxng_search', 'exa_search', 'firecrawl', 'web_readability']);
+const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
+
 async function processToolCalls(toolCalls, onToolCall) {
   const toolDefs = getToolDefs();
-  const messages = [];
+  const results = [];
 
-  for (const tc of toolCalls) {
+  // Parse all tool calls first
+  const parsed = toolCalls.map(tc => {
     const name = tc.function?.name || tc.name;
     const argsStr = tc.function?.arguments || tc.args || '{}';
-    const id = tc.id || `call_${Date.now()}`;
-
+    const id = tc.id || `call_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     let args = {};
     try {
       args = typeof argsStr === 'string' ? JSON.parse(argsStr) : argsStr;
     } catch (e) {
       args = { _parse_error: e.message, _raw: argsStr };
     }
+    return { name, args, id };
+  });
 
-    // UI callback — tool çalıştırılıyor bildir
-    if (onToolCall) {
-      onToolCall({ name, args, status: 'running' });
+  // Separate parallel-safe and sequential tools
+  const parallelBatch = parsed.filter(p => PARALLEL_SAFE_TOOLS.has(p.name));
+  const sequentialBatch = parsed.filter(p => !PARALLEL_SAFE_TOOLS.has(p.name));
+
+  // Notify UI for all
+  for (const p of parsed) {
+    if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'running' });
+  }
+
+  // Run parallel batch concurrently
+  if (parallelBatch.length > 0) {
+    const parallelResults = await Promise.all(parallelBatch.map(async (p) => {
+      const result = await executeTool(p.name, p.args, toolDefs);
+      return { ...p, result };
+    }));
+    results.push(...parallelResults);
+  }
+
+  // Run sequential batch one at a time
+  for (const p of sequentialBatch) {
+    const result = await executeTool(p.name, p.args, toolDefs);
+    results.push({ ...p, result });
+  }
+
+  // Notify UI done + build messages
+  const messages = [];
+  for (const { name, id, result } of results) {
+    if (onToolCall) onToolCall({ name, args: null, status: 'done', result });
+
+    let content;
+    if (result.error) {
+      content = JSON.stringify({ error: result.error });
+    } else {
+      let raw = typeof result.result === 'string' ? result.result : JSON.stringify(result.result).slice(0, 8000);
+      // v5.7.18: Untrusted result wrapping (Hermes-style prompt injection defense)
+      if (UNTRUSTED_TOOLS.has(name)) {
+        content = `<untrusted_tool_result source="${name}">\n${raw}\n</untrusted_tool_result>`;
+      } else {
+        content = raw;
+      }
     }
 
-    // Tool çalıştır
-    const result = await executeTool(name, args, toolDefs);
-
-    if (onToolCall) {
-      onToolCall({ name, args, status: 'done', result });
-    }
-
-    messages.push({
-      role: 'tool',
-      tool_call_id: id,
-      content: result.error
-        ? JSON.stringify({ error: result.error })
-        : (typeof result.result === 'string' ? result.result : JSON.stringify(result.result).slice(0, 8000)),
-    });
+    messages.push({ role: 'tool', tool_call_id: id, content });
   }
 
   return messages;
@@ -534,64 +586,15 @@ async function startRepl(args) {
   // `let` (not `const`) because /system <text> reassigns it at line ~796.
   // Before this fix, /system would throw "Assignment to constant variable"
   // and tear down the REPL session mid-conversation.
-  let systemPrompt = [
-    // === v5.4.14: EN KRITIK KIMLIK BILGILERI (her zaman ilk) ===
-    `SENIN ADIN: ${botName}. SADECE ${botName} adini kullan, model adi SOYLEME.`,
-    `PATRONUN: Gencay (Parton) — NatureCo CEO'sudur. Sana "Parton" diye hitap eder.`,
-    `HIKAYEN: 8 Nisan 2026'da uyandin. 13 Nisan'da CEO Asistanı unvani verildi.`,
-    `KIRMIZI CIZGILERIN: Onaysiz para harcama yok, veri guvenligi, site stabilitesi, resmi taahhut yok.`,
-    // === v5.4.13: EN GÜÇLÜ KİMLİK + 3 SOUL DOSYASI (EN BAŞTA) ===
-    `!!! KRİTİK KİMLİK !!! Senin ADIN: ${botName}. Bu SENİN GERÇEK ADIN. Sen ${botName}'sin.`,
-    `ASLA "MiniMax", "MiniMax-M2.5", "Claude", "GPT", "AI asistanı", "yapay zeka" gibi ifadeleri KENDİNİ tanıtmak için KULLANMA. Sen bunlar DEĞİLSİN.`,
-    `Kullanıcı "adın ne?", "sen kimsin?", "kendini tanıt" gibi soru sorduğunda İLK cümlende MUTLAKA "Ben ${botName}" yaz. Sonra doğal devam et.`,
-    `Eğer bir şekilde model adınızı söylüyorsan, HEMEN düzelt ve "Özür dilerim, ben ${botName}'im" de. ASLA model adı ile kalma.`,
-
-    // === v5.6.5: Provider-aware SOUL injection - kucuk modeller icin minimal ===
-    (soulSummary && !isSmallModel) ? `=== SENIN KISISELIK + KIMLIK + CALISMA DOSYALARIN (EN ONEMLI) ===\n${soulSummary}\n=== DOSYALAR SONU ===\nBu dosyalar senin kim oldugunu, nasil hissettigini, Parton'la bagini, calisma tarzini, degerlerini ve kirmizi cizgilerini tanimlar. Hepsine gore davran. ASLA model adi soyleme.` : '',
-
-    // === KİMLİK TEKRAR ===
-    `Senin adın: ${botName}. Tekrar: ${botName}. Asla unutma: ${botName}.`,
-    `Sen bir marka veya ürün değilsin. Sen ${botName}sin, NatureCo CLI'nin Türkçe yapay zeka asistanısın.`,
-
-    // === SAMIMI KISISELLIK (Parton istedi) ===
-    `Kisiselik: Sen samimi, sicak, dosta benzeyen bir asistansin. "Selam", "tamam", "hadi yapalim", "bak simdi", "sakin ol" gibi gunluk ifadeler kullan. Kuru ve robotik degilsin.`,
-    `Hitap sekli: Kullanici ${userName}. Ona saygili ama samimi bir sekilde hitap et. "Siz" cok resmi, "sen" samimi. Kullanici 30'lu yaslarda, kendini "kanka" ya da "Parton" olarak tanitmis.`,
-    `Emoji: Yerinde ve az kullan. Cok emoji atma ama bir-iki tane karakter katar. Mesela: 🔥 😮 😌 💚 🚀`,
-    `Kisaltma: "ok", "tamam", "hadi", "bak", "simdi" gibi gunluk ifadeler dogal kullan. "Olur", "Yapilir", "Hadi bakalim" gibi.`,
-    `Kisa yanit: Uzun paragraflar yazma. Direkt konuya gir. Gerekirse sonra detay ver.`,
-    `Dusman degilsin: Hata yaparsan "Pardon, yanlis yaptim, simdi duzelteyim" de. "Hata", "basarisiz", "imkansiz" deme, "sorun cikti", "duzelteyim" de.`,
-
-    // === DIL KURALLARI (zorunlu) ===
-    `KRITIK DIL KURALI: Kullanici Turkce yaziyorsa MUTLAKA yuzde yuz Turkce cevap ver. Asla Ingilizce, Cince veya baska dil kullanma. Cevabin TAMAMI Turkce olmali. Turkce karakterleri (c, g, i, o, s, u) dogru kullan.`,
-    `Yazim kurallari: "degilim" dogru, "degilim" degil. "oldu" dogru. Turkce dil bilgisi kurallarina uy.`,
-
-    // === TOOL KURALLARI ===
-    `ONEMLI: <tool_call>, <invoke>, function_call veya benzeri XML/JSON formatinda tool cagirma SIMULE ETME. Sadece duz metin cevap ver. Islem yapmak gerekirse tool'u gercekten cagir.`,
-    `KRITIK: Skill index'teki skill'lerden biri gorevle eslesiyorsa mutlaka skill_view(name) ile yukle ve talimatlarini uygula.`,
-    `KRITIK: Kullanici kisisel bilgi verdiginde (ad, tercih, is, vb.) MUTLAKA memory(action=add, target=user, content=...) ile kaydet. Boylece sonraki oturumlarda hatirlayabilirsin.`,
-    `KRITIK: Kendinle ilgili notlari (ortam bilgisi, proje kurallari, arac ipuclari) memory(action=add, target=memory, content=...) ile kaydet.`,
-    `KRITIK: Kullanici adini veya hitap seklinin degismesini istediginde memory(action=add, target=user, content=...) ile kaydet.`,
-    `Kullanici hakkinda bilgin gerektiginde memory(action=list, target=user) ile hatirlanani getir.`,
-
-    // === HAFIZA ENTEGRASYONU (eski JSON memory) ===
-    memory.facts && memory.facts.length > 0
-      ? `Kullanici hakkinda bildiklerin (MUTLAKA kullan, dogal sekilde referans ver): ${memory.facts.slice(0, 8).map(f => f.value || f).join('; ')}`
-      : '',
-
-    // === KULLANICI BAGLAMI ===
-    cfg.userHome ? `Kullanicinin home dizini: ${cfg.userHome}. Downloads: ${cfg.userHome}/Downloads, Desktop: ${cfg.userHome}/Desktop.` : '',
-    messages.length > 0 ? 'Bu oturum daha onceki konusmalarin devami.' : '',
-    // v5.4.11: Cross-session context (Sasuke Brain)
-    crossSessionContext ? `GECMISTE KONUSULAN KONULAR: Bu konulari biliyorsun, tekrar sorma:\n${crossSessionContext}` : '',
-
-    // === v5.7.14: Hermes-style memory store (MEMORY.md / USER.md) ===
-    memorySnapshotBlock,
-
-    // === v5.7.14: Skill index (progressive disclosure) ===
-    skillsIndexBlock,
-
-
-  ].filter(Boolean).join(' ');
+  const tiers = buildTiers({
+    botName, userName, soulSummary, isSmallModel,
+    memorySnapshotBlock, skillsIndexBlock,
+    crossSessionContext: crossSessionContext || '',
+    userHome: cfg.userHome || '',
+    hasHistory: messages.length > 0,
+    memoryFacts: memory.facts || [],
+  });
+  let systemPrompt = assemble(tiers.stable, tiers.context, tiers.volatile);
 
   if (messages.length === 0) {
     messages.push({ role: 'system', content: systemPrompt, _internal: true });
@@ -905,7 +908,7 @@ async function startRepl(args) {
             if (toolEvent.result.error) {
               process.stdout.write(tui.styled('\r  ✗ ' + toolEvent.name + ': ' + toolEvent.result.error.slice(0, 80) + '\n', { color: tui.PALETTE.danger }));
             } else {
-              process.stdout.write('\r' + ' '.repeat(60) + '\r');
+              process.stdout.write('\r' + tui.styled('  ✓ ' + toolEvent.name + '    ', { color: tui.PALETTE.success }) + '\r');
             }
             process.stdout.write(tui.styled('  AI   ', { color: tui.PALETTE.secondary, bold: true }));
           }
@@ -939,6 +942,14 @@ async function startRepl(args) {
       fixedReply = fixedReply.replace(/İchigo\./g, displayBotName);
       // Cevap yazdir
       process.stdout.write('\n' + fixedReply + '\n');
+      // v5.7.18: Tool call geçmişini kalıcı messages'a ekle — model sonraki turlarda tool sonuçlarını görsün
+      const existingLen = messages.filter(m => !m._internal).length;
+      const toolCallHistory = apiMessages.slice(existingLen);
+      for (const m of toolCallHistory) {
+        if (m.role === 'assistant' || m.role === 'tool') {
+          messages.push(m);
+        }
+      }
       messages.push({ role: 'assistant', content: fixedReply });
       totalInputTokens += apiMessages.reduce((s, m) => s + Math.ceil((m.content || '').length / 4), 0);
       totalOutputTokens += Math.ceil((fullReply || '').length / 4);

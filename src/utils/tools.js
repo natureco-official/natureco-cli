@@ -60,20 +60,6 @@ const EMOJI_MAP = {
   code_execution: '⚡',
   // Cross-session
   cross_session_memory: '🔗',
-  // Delegate
-  delegate_task: '👥',
-  // Todo
-  todo_write: '✅',
-  // Music
-  music_generation: '🎵',
-  // Phone
-  phone_control_enhanced: '📱',
-  // Mac alarm
-  mac_alarm: '⏰',
-  // Cron create
-  cron_create: '⏱️',
-  // Plan
-  plan: '📋',
 };
 
 // ── Toolset grouping ─────────────────────────────────────────────────────
@@ -234,12 +220,24 @@ const BLOCKED_NAMES = new Set([
   'run_command', 'sql', 'query', 'lookup',
 ]);
 
+// ── check_fn TTL cache (Hermes-style, ~30s) ────────────────────────────
+const _checkFnCache = new Map();
+function _cachedCheckFn(fn, key) {
+  const now = Date.now();
+  const cached = _checkFnCache.get(key);
+  if (cached && now - cached.ts < 30000) return cached.result;
+  let result = true;
+  try { result = fn() !== false; } catch { result = false; }
+  _checkFnCache.set(key, { result, ts: now });
+  return result;
+}
+
 function toOpenAIFormat(toolDefs) {
   return toolDefs
     .filter(t => !BLOCKED_NAMES.has(t.name))
     .filter(t => {
       if (t.checkFn) {
-        try { return t.checkFn() !== false; } catch { return false; }
+        return _cachedCheckFn(t.checkFn, t.name);
       }
       return true;
     })
@@ -267,12 +265,10 @@ async function executeTool(toolName, args, toolDefs) {
   const tool = toolDefs.find(t => t.name === toolName);
   if (!tool) return { error: `Tool bulunamadı: ${toolName}` };
   if (!tool.execute) return { error: `Tool execute fonksiyonu yok: ${toolName}` };
-  // checkFn — tool disabled? (re-check at runtime)
+  // checkFn — tool disabled? (re-check at runtime with cache)
   if (tool.checkFn) {
-    try {
-      if (tool.checkFn() === false) return { error: `${toolName} şu anda kullanılamıyor (check_fn engelledi)` };
-    } catch {
-      return { error: `${toolName} kontrol hatası` };
+    if (!_cachedCheckFn(tool.checkFn, tool.name)) {
+      return { error: `${toolName} şu anda kullanılamıyor (check_fn engelledi)` };
     }
   }
   try {
