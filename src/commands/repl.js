@@ -691,7 +691,7 @@ async function startRepl(args) {
   // System prompt oluştur (memory + identity + persistent bağlam)
   // v5.6.5: Kucuk model tespiti (Groq, Mistral Small, Ollama) - SOUL injection skip
   const botName = memory.botName || 'Asistan';
-  const userName = memory.name || memory.nickname || 'kanka';
+  const userName = memory.name || memory.nickname || cfg.userName;
   const isSmallModel = (cfg.providerUrl || '').includes('groq.com') || 
                        (cfg.providerUrl || '').includes('mistral.ai') ||
                        (cfg.providerUrl || '').includes('localhost') ||
@@ -742,7 +742,7 @@ async function startRepl(args) {
     }
     return null;
   })();
-  const displayUserName = memory.name || nameFromFact || memory.nickname || 'kanka';
+  const displayUserName = memory.name || nameFromFact || memory.nickname || cfg.userName;
   console.log(tui.C.brand('  👋 Ben ' + displayBotName + ', ' + displayUserName + '. Sen nasilsin?'));
   console.log('');
 
