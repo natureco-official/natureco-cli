@@ -1,138 +1,291 @@
-const { spawn, execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
 const PLATFORM = os.platform();
 
+const KEY_MAP_DARWIN = {
+  enter: 'return',
+  return: 'return',
+  tab: 'tab',
+  escape: 'escape',
+  esc: 'escape',
+  up: 'up',
+  down: 'down',
+  left: 'left',
+  right: 'right',
+  backspace: 'delete',
+  delete: 'forwarddelete',
+  forwarddelete: 'forwarddelete',
+  home: 'home',
+  end: 'end',
+  pageup: 'page up',
+  pagedown: 'page down',
+  space: 'space',
+  ' ': 'space',
+};
+
+const MODIFIER_MAP = {
+  command: 'command down',
+  cmd: 'command down',
+  option: 'option down',
+  alt: 'option down',
+  control: 'control down',
+  ctrl: 'control down',
+  shift: 'shift down',
+};
+
+function escapeText(s) {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function osaScript(script, timeoutMs = 10000) {
+  const result = spawnSync('osascript', ['-e', script], {
+    timeout: timeoutMs,
+    encoding: 'utf8',
+    maxBuffer: 1024 * 1024,
+  });
+  if (result.error) {
+    if (result.error.code === 'ETIMEDOUT') {
+      return { success: false, error: 'osascript timed out after ' + timeoutMs + 'ms' };
+    }
+    return { success: false, error: result.error.message };
+  }
+  if (result.status !== 0) {
+    const msg = result.stderr || result.stdout || 'unknown error';
+    let friendly = msg;
+    if (msg.includes('yardımcı erişime izin verilmiyor') || msg.includes('access for assistive devices')) {
+      friendly = 'Accessibility izni gerekli. System Settings > Privacy & Security > Accessibility > Terminal/iTerm2\'ye izin verin.';
+    } else if (msg.includes('(-1700') || msg.includes('can\'t convert')) {
+      friendly = 'AppleScript hatasi: ' + msg.slice(0, 200);
+    }
+    return { success: false, error: friendly };
+  }
+  return { success: true, data: result.stdout };
+}
+
+function checkAccessibility() {
+  const r = osaScript('tell application "System Events" to get name of first process whose frontmost is true', 3000);
+  return r.success;
+}
+
 async function computerUse(params) {
-  const { action, x, y, key, text, button, clicks, query, file } = params;
+  const { action, x, y, key, text, button, clicks, file } = params;
 
   if (action === 'screenshot') {
     const outputFile = file || path.join(os.tmpdir(), 'natureco_screen_' + Date.now() + '.png');
-    if (PLATFORM === 'darwin') {
-      execSync('screencapture -x "' + outputFile + '"', { timeout: 5000 });
-    } else if (PLATFORM === 'win32') {
-      execSync('powershell -Command "Add-Type -AssemblyName System.Windows.Forms; $bmp = [System.Drawing.Bitmap]::new([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height); $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen(0, 0, 0, 0, $bmp.Size); $bmp.Save(\\"' + outputFile + '\\", [System.Drawing.Imaging.ImageFormat]::Png)"', { timeout: 10000 });
-    } else {
-      execSync('import -window root "' + outputFile + '"', { timeout: 5000 });
+    try {
+      if (PLATFORM === 'darwin') {
+        spawnSync('screencapture', ['-x', outputFile], { timeout: 5000 });
+      } else if (PLATFORM === 'win32') {
+        spawnSync('powershell', ['-Command',
+          'Add-Type -AssemblyName System.Windows.Forms; ' +
+          '$bmp = [System.Drawing.Bitmap]::new([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height); ' +
+          '$g = [System.Drawing.Graphics]::FromImage($bmp); ' +
+          '$g.CopyFromScreen(0, 0, 0, 0, $bmp.Size); ' +
+          '$bmp.Save("' + outputFile.replace(/"/g, '') + '", [System.Drawing.Imaging.ImageFormat]::Png)'
+        ], { timeout: 10000 });
+      } else {
+        spawnSync('import', ['-window', 'root', outputFile], { timeout: 5000 });
+      }
+      return { success: true, file: outputFile, platform: PLATFORM, note: 'Ekran goruntusu alindi' };
+    } catch (e) {
+      return { success: false, error: 'Screenshot hatasi: ' + e.message };
     }
-    return { success: true, file: outputFile, platform: PLATFORM, note: 'Ekran goruntusu alindi: ' + outputFile };
   }
 
   if (action === 'click') {
     if (typeof x !== 'number' || typeof y !== 'number') return { success: false, error: 'x ve y gerekli' };
     const btn = button || 'left';
     if (PLATFORM === 'darwin') {
-      execSync('osascript -e \'tell application "System Events" to click at {' + x + ', ' + y + '}\'', { timeout: 5000 });
-    } else if (PLATFORM === 'win32') {
-      const c = clicks || 1;
-      execSync('powershell -Command "[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(' + x + ', ' + y + '); [System.Windows.Forms.SendKeys]::SendWait(\\"' + (c > 1 ? '{DOUBLECLICK}' : '{CLICK}') + '\\")"', { timeout: 5000 });
-    } else {
-      execSync('xdotool mousemove ' + x + ' ' + y + ' click 1', { timeout: 5000 });
+      const acc = checkAccessibility();
+      if (!acc) return { success: false, error: 'Accessibility izni gerekli. System Settings > Privacy & Security > Accessibility > Terminal\'e izin verin.' };
+      const r = osaScript('tell application "System Events" to click at {' + x + ', ' + y + '}');
+      if (!r.success) return r;
+      return { success: true, action: 'click', x, y, button: btn };
     }
-    return { success: true, action: 'click', x, y, button };
+    if (PLATFORM === 'win32') {
+      const c = clicks || 1;
+      spawnSync('powershell', ['-Command',
+        '[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(' + x + ', ' + y + '); ' +
+        '[System.Windows.Forms.SendKeys]::SendWait("' + (c > 1 ? '{DOUBLECLICK}' : '{CLICK}') + '")'
+      ], { timeout: 5000 });
+      return { success: true, action: 'click', x, y, button: btn };
+    }
+    spawnSync('xdotool', ['mousemove', String(x), String(y), 'click', '1'], { timeout: 5000 });
+    return { success: true, action: 'click', x, y, button: btn };
   }
 
   if (action === 'type') {
     if (!text) return { success: false, error: 'text gerekli' };
     if (PLATFORM === 'darwin') {
-      const safeText = text.replace(/"/g, '\\"');
-      execSync('osascript -e \'tell application "System Events" to keystroke "' + safeText + '"\'', { timeout: 5000 });
-    } else if (PLATFORM === 'win32') {
-      execSync('powershell -Command "[System.Windows.Forms.SendKeys]::SendWait(\\"' + text.replace(/[{}()^+% ~]/g, '{$&}') + '\\")"', { timeout: 5000 });
-    } else {
-      execSync('xdotool type "' + text.replace(/"/g, '\\"') + '"', { timeout: 5000 });
+      const acc = checkAccessibility();
+      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+      const r = osaScript('tell application "System Events" to keystroke "' + escapeText(text) + '"');
+      if (!r.success) return r;
+      return { success: true, action: 'type', text };
     }
+    if (PLATFORM === 'win32') {
+      spawnSync('powershell', ['-Command',
+        '[System.Windows.Forms.SendKeys]::SendWait("' + text.replace(/[{}()^+% ~]/g, '{$&}') + '")'
+      ], { timeout: 5000 });
+      return { success: true, action: 'type', text };
+    }
+    spawnSync('xdotool', ['type', text], { timeout: 5000 });
     return { success: true, action: 'type', text };
   }
 
   if (action === 'keypress') {
     if (!key) return { success: false, error: 'key gerekli' };
     if (PLATFORM === 'darwin') {
-      const keyMap = { enter: 'return', tab: 'tab', escape: 'escape', up: 'up', down: 'down', left: 'left', right: 'right', backspace: 'delete', delete: 'forwarddelete' };
-      const k = keyMap[key.toLowerCase()] || key;
-      execSync('osascript -e \'tell application "System Events" to key code ' + (isNaN(k) ? '"' + k + '"' : k) + '\'', { timeout: 5000 });
-    } else if (PLATFORM === 'win32') {
-      const keyMap = { enter: '{ENTER}', tab: '{TAB}', escape: '{ESC}', up: '{UP}', down: '{DOWN}', left: '{LEFT}', right: '{RIGHT}', backspace: '{BACKSPACE}', delete: '{DELETE}' };
-      execSync('powershell -Command "[System.Windows.Forms.SendKeys]::SendWait(\\"' + (keyMap[key.toLowerCase()] || key) + '\\")"', { timeout: 5000 });
-    } else {
-      execSync('xdotool key ' + key, { timeout: 5000 });
+      const acc = checkAccessibility();
+      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+
+      const parts = key.toLowerCase().split('+').map(p => p.trim());
+      const mods = [];
+      let actualKey = '';
+      for (const p of parts) {
+        if (MODIFIER_MAP[p]) mods.push(MODIFIER_MAP[p]);
+        else actualKey = p;
+      }
+
+      if (KEY_MAP_DARWIN[actualKey]) {
+        const keyName = KEY_MAP_DARWIN[actualKey];
+        const usingClause = mods.length > 0 ? ' using {' + mods.join(', ') + '}' : '';
+        const r = osaScript('tell application "System Events" to keystroke ' + keyName + usingClause);
+        if (!r.success) return r;
+      } else if (actualKey) {
+        const usingClause = mods.length > 0 ? ' using {' + mods.join(', ') + '}' : '';
+        const r = osaScript('tell application "System Events" to keystroke "' + escapeText(actualKey) + '"' + usingClause);
+        if (!r.success) return r;
+      } else {
+        if (mods.length > 0) {
+          return { success: false, error: 'Modifier-only keypress not supported. Provide a key with modifiers (e.g. cmd+q).' };
+        }
+      }
+      return { success: true, action: 'keypress', key };
     }
+    if (PLATFORM === 'win32') {
+      const keyMap = {
+        enter: '{ENTER}', tab: '{TAB}', escape: '{ESC}', up: '{UP}', down: '{DOWN}',
+        left: '{LEFT}', right: '{RIGHT}', backspace: '{BACKSPACE}', delete: '{DELETE}',
+        home: '{HOME}', end: '{END}', pageup: '{PGUP}', pagedown: '{PGDN}',
+      };
+      spawnSync('powershell', ['-Command',
+        '[System.Windows.Forms.SendKeys]::SendWait("' + (keyMap[key.toLowerCase()] || key) + '")'
+      ], { timeout: 5000 });
+      return { success: true, action: 'keypress', key };
+    }
+    spawnSync('xdotool', ['key', key], { timeout: 5000 });
     return { success: true, action: 'keypress', key };
   }
 
   if (action === 'mouse_move') {
     if (typeof x !== 'number' || typeof y !== 'number') return { success: false, error: 'x ve y gerekli' };
     if (PLATFORM === 'darwin') {
-      execSync('osascript -e \'tell application "System Events" to set position of mouse to {' + x + ', ' + y + '}\'', { timeout: 5000 });
-    } else if (PLATFORM === 'win32') {
-      execSync('powershell -Command "[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(' + x + ', ' + y + ')"', { timeout: 5000 });
-    } else {
-      execSync('xdotool mousemove ' + x + ' ' + y, { timeout: 5000 });
+      const acc = checkAccessibility();
+      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+      const r = osaScript('tell application "System Events" to set position of mouse to {' + x + ', ' + y + '}');
+      if (!r.success) return r;
+      return { success: true, action: 'mouse_move', x, y };
     }
+    if (PLATFORM === 'win32') {
+      spawnSync('powershell', ['-Command',
+        '[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(' + x + ', ' + y + ')'
+      ], { timeout: 5000 });
+      return { success: true, action: 'mouse_move', x, y };
+    }
+    spawnSync('xdotool', ['mousemove', String(x), String(y)], { timeout: 5000 });
     return { success: true, action: 'mouse_move', x, y };
   }
 
   if (action === 'mouse_position') {
     if (PLATFORM === 'darwin') {
-      const out = execSync('osascript -e \'tell application "System Events" to return position of mouse\'', { timeout: 5000 }).toString().trim();
-      const [mx, my] = out.split(', ').map(Number);
-      return { success: true, x: mx, y: my };
-    } else if (PLATFORM === 'win32') {
-      const out = execSync('powershell -Command "[System.Windows.Forms.Cursor]::Position.X.ToString() + \\", \\" + [System.Windows.Forms.Cursor]::Position.Y.ToString()"', { timeout: 5000 }).toString().trim();
-      const [mx, my] = out.split(', ').map(Number);
-      return { success: true, x: mx, y: my };
-    } else {
-      const out = execSync('xdotool getmouselocation', { timeout: 5000 }).toString().trim();
-      const mx = parseInt(out.match(/x:(\d+)/)?.[1] || '0');
-      const my = parseInt(out.match(/y:(\d+)/)?.[1] || '0');
+      const r = osaScript('tell application "System Events" to return position of mouse');
+      if (!r.success) return r;
+      const [mx, my] = r.data.trim().split(', ').map(Number);
       return { success: true, x: mx, y: my };
     }
+    if (PLATFORM === 'win32') {
+      const result = spawnSync('powershell', ['-Command',
+        '[System.Windows.Forms.Cursor]::Position.X.ToString() + ", " + [System.Windows.Forms.Cursor]::Position.Y.ToString()'
+      ], { timeout: 5000, encoding: 'utf8' });
+      const [mx, my] = result.stdout.trim().split(', ').map(Number);
+      return { success: true, x: mx, y: my };
+    }
+    const result = spawnSync('xdotool', ['getmouselocation'], { timeout: 5000, encoding: 'utf8' });
+    const mx = parseInt(result.stdout.match(/x:(\d+)/)?.[1] || '0');
+    const my = parseInt(result.stdout.match(/y:(\d+)/)?.[1] || '0');
+    return { success: true, x: mx, y: my };
   }
 
   if (action === 'scroll') {
     if (typeof y !== 'number') return { success: false, error: 'y (pixels) gerekli' };
     if (PLATFORM === 'darwin') {
-      execSync('osascript -e \'tell application "System Events" to scroll (current application)\' &', { timeout: 5000 }); // simplified
-      return { success: true, action: 'scroll', y, note: 'macOS scroll icin Accessibility izni gerekli' };
-    } else {
-      execSync('xdotool click ' + (y < 0 ? '4' : '5') + ' --repeat ' + Math.abs(Math.ceil(y / 50)), { timeout: 5000 });
-      return { success: true, action: 'scroll', y };
+      const acc = checkAccessibility();
+      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+      const direction = y > 0 ? 'up' : 'down';
+      const times = Math.abs(Math.ceil(y / 40));
+      const r = osaScript('tell application "System Events" to repeat ' + times + ' times\n  key code 125\nend repeat');
+      if (!r.success) return r;
+
+      return { success: true, action: 'scroll', y, note: 'Scrolled ' + direction + ' ' + times + ' steps' };
     }
+    spawnSync('xdotool', ['click', y < 0 ? '4' : '5', '--repeat', String(Math.abs(Math.ceil(y / 50)))], { timeout: 5000 });
+    return { success: true, action: 'scroll', y };
+  }
+
+  if (action === 'drag') {
+    if (typeof x !== 'number' || typeof y !== 'number') return { success: false, error: 'x ve y (baslangic) gerekli' };
+    const x2 = params.x2, y2 = params.y2;
+    if (typeof x2 !== 'number' || typeof y2 !== 'number') return { success: false, error: 'x2 ve y2 (bitis) gerekli' };
+    if (PLATFORM === 'darwin') {
+      const acc = checkAccessibility();
+      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+      const r = osaScript('tell application "System Events"\n  set mousePos to {' + x + ', ' + y + '}\n  set mousePos2 to {' + x2 + ', ' + y2 + '}\n  set position of mouse to mousePos\n  delay 0.1\n  mouse down\n  set position of mouse to mousePos2\n  delay 0.1\n  mouse up\nend tell');
+      if (!r.success) return r;
+      return { success: true, action: 'drag', from: { x, y }, to: { x: x2, y: y2 } };
+    }
+    if (PLATFORM === 'linux') {
+      spawnSync('xdotool', ['mousemove', String(x), String(y), 'mousedown', '1', 'mousemove', String(x2), String(y2), 'mouseup', '1'], { timeout: 5000 });
+      return { success: true, action: 'drag', from: { x, y }, to: { x: x2, y: y2 } };
+    }
+    return { success: false, error: 'drag only supported on macOS and Linux' };
   }
 
   if (action === 'info') {
     const displays = [];
     try {
       if (PLATFORM === 'darwin') {
-        const out = execSync('system_profiler SPDisplaysDataType 2>/dev/null | grep Resolution', { timeout: 5000 }).toString();
-        for (const line of out.trim().split('\n')) {
+        const result = spawnSync('system_profiler', ['SPDisplaysDataType'], { timeout: 5000, encoding: 'utf8' });
+        for (const line of result.stdout.split('\n')) {
           const m = line.match(/(\d+) x (\d+)/);
           if (m) displays.push({ width: parseInt(m[1]), height: parseInt(m[2]) });
         }
       }
     } catch {}
-    return { success: true, platform: PLATFORM, displays: displays.length > 0 ? displays : undefined, note: 'Ekran bilgisi' };
+    return { success: true, platform: PLATFORM, displays: displays.length > 0 ? displays : undefined };
   }
 
-  return { success: false, error: 'Gecersiz action: ' + action + ' (screenshot, click, type, keypress, mouse_move, mouse_position, scroll, info)' };
+  return { success: false, error: 'Gecersiz action: ' + action + ' (screenshot, click, type, keypress, mouse_move, mouse_position, scroll, drag, info)' };
 }
 
 module.exports = {
   name: 'computer_use',
-  description: 'GUI otomasyonu: screenshot, click, type, keypress, mouse_move, mouse_position, scroll, info. macOS/Windows/Linux.',
+  description: 'GUI otomasyonu: screenshot, click, type, keypress, mouse_move, mouse_position, scroll, drag, info. macOS/Windows/Linux.',
   inputSchema: {
     type: 'object',
     properties: {
-      action: { type: 'string', description: 'screenshot, click, type, keypress, mouse_move, mouse_position, scroll, info', enum: ['screenshot', 'click', 'type', 'keypress', 'mouse_move', 'mouse_position', 'scroll', 'info'] },
+      action: { type: 'string', description: 'screenshot, click, type, keypress, mouse_move, mouse_position, scroll, drag, info', enum: ['screenshot', 'click', 'type', 'keypress', 'mouse_move', 'mouse_position', 'scroll', 'drag', 'info'] },
       x: { type: 'number', description: 'X koordinati' },
       y: { type: 'number', description: 'Y koordinati' },
       button: { type: 'string', description: 'Fare tusu: left, right, middle (default: left)' },
       clicks: { type: 'number', description: 'Tiklama sayisi (default: 1)' },
-      key: { type: 'string', description: '(keypress) Tus adi: enter, tab, escape, up, down, left, right, backspace, delete' },
+      key: { type: 'string', description: '(keypress) Tus adi veya kombinasyon: enter, tab, escape, up, down, left, right, backspace, delete, cmd+q, cmd+shift+z, alt+space' },
+      x2: { type: 'number', description: '(drag) Bitis X koordinati' },
+      y2: { type: 'number', description: '(drag) Bitis Y koordinati' },
       text: { type: 'string', description: '(type) Yazilacak metin' },
-      query: { type: 'string', description: 'Arama sorgusu' },
       file: { type: 'string', description: '(screenshot) Kayit dosyasi' },
     },
     required: ['action'],
