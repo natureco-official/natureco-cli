@@ -10,6 +10,8 @@ const { getToolDefinitions, executeToolCalls } = require('./tool-runner');
 const { MCPClient } = require('./mcp-client');
 const TB = require('./token-budget');
 const { accumulateToolCallDeltas } = require('./streaming-tools');
+const { ToolGuardrails } = require('./tool-guardrails');
+const guardrails = new ToolGuardrails();
 
 /**
  * v5.5.0: Provider-specific format detection
@@ -756,44 +758,59 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
         input: JSON.parse(tc.function.arguments)
       }));
 
-      const toolResults = [];
-      const SPINNER_FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+      // Group MCP and local tools
+      const mcpTools = getMcpTools();
+      const mcpCalls = toolCalls.filter(tc => mcpTools.find(t => t.name === tc.name));
+      const localCalls = toolCalls.filter(tc => !mcpTools.find(t => t.name === tc.name));
 
-      for (const toolCall of toolCalls) {
-        // Spinner başlat
-        let frameIdx = 0;
-        const inputPreview = JSON.stringify(toolCall.input).slice(0, 50);
-        const spinner = setInterval(() => {
-          process.stdout.write(`\r  ${chalk.cyan(SPINNER_FRAMES[frameIdx++ % SPINNER_FRAMES.length])} ${chalk.gray(toolCall.name + ' — ' + inputPreview)}`);
-        }, 80);
+      // Guardrails: filter blocked tools
+      guardrails.reset();
+      guardrails.startIteration();
+      const blockedMcp = mcpCalls.filter(tc => {
+        const check = guardrails.check(tc.name, tc.input);
+        return check.blocked;
+      });
+      const blockedLocal = localCalls.filter(tc => {
+        const check = guardrails.check(tc.name, tc.input);
+        return check.blocked;
+      });
 
-        // Check if this is an MCP tool
-        const mcpTools = getMcpTools();
-        const isMcpTool = mcpTools.find(t => t.name === toolCall.name);
-        let result;
-
-        if (isMcpTool) {
-          debugLog(`[MCP] Executing tool: ${toolCall.name}`);
-          result = await executeMcpTool(toolCall.name, toolCall.input);
-          toolResults.push({ id: toolCall.id, name: toolCall.name, result });
-        } else {
-          debugLog(`[Local] Executing tool: ${toolCall.name}`);
-          const localResults = await executeToolCalls([toolCall]);
-          toolResults.push(...localResults);
-          result = localResults[0]?.result;
+      // Execute local tools in parallel (tool-runner already parallelizes safe tools)
+      let localResults = [];
+      if (localCalls.filter(tc => !blockedLocal.includes(tc)).length > 0) {
+        debugLog(`[Local] Executing ${localCalls.length} tool(s) concurrently`);
+        localResults = await executeToolCalls(
+          localCalls.filter(tc => !blockedLocal.includes(tc)),
+          { toolDefinitions: getToolDefinitions() }
+        );
+        for (const r of localResults) {
+          guardrails.record(r.name, {}, r.result?.success !== false);
         }
-
-        // Spinner durdur, sonucu göster
-        clearInterval(spinner);
-        const success = result?.success !== false;
-        process.stdout.write(`\r  ${success ? chalk.green('✓') : chalk.red('✗')} ${chalk.cyan(toolCall.name)} ${chalk.gray('— ' + inputPreview)}\n`);
       }
 
-      // Add tool results to messages (base64 encoded for safety)
-      for (const result of toolResults) {
-        // Encode tool result (works for both MCP and local tools)
+      // Execute MCP tools in parallel (they're independent by nature)
+      let mcpResults = [];
+      if (mcpCalls.filter(tc => !blockedMcp.includes(tc)).length > 0) {
+        debugLog(`[MCP] Executing ${mcpCalls.length} tool(s) concurrently`);
+        mcpResults = await Promise.all(
+          mcpCalls.filter(tc => !blockedMcp.includes(tc)).map(async (tc) => {
+            const result = await executeMcpTool(tc.name, tc.input);
+            guardrails.record(tc.name, tc.input, result?.success !== false);
+            return { id: tc.id, name: tc.name, result };
+          })
+        );
+      }
+
+      // Add blocked tool results as errors
+      const allResults = [
+        ...blockedMcp.map(tc => ({ id: tc.id, name: tc.name, result: { error: `blocked_by_guardrails: ${tc.name}` } })),
+        ...blockedLocal.map(tc => ({ id: tc.id, name: tc.name, result: { error: `blocked_by_guardrails: ${tc.name}` } })),
+        ...localResults,
+        ...mcpResults,
+      ];
+
+      for (const result of allResults) {
         const encodedContent = encodeToolResult(result.result);
-        
         messages.push({
           role: 'tool',
           tool_call_id: result.id,
@@ -1067,18 +1084,20 @@ async function streamOpenAICompletion(providerConfig, messages, tools) {
     }
   }
 
-  if (hasToolCalls) {
+      if (hasToolCalls) {
     process.stdout.write('\n');
     return {
       type: 'tool_calls',
       message: {
         role: 'assistant',
         content: fullText || null,
-        tool_calls: toolCalls.map(tc => ({
-          id: tc.id,
-          type: tc.type,
-          function: { name: tc.function.name, arguments: tc.function.arguments }
-        }))
+        tool_calls: toolCalls
+          .filter(tc => tc && tc.function && tc.function.name)
+          .map(tc => ({
+            id: tc.id || `call_${Date.now()}_${tc.index}`,
+            type: tc.type || 'function',
+            function: { name: tc.function.name, arguments: tc.function.arguments || '' }
+          }))
       }
     };
   }

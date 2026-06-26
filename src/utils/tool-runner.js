@@ -146,13 +146,33 @@ async function executeTool(toolName, params, opts = {}) {
   }
 }
 
-// ── Execute multiple tool calls ───────────────────────────────────────────────
+// ── Execute multiple tool calls (parallel for independent, sequential for others) ──
+const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
+
 async function executeToolCalls(toolCalls, opts = {}) {
+  if (!toolCalls || toolCalls.length === 0) return [];
+
+  // Group: parallel-safe vs sequential
+  const safe = toolCalls.filter(c => PARALLEL_SAFE_TOOLS.has(c.name));
+  const sequential = toolCalls.filter(c => !PARALLEL_SAFE_TOOLS.has(c.name));
+
   const results = [];
-  for (const call of toolCalls) {
+
+  // Run parallel-safe tools concurrently
+  if (safe.length > 0) {
+    const safeResults = await Promise.all(safe.map(async (call) => {
+      const result = await executeTool(call.name, call.input, opts);
+      return { id: call.id, name: call.name, result };
+    }));
+    results.push(...safeResults);
+  }
+
+  // Run sequential tools one at a time
+  for (const call of sequential) {
     const result = await executeTool(call.name, call.input, opts);
     results.push({ id: call.id, name: call.name, result });
   }
+
   return results;
 }
 

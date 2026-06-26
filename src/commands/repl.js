@@ -27,7 +27,8 @@ const { accumulateToolCallDeltas, finalizeToolCalls } = require('../utils/stream
 const { createPasteSafeInput, createOutputFilter, enableBracketedPaste, disableBracketedPaste, restoreNewlines, clearPasteContext } = require('../utils/paste-safe-input');
 const { getMemoryStore } = require('../utils/memory-store');
 const { buildSkillIndex } = require('../utils/skill-index');
-const { buildTiers, assemble, stableContextKey } = require('../utils/system-prompt');
+const { buildTiers, assemble } = require('../utils/system-prompt');
+const { ToolGuardrails } = require('../utils/tool-guardrails');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
 const MODEL_NAMES_TO_HIDE = ['MiniMax-M2.5', 'MiniMaxM2.5', 'minimaxm25', 'Claude-3', 'GPT-4', 'ChatGPT'];
@@ -57,6 +58,46 @@ function getToolDefs() {
   }
   return _toolDefs;
 }
+
+// ── System prompt tier cache (Hermes-style prefix cache warmth) ────────────
+// stable+context built once at session start, volatile rebuilt per turn.
+let _cachedStable = '';
+let _cachedContext = '';
+let _cachedTierOpts = null; // opts snapshot for volatile-only rebuilds
+
+function rebuildSystemPrompt(opts) {
+  // If stable/context opts changed, rebuild them too
+  const needsFullRebuild = !_cachedTierOpts ||
+    _cachedTierOpts.botName !== opts.botName ||
+    _cachedTierOpts.soulSummary !== opts.soulSummary ||
+    _cachedTierOpts.skillsIndexBlock !== opts.skillsIndexBlock ||
+    _cachedTierOpts.crossSessionContext !== opts.crossSessionContext;
+  
+  if (needsFullRebuild || !_cachedStable) {
+    const tiers = buildTiers(opts);
+    _cachedStable = tiers.stable;
+    _cachedContext = tiers.context;
+    _cachedTierOpts = {
+      botName: opts.botName,
+      soulSummary: opts.soulSummary,
+      skillsIndexBlock: opts.skillsIndexBlock,
+      crossSessionContext: opts.crossSessionContext,
+    };
+  }
+  // Volatile always rebuilt fresh
+  const volatileOnly = buildTiers({
+    ...opts,
+    // Pass empty strings for stable/context fields so buildTiers only builds volatile
+    botName: '',
+    soulSummary: '',
+    skillsIndexBlock: '',
+    crossSessionContext: '',
+  });
+  return assemble(_cachedStable, _cachedContext, volatileOnly.volatile);
+}
+
+// ── Tool Guardrails instance (Hermes-style) ─────────────────────────────
+const guardrails = new ToolGuardrails();
 
 // CLI komutları (REPL içinden çalıştırılabilir)
 const CLI_COMMANDS = {
@@ -233,11 +274,12 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
   const isMM = isMiniMax(providerUrl);
   const toolDefs = getToolDefs();
   const toolParam = toOpenAIFormat(toolDefs);
+  guardrails.reset();
 
   let currentMessages = messages;
   let fullText = '';
   let iterations = 0;
-  const MAX_TOOL_ITERATIONS = 5;
+  const MAX_TOOL_ITERATIONS = isMM ? 12 : 8;
   const MAX_CONTEXT_TOKENS = 32000; // safety limit before compression
 
   // v5.7.18: Preflight compression — if context too long, compress middle messages
@@ -268,17 +310,20 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
 
   while (iterations < MAX_TOOL_ITERATIONS) {
     iterations++;
+    // v5.7.18: Preflight compress before each iteration to prevent context bloat
+    currentMessages = preflightCompress(currentMessages);
+    const shouldStream = !isMM; // MiniMax streaming endpoint doesn't support tool_calls
     const body = {
       model,
       messages: currentMessages,
-      stream: false,  // v5.4.18: tum cevap bekle, sonra fix et
+      stream: shouldStream,
       temperature: 0.3,
       max_tokens: 2048,
     };
     if (toolParam) body.tools = toolParam;
     if (isMM) body.tool_choice = 'auto'; // MiniMax için explicit
 
-    if (!body.stream) {
+    if (!shouldStream) {
       // MiniMax (non-stream) — tool_calls desteklemiyor varsayalım
       const res = await apiRequest(providerUrl, providerApiKey, body, false);
       const msg = res.choices?.[0]?.message || {};
@@ -371,7 +416,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
         tool_calls: finalized,
       });
       // Her tool call'ı çalıştır, sonuçları tool mesajı olarak ekle
-      const toolResults = await processToolCalls(result.toolCalls, onToolCall);
+      const toolResults = await processToolCalls(finalized, onToolCall);
       currentMessages.push(...toolResults);
       // Devam — model sonuçları görsün, cevap versin
       continue;
@@ -408,12 +453,25 @@ async function processToolCalls(toolCalls, onToolCall) {
     return { name, args, id };
   });
 
-  // Separate parallel-safe and sequential tools
-  const parallelBatch = parsed.filter(p => PARALLEL_SAFE_TOOLS.has(p.name));
-  const sequentialBatch = parsed.filter(p => !PARALLEL_SAFE_TOOLS.has(p.name));
+  // Filter out blocked tools via guardrails
+  guardrails.startIteration();
+  const blocked = parsed.filter(p => {
+    const check = guardrails.check(p.name, p.args);
+    if (check.blocked) {
+      if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: check.reason } });
+      results.push({ ...p, result: { error: check.reason }, _blocked: true });
+      return false;
+    }
+    return true;
+  });
+  const allowed = parsed.filter(p => !results.some(r => r.id === p.id && r._blocked));
 
-  // Notify UI for all
-  for (const p of parsed) {
+  // Separate parallel-safe and sequential tools (over allowed only)
+  const parallelBatch = allowed.filter(p => PARALLEL_SAFE_TOOLS.has(p.name));
+  const sequentialBatch = allowed.filter(p => !PARALLEL_SAFE_TOOLS.has(p.name));
+
+  // Notify UI for all non-blocked
+  for (const p of allowed) {
     if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'running' });
   }
 
@@ -421,6 +479,8 @@ async function processToolCalls(toolCalls, onToolCall) {
   if (parallelBatch.length > 0) {
     const parallelResults = await Promise.all(parallelBatch.map(async (p) => {
       const result = await executeTool(p.name, p.args, toolDefs);
+      const success = result?.success !== false;
+      guardrails.record(p.name, p.args, success);
       return { ...p, result };
     }));
     results.push(...parallelResults);
@@ -429,7 +489,33 @@ async function processToolCalls(toolCalls, onToolCall) {
   // Run sequential batch one at a time
   for (const p of sequentialBatch) {
     const result = await executeTool(p.name, p.args, toolDefs);
+    const success = result?.success !== false;
+    guardrails.record(p.name, p.args, success);
     results.push({ ...p, result });
+  }
+
+  // No-progress check: if all tools failed, inject warning
+  if (guardrails.isNoProgress()) {
+    if (onToolCall) onToolCall({ name: '_no_progress', args: null, status: 'done', result: { error: 'All tools failed this iteration' } });
+  }
+
+  // Same-tool loop detection: if same tool called >3x this iteration (regardless of success)
+  const toolCallCounts = {};
+  for (const { name } of results) {
+    toolCallCounts[name] = (toolCallCounts[name] || 0) + 1;
+  }
+  for (const [name, count] of Object.entries(toolCallCounts)) {
+    if (count > 3) {
+      const loopResult = results.find(r => r.name === name);
+      if (loopResult && !loopResult.result?.error) {
+        const warnContent = JSON.stringify({
+          _loop_warning: true,
+          message: `${name} called ${count}x this turn. If you're not making progress, try a different approach or report the result.`,
+          tool: name, call_count: count,
+        });
+        results.push({ name: '_loop_warning', id: `loop_${Date.now()}`, result: { result: warnContent } });
+      }
+    }
   }
 
   // Notify UI done + build messages
@@ -575,26 +661,23 @@ async function startRepl(args) {
   }
 
   // System prompt oluştur (memory + identity + persistent bağlam)
-  // v5.4.6: Bot adı zorlaması EN GÜÇLÜ + SOUL.md EN BAŞTA
+  // v5.6.5: Kucuk model tespiti (Groq, Mistral Small, Ollama) - SOUL injection skip
   const botName = memory.botName || 'Asistan';
   const userName = memory.name || memory.nickname || 'kanka';
-  // v5.6.5: Kucuk model tespiti (Groq, Mistral Small, Ollama) - SOUL injection skip
   const isSmallModel = (cfg.providerUrl || '').includes('groq.com') || 
                        (cfg.providerUrl || '').includes('mistral.ai') ||
                        (cfg.providerUrl || '').includes('localhost') ||
                        (cfg.providerUrl || '').includes('ollama');
-  // `let` (not `const`) because /system <text> reassigns it at line ~796.
-  // Before this fix, /system would throw "Assignment to constant variable"
-  // and tear down the REPL session mid-conversation.
-  const tiers = buildTiers({
+  // Build system prompt with tier caching (stable+context cached, volatile fresh)
+  const promptOpts = {
     botName, userName, soulSummary, isSmallModel,
     memorySnapshotBlock, skillsIndexBlock,
     crossSessionContext: crossSessionContext || '',
     userHome: cfg.userHome || '',
     hasHistory: messages.length > 0,
     memoryFacts: memory.facts || [],
-  });
-  let systemPrompt = assemble(tiers.stable, tiers.context, tiers.volatile);
+  };
+  let systemPrompt = rebuildSystemPrompt(promptOpts);
 
   if (messages.length === 0) {
     messages.push({ role: 'system', content: systemPrompt, _internal: true });
@@ -790,9 +873,12 @@ async function startRepl(args) {
               fs.unlinkSync(path.join(MEMORY_DIR, `${(cfg.userName || 'default').toLowerCase()}.json`));
             }
             memory = { name: cfg.userName, nickname: null, botName: 'Asistan', facts: [], preferences: [], history: [] };
-            // System prompt'u sıfırla
-            const newSysPrompt = systemPrompt.replace(/Kullanıcı hakkında bildiklerin:.*$/, '').trim();
-            messages[0] = { role: 'system', content: newSysPrompt, _internal: true };
+            // System prompt'u rebuild with cleared memory
+            promptOpts.memoryFacts = [];
+            memoryStore.clear();
+            promptOpts.memorySnapshotBlock = memoryStore.getSystemPromptBlock();
+            systemPrompt = rebuildSystemPrompt(promptOpts);
+            messages[0] = { role: 'system', content: systemPrompt, _internal: true };
             console.log(chalk.green('  ✓ Memory temizlendi'));
           } catch (e) {
             console.log(chalk.red('  ❌ ' + e.message));
@@ -822,7 +908,15 @@ async function startRepl(args) {
           break;
         case 'system':
           if (!arg) { console.log(chalk.yellow('  Kullanım: /system <text>')); break; }
-          systemPrompt = arg;
+          // Override stable tier directly (user's custom text)
+          _cachedStable = arg;
+          // Rebuild volatile only (context stays unchanged)
+          memoryStore.load();
+          promptOpts.memorySnapshotBlock = memoryStore.getSystemPromptBlock();
+          promptOpts.memoryFacts = memory.facts || [];
+          const volOpts = { ...promptOpts, botName: '', soulSummary: '', skillsIndexBlock: '', crossSessionContext: '' };
+          const volTiers = buildTiers(volOpts);
+          systemPrompt = assemble(_cachedStable, _cachedContext, volTiers.volatile);
           messages[0] = { role: 'system', content: systemPrompt, _internal: true };
           console.log(chalk.green('  ✓ System prompt güncellendi'));
           break;
@@ -835,8 +929,14 @@ async function startRepl(args) {
           if (!arg) { console.log(chalk.yellow(`  Mevcut: ${memory.botName || 'Asistan'}`)); break; }
           memory.botName = arg;
           saveMemory(cfg.userName, memory);
-          const newSys = systemPrompt.replace(/Sen \w+ adında/, `Sen ${arg} adında`);
-          messages[0] = { role: 'system', content: newSys, _internal: true };
+          // Rebuild stable tier with new botName
+          promptOpts.botName = arg;
+          _cachedTierOpts = null; // force full rebuild
+          memoryStore.load();
+          promptOpts.memorySnapshotBlock = memoryStore.getSystemPromptBlock();
+          promptOpts.memoryFacts = memory.facts || [];
+          systemPrompt = rebuildSystemPrompt(promptOpts);
+          messages[0] = { role: 'system', content: systemPrompt, _internal: true };
           console.log(chalk.green('  ✓ Bot adı: ') + chalk.cyan(arg));
           break;
         case 'tokens':
@@ -891,6 +991,14 @@ async function startRepl(args) {
     // AI cevabı
     process.stdout.write(tui.styled('\n  AI   ', { color: tui.PALETTE.secondary, bold: true }));
     try {
+      // Per-turn: rebuild volatile tier with current memory snapshot (Hermes frozen snapshot)
+      guardrails.reset();
+      memory = loadMemory(cfg.userName);
+      memoryStore.load();
+      promptOpts.memorySnapshotBlock = memoryStore.getSystemPromptBlock();
+      promptOpts.memoryFacts = memory.facts || [];
+      systemPrompt = rebuildSystemPrompt(promptOpts);
+      messages[0] = { role: 'system', content: systemPrompt, _internal: true };
       const apiMessages = messages.filter(m => !m._internal);
       const reply = await sendStreaming(
         providerUrl,
@@ -899,19 +1007,19 @@ async function startRepl(args) {
         model,
         // v5.6.12: Callback bos - tam metin 'reply' olarak gelecek (non-stream mode)
         () => {},
-        // Tool call callback — minimal Hermes-style one-liner
-        (toolEvent) => {
+        // Tool call callback — Hermes-style per-tool status line
+        ((toolEvent) => {
+          const name = toolEvent.name;
           if (toolEvent.status === 'running') {
-            process.stdout.write(tui.styled('\r  🔧 ' + toolEvent.name + '...  ', { color: tui.PALETTE.muted }));
+            process.stdout.write(tui.styled('\r  🔧 ' + name + '...  ', { color: tui.PALETTE.muted }));
           } else if (toolEvent.status === 'done') {
-            if (toolEvent.result.error) {
-              process.stdout.write(tui.styled('\r  ✗ ' + toolEvent.name + ': ' + toolEvent.result.error.slice(0, 80) + '\n', { color: tui.PALETTE.danger }));
+            if (toolEvent.result?.error) {
+              process.stdout.write(tui.styled('  ✗ ' + name + ': ' + String(toolEvent.result.error).slice(0, 80) + '\n', { color: tui.PALETTE.danger }));
             } else {
-              process.stdout.write('\r' + tui.styled('  ✓ ' + toolEvent.name + '    ', { color: tui.PALETTE.success }) + '\r');
+              process.stdout.write(tui.styled('  ✓ ' + name + '\n', { color: tui.PALETTE.success }));
             }
-            process.stdout.write(tui.styled('  AI   ', { color: tui.PALETTE.secondary, bold: true }));
           }
-        }
+        })
       );
       // v5.6.12: Tam metin 'reply' olarak zaten geldi (non-stream mode)
       const fullReply = String(reply || '');

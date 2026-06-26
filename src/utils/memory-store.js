@@ -17,6 +17,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { scanForThreats } = require('./threat-patterns');
 
 const MEMORY_DIR = path.join(os.homedir(), '.natureco', 'memories');
 const ENTRY_DELIMITER = '\n§\n';
@@ -92,6 +93,11 @@ class MemoryStore {
       return JSON.stringify({ success: false, error: 'Content cannot be empty.' });
     }
     content = content.trim();
+    // Injection scan (Hermes: strict scope for memory writes)
+    const threats = scanForThreats(content, 'strict');
+    if (threats.length > 0) {
+      return JSON.stringify({ success: false, error: `Memory write blocked: potential prompt injection detected (${threats.join(', ')}). Entry not saved.` });
+    }
     const entries = target === 'user' ? this._userEntries : this._memoryEntries;
     if (entries.includes(content)) {
       return JSON.stringify({ success: false, error: 'Duplicate entry.' });
@@ -118,6 +124,15 @@ class MemoryStore {
     const removed = entries.splice(idx, 1);
     this._writeEntries(this._pathFor(target), entries);
     return JSON.stringify({ success: true, message: 'Memory entry removed.', removed: removed[0] });
+  }
+
+  clear(target) {
+    const path = this._pathFor(target);
+    this._ensureDir();
+    fs.writeFileSync(path, '', 'utf8');
+    const entries = target === 'user' ? this._userEntries : this._memoryEntries;
+    entries.length = 0;
+    return JSON.stringify({ success: true, message: `Memory ${target} cleared.` });
   }
 
   replace(target, oldContent, newContent) {
