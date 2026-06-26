@@ -1029,9 +1029,15 @@ async function startRepl(args) {
       messages[0] = { role: 'system', content: systemPrompt, _internal: true };
 
       // v5.13.0: Run workflow FIRST for every request
+      process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
       const wfToolDefs = getToolDefs();
       const wfResult = await executeTool('workflow', { action: 'run', task: line }, wfToolDefs);
       const wf = wfResult?.result || {};
+      if (wf.success !== false) {
+        process.stdout.write(tui.styled('  ✓ workflow\n', { color: tui.PALETTE.success }));
+      } else {
+        process.stdout.write(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
+      }
 
       if (wf.passthrough && wf.reply) {
         // Simple chat — workflow handled it directly
