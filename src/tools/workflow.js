@@ -73,14 +73,14 @@ async function workflow(params) {
     // Phase 0: Check if simple chat (passthrough) — no planning needed
     const simpleCheckPrompt = {
       role: 'system',
-      content: 'Gorevin basit bir selamlasma/sohbet mi yoksa arac gerektiren bir islem mi oldugunu belirle. Sadece "simple" veya "complex" yaz, baska bir sey yazma.\n\nSimple: selamlasma, nasilsin, bugun ne yaptin, havadan sudan, genel bilgi sorusu\nComplex: dosya islemleri, kod yazma, arastirma, karsilastirma, duzenleme, otomasyon, proje yonetimi, debug'
+      content: 'Gorevin basit bir selamlasma/sohbet mi yoksa arac gerektiren bir islem mi oldugunu belirle. Sadece "simple" veya "complex" yaz, kesinlikle baska bir sey yazma. Noktalama isareti koyma.\n\nSimple: selamlasma, nasilsin, bugun ne yaptin, havadan sudan, genel bilgi sorusu\nComplex: dosya islemleri, kod yazma, arastirma, karsilastirma, duzenleme, otomasyon, proje yonetimi, debug'
     };
-    const simpleBody = { model, stream: false, messages: [simpleCheckPrompt, { role: 'user', content: task }], temperature: 0, max_tokens: 10 };
+    const simpleBody = { model, stream: false, messages: [simpleCheckPrompt, { role: 'user', content: task }], temperature: 0, max_tokens: 20 };
     let isSimple = false;
     try {
       const simpleResult = await apiCall(providerUrl, providerApiKey, simpleBody);
-      const simpleAnswer = (simpleResult.choices?.[0]?.message?.content || '').trim().toLowerCase();
-      isSimple = simpleAnswer === 'simple';
+      const raw = (simpleResult.choices?.[0]?.message?.content || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+      isSimple = raw === 'simple';
     } catch {}
 
     if (isSimple) {
@@ -115,11 +115,29 @@ async function workflow(params) {
       return { success: false, error: 'Plan olusturulamadi: ' + e.message, phase: 'planning' };
     }
 
+    // v5.14.2: Brace-balanced JSON extraction (handles explanatory text around JSON)
+    function extractJSON(str) {
+      const start = str.indexOf('{');
+      if (start === -1) return null;
+      let depth = 0, inString = false, escape = false;
+      for (let i = start; i < str.length; i++) {
+        const ch = str[i];
+        if (escape) { escape = false; continue; }
+        if (ch === '\\' && inString) { escape = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (!inString) {
+          if (ch === '{') depth++;
+          else if (ch === '}') { depth--; if (depth === 0) return str.slice(start, i + 1); }
+        }
+      }
+      return null;
+    }
     let plan;
     try {
       const content = planResult.choices?.[0]?.message?.content || '';
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      plan = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+      const jsonStr = extractJSON(content);
+      if (!jsonStr) throw new Error('JSON bloku bulunamadi');
+      plan = JSON.parse(jsonStr);
       if (!plan.steps || !Array.isArray(plan.steps)) throw new Error('Steps bulunamadi');
     } catch (e) {
       return { success: false, error: 'Plan cozumlenemedi: ' + e.message, raw: planResult.choices?.[0]?.message?.content?.slice(0, 500) };
