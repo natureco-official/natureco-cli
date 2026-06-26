@@ -64,7 +64,7 @@ const EMOJI_MAP = {
   url_safety: '🛡️', approval: '✅', checkpoint: '💾', file_state: '🔍',
   pii_redact: '🔒', clarify: '❓', session_search: '🔎', x_search: '🐦',
   discord: '💬', send_message: '📨', async_delegation: '⏳', blueprint: '📐',
-  spotify: '🎧', homeassistant: '🏠', microsoft_graph: '📊', computer_use: '🖱️',
+  spotify: '🎧', homeassistant: '🏠', microsoft_graph: '📊',   computer_use: '🖱️', computer_use_loop: '🔄',
   google_meet: '📹',
   // Orchestrator
   workflow: '⚙️',
@@ -122,7 +122,7 @@ const TOOLSET_MAP = {
   x_search: 'web', discord: 'communication', send_message: 'communication',
   async_delegation: 'agent', blueprint: 'planning', workflow: 'orchestrator',
   spotify: 'media', homeassistant: 'iot', microsoft_graph: 'office',
-  computer_use: 'automation', google_meet: 'communication',
+  computer_use: 'automation', computer_use_loop: 'automation', google_meet: 'communication',
   social_open: 'communication', youtube_ac: 'media',
   sub_agent: 'agent', memory_provider: 'memory',
 };
