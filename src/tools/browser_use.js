@@ -93,17 +93,19 @@ async function handleApiAction(params) {
     for (let i = 0; i < 60; i++) {
       await new Promise(r => setTimeout(r, 2000));
       const status = await apiRequest('GET', '/sessions/' + sessionId);
-      if (status.status === 'completed' || status.status === 'finished' || status.data?.status === 'completed') {
+      if (status.status === 'completed' || status.status === 'finished' || status.status === 'stopped' || status.data?.status === 'completed') {
         return {
-          success: true,
+          success: status.isTaskSuccessful !== false,
           mode: 'api',
           sessionId,
-          result: status.result || status.data?.result || status,
-          summary: status.summary || status.data?.summary || '',
+          result: status.output || status.result || status.data?.result || status,
+          summary: status.lastStepSummary || status.summary || status.data?.summary || '',
           steps: status.steps || status.data?.steps || [],
+          screenshotUrl: status.screenshotUrl || null,
+          liveUrl: status.liveUrl || null,
         };
       }
-      if (status.status === 'failed' || status.status === 'error') {
+      if (status.status === 'failed' || status.status === 'error' || status.status === 'cancelled') {
         return { success: false, error: 'Session failed: ' + JSON.stringify(status.error || status) };
       }
     }
