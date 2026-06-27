@@ -327,11 +327,9 @@ async function codeV5(targetPath) {
     if (toolName === 'bash' || toolName === 'shell_command') commandsRun++;
   }
 
-  // Patch processToolCalls to use trackFileChanges
-  const _origPTC = processToolCalls;
-  processToolCalls = function(reply, config, toolDefs, messages) {
-    return _origPTC(reply, config, toolDefs, messages, trackFileChanges);
-  };
+  function processToolCallsWithTracking(reply, config, toolDefs, messages) {
+    return processToolCalls(reply, config, toolDefs, messages, trackFileChanges);
+  }
   const virtualTools = [
     {
       name: 'EnterPlanMode',
@@ -576,7 +574,7 @@ async function codeV5(targetPath) {
           }
           // Handle any tool calls from the summary (rare but possible)
           if (wfReply.tool_calls && wfReply.tool_calls.length > 0) {
-            await processToolCalls(wfReply, config, toolDefs, messages);
+            await processToolCallsWithTracking(wfReply, config, toolDefs, messages);
           }
         } catch (e) {
           console.log("\n  " + tui.C.red("❌ " + e.message));
@@ -601,7 +599,7 @@ async function codeV5(targetPath) {
             }
 
             if (reply.tool_calls && reply.tool_calls.length > 0) {
-              await processToolCalls(reply, config, toolDefs, messages);
+              await processToolCallsWithTracking(reply, config, toolDefs, messages);
               process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
               continue;
             }

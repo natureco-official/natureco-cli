@@ -292,6 +292,19 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
   const isGM = isGemini(providerUrl);
   const planMode = getPlanMode();
 
+  // Simple stdin prompt fallback (no rl dependency)
+  function stdinPrompt(question, cb) {
+    process.stdout.write(question);
+    const stdin = process.stdin;
+    const onData = (data) => {
+      stdin.removeListener('data', onData);
+      stdin.pause();
+      cb(data.toString().trim());
+    };
+    stdin.resume();
+    stdin.on('data', onData);
+  }
+
   const toolDefs = getToolDefs();
   // Inject plan mode virtual tools
   const planToolDefs = [
@@ -510,7 +523,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
   let currentMessages = messages;
   let fullText = '';
   let iterations = 0;
-  const MAX_TOOL_ITERATIONS = effortCfg.maxToolIterations;
+  const MAX_TOOL_ITERATIONS = 50;
   const MAX_CONTEXT_TOKENS = 32000; // safety limit before compression
 
   // v5.7.18: Preflight compression — if context too long, compress middle messages
@@ -539,7 +552,15 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
   // Apply preflight on entry
   currentMessages = preflightCompress(currentMessages);
 
-  while (iterations < MAX_TOOL_ITERATIONS) {
+  while (iterations < 50) {
+    let effortLevel = 'medium', effortCfg;
+    let cfg;
+    try {
+      cfg = require('../utils/config').getConfig();
+      effortLevel = getEffortLevel(cfg);
+      effortCfg = getEffortConfig(effortLevel);
+    } catch { effortCfg = getEffortConfig(effortLevel); }
+    const maxIter = effortCfg ? effortCfg.maxToolIterations : 50;
     iterations++;
     // v5.7.18: Preflight compress before each iteration to prevent context bloat
     currentMessages = preflightCompress(currentMessages);
@@ -566,8 +587,6 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
       }
     }
 
-    const effortLevel = getEffortLevel(cfg);
-    const effortCfg = getEffortConfig(effortLevel);
     const fallbackChain = getFallbackChain();
 
     const body = {
@@ -595,7 +614,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
       fullText = content;
       // Non-stream tool call desteği
       if (msg.tool_calls && msg.tool_calls.length > 0) {
-        const toolResults = await processToolCalls(msg.tool_calls, onToolCall, rl.question.bind(rl));
+        const toolResults = await processToolCalls(msg.tool_calls, onToolCall, stdinPrompt);
         currentMessages.push(msg);
         currentMessages.push(...toolResults);
         continue; // Tekrar API çağır
@@ -689,7 +708,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
         tool_calls: finalized,
       });
       // Her tool call'ı çalıştır, sonuçları tool mesajı olarak ekle
-      const toolResults = await processToolCalls(finalized, onToolCall, rl.question.bind(rl));
+      const toolResults = await processToolCalls(finalized, onToolCall, stdinPrompt);
       currentMessages.push(...toolResults);
 
       // Plan mode review: plan submitted, wait for user approval
@@ -700,7 +719,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
         console.log(plan ? `\n  ${plan.replace(/\n/g, '\n  ')}` : '');
         console.log('\n' + tui.C.muted('  ─'.repeat(28)));
         const approved = await new Promise(resolve => {
-          rl.question(tui.C.yellow('  Planı onaylıyor musun? [Y=exec, n=reddet, e=düzenle]: '), answer => {
+          stdinPrompt(tui.C.yellow('  Planı onaylıyor musun? [Y=exec, n=reddet, e=düzenle]: '), answer => {
             const key = answer.trim().toLowerCase();
             if (key === 'n' || key === 'no') { planMode.reject(); resolve(false); }
             else if (key === 'e' || key === 'edit') { planMode.reject(); resolve('edit'); }
@@ -1361,18 +1380,18 @@ async function startRepl(args) {
           break;
         case 'plan':
           if (arg === 'on' || arg === 'enter') {
-            if (planMode.enter()) console.log(tui.C.cyan('\n  📋 Plan modu aktif. Plan yapın ve /plan off ile çıkın.\n'));
+            if (getPlanMode().enter()) console.log(tui.C.cyan('\n  📋 Plan modu aktif. Plan yapın ve /plan off ile çıkın.\n'));
             else console.log(tui.C.yellow('  Zaten plan modunda.'));
           } else if (arg === 'off' || arg === 'exit') {
-            if (planMode.isPlanning()) {
+            if (getPlanMode().isPlanning()) {
               console.log(tui.C.yellow('  Plan modundan çıkılıyor. Plan yazılıp ExitPlanMode ile sunulmalı.'));
-              planMode.approve();
+              getPlanMode().approve();
             } else {
               console.log(tui.C.yellow('  Plan modunda değil.'));
             }
           } else if (arg === 'show') {
-            if (planMode.planHistory.length > 0) {
-              const last = planMode.planHistory[planMode.planHistory.length - 1];
+            if (getPlanMode().planHistory.length > 0) {
+              const last = getPlanMode().planHistory[getPlanMode().planHistory.length - 1];
               console.log(tui.C.cyan('\n  📋 Son Plan:\n'));
               console.log(`  ${last.plan.replace(/\n/g, '\n  ')}`);
             } else {
