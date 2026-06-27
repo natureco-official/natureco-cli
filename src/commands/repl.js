@@ -1050,7 +1050,7 @@ async function startRepl(args) {
         process.stdout.write(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
       }
 
-      if (wf.passthrough && wf.reply) {
+      if (wf.passthrough && wf.reply !== undefined && wf.reply !== null) {
         // Simple chat — workflow handled it directly
         const fullReply = String(wf.reply);
         const displayBotName = memory.botName || 'Asistan';
@@ -1086,16 +1086,15 @@ async function startRepl(args) {
         const skillInfo = wf.skillsLoaded && wf.skillsLoaded.length > 0
           ? `\n\nKullanilan skill'ler: ${wf.skillsLoaded.join(', ')}`
           : '';
+        const preWfLen = messages.length;
         messages.push({
           role: 'system',
           content: `=== WORKFLOW SONUCLARI ===\nSu araclar calisti:\n${report}${skillInfo}\n\nKullaniciya bu sonuclari anlamli bir sekilde ozetle.\n=== SONUC BITTI ===`,
-          _internal: true
         });
-        const apiMessages = messages.filter(m => !m._internal);
         const reply = await sendStreaming(
         providerUrl,
         providerApiKey,
-        apiMessages,
+        messages,
         model,
         // v5.6.12: Callback bos - tam metin 'reply' olarak gelecek (non-stream mode)
         () => {},
@@ -1113,6 +1112,8 @@ async function startRepl(args) {
           }
         })
       );
+        // Remove workflow results message (already served its purpose)
+        messages.splice(preWfLen, 1);
         // v5.6.12: Tam metin 'reply' olarak zaten geldi (non-stream mode)
         const fullReply = String(reply || '');
         // Bot adini al
@@ -1132,15 +1133,8 @@ async function startRepl(args) {
         fixedReply = fixedReply.replace(/Ben\s+Asistan[\s\w\.]*/gi, 'Ben ' + displayBotName);
         fixedReply = fixedReply.replace(/\*\*(?:MiniMax|Claude|GPT|M2\.5|M2)[^\*]*\*\*/gi, '**' + displayBotName + '**');
         process.stdout.write('\n' + fixedReply + '\n');
-        const existingLen = messages.filter(m => !m._internal).length;
-        const toolCallHistory = apiMessages.slice(existingLen);
-        for (const m of toolCallHistory) {
-          if (m.role === 'assistant' || m.role === 'tool') {
-            messages.push(m);
-          }
-        }
         messages.push({ role: 'assistant', content: fixedReply });
-        totalInputTokens += apiMessages.reduce((s, m) => s + Math.ceil((m.content || '').length / 4), 0);
+        totalInputTokens += Math.ceil(((fullReply || '') + report + skillInfo).length / 4);
         totalOutputTokens += Math.ceil((fullReply || '').length / 4);
       } else {
         // Workflow failed or returned unexpected format

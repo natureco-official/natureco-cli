@@ -20,7 +20,9 @@ const readline = require("readline");
 const chalk = require("chalk");
 const tui = require("../utils/tui");
 const { getConfig } = require("../utils/config");
-const { loadToolDefinitions, executeTool } = require("../utils/tools");
+const { loadToolDefinitions, executeTool, toOpenAIFormat } = require("../utils/tools");
+const { buildTiers, assemble } = require("../utils/system-prompt");
+const { buildSkillIndex } = require("../utils/skill-index");
 
 const IS_MAC = os.platform() === "darwin";
 const MAX_ITERATIONS = 10;
@@ -59,10 +61,7 @@ async function apiRequest(url, key, body) {
 
 async function sendMessageWithTools(providerUrl, providerKey, model, messages, toolDefs) {
   const isMM = isMiniMax(providerUrl);
-  const tools = toolDefs.map(t => ({
-    type: "function",
-    function: { name: t.name, description: t.description, parameters: t.parameters },
-  }));
+  const openaiTools = toOpenAIFormat(toolDefs);
   const body = {
     model,
     messages,
@@ -70,8 +69,8 @@ async function sendMessageWithTools(providerUrl, providerKey, model, messages, t
     max_tokens: 4096,
     stream: false,
   };
-  if (tools.length > 0) {
-    body.tools = tools;
+  if (openaiTools.length > 0) {
+    body.tools = openaiTools;
     body.tool_choice = "auto";
   }
   const res = await apiRequest(providerUrl, providerKey, body);
@@ -313,14 +312,18 @@ async function codeV5(targetPath) {
   console.log("    " + tui.C.amber("Ctrl+C") + tui.C.muted("  — Çıkış"));
   console.log("");
 
-  // System prompt
-  const systemPrompt = [
-    "Sen NatureCo Code Agent v5'sin — Claude Code alternatifi bir terminal AI asistanısın.",
-    "47 tool'un var: dosya okuma/yazma, bash, Python, web search, macOS native, image generation, TTS, vs.",
-    "Kullanıcının isteğini analiz et, uygun tool'ları kullan, sonuçları özetle.",
-    "Türkçe cevap ver.",
-    "Kullanıcıdan onay almadan dosya yazma veya tehlikeli komut çalıştırma.",
-  ].join(" ");
+  // Three-tier system prompt (Hermes-style)
+  const skillsIndexBlock = buildSkillIndex();
+  const cfg = getConfig();
+  const promptOpts = {
+    botName: 'Code Agent',
+    userName: cfg.userName || 'kullanıcı',
+    skillsIndexBlock,
+    hasHistory: false,
+    userHome: os.homedir(),
+  };
+  const { stable, context, volatile } = buildTiers(promptOpts);
+  const systemPrompt = assemble(stable, context, volatile);
 
   let messages = [{ role: "system", content: systemPrompt }];
   let totalIn = 0, totalOut = 0;
@@ -337,88 +340,151 @@ async function codeV5(targetPath) {
       if (!input) { process.stdout.write("  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true })); return ask(); }
       if (input === "/summary") {
         printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
-        // v5.6.22: /summary sadece gosterir, cikmaz
         process.stdout.write("\n  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
         return ask();
       }
       if (input === "/done" || input === "exit" || input === "quit") {
-        // v5.6.22: /done cikinca summary goster
         printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
         rl.close();
         return;
       }
 
-      messages.push({ role: "user", content: input });
-      process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
+      // Workflow step — run before every request
+      process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
+      const wfResult = await executeTool('workflow', { action: 'run', task: input }, toolDefs);
+      const wf = wfResult?.result || {};
+      if (wf.success !== false) {
+        const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
+        process.stdout.write(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
+      } else {
+        process.stdout.write(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
+      }
 
-      // Multi-turn tool loop
-      let iter = 0;
-      while (iter < MAX_ITERATIONS) {
-        iter++;
+      messages.push({ role: "user", content: input });
+
+      if (wf.passthrough && wf.reply !== undefined && wf.reply !== null) {
+        // Simple chat — workflow handled it directly
+        const fullReply = String(wf.reply);
+        process.stdout.write('\n' + fullReply + '\n');
+        messages.push({ role: 'assistant', content: fullReply });
+        totalIn += Math.ceil(input.length / 4);
+        totalOut += Math.ceil(fullReply.length / 4);
+      } else if (wf.status === 'completed' || (wf.results && wf.results.length > 0)) {
+        // Complex task — inject workflow report as context, then LLM crafts final reply
+        const workflowSteps = wf.results || [];
+        const report = workflowSteps.map(r => {
+          const t = r.tool || r.name || '?';
+          const s = r.status === 'done' ? '✓' : '✗';
+          let summary = '';
+          if (r.result) {
+            try { summary = typeof r.result === 'string' ? r.result.slice(0, 400) : JSON.stringify(r.result).slice(0, 400); } catch {}
+          }
+          return `  ${s} ${t}: ${summary}`;
+        }).join('\n');
+        const skillInfo = wf.skillsLoaded && wf.skillsLoaded.length > 0
+          ? `\n\nKullanilan skill'ler: ${wf.skillsLoaded.join(', ')}`
+          : '';
+        const preWfLen = messages.length;
+        messages.push({
+          role: 'system',
+          content: `=== WORKFLOW SONUCLARI ===\nSu araclar calisti:\n${report}${skillInfo}\n\nKullaniciya bu sonuclari anlamli bir sekilde ozetle.\n=== SONUC BITTI ===`,
+        });
+
+        process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
+
+        // Single LLM call to summarize workflow results
+        let wfReply = null;
         try {
-          const reply = await sendMessageWithTools(
+          wfReply = await sendMessageWithTools(
             config.providerUrl, config.providerApiKey, config.providerModel,
             messages, toolDefs
           );
-          if (reply.content) {
-            process.stdout.write(reply.content);
-            messages.push({ role: "assistant", content: reply.content });
-            totalOut += Math.ceil(reply.content.length / 4);
+          // Remove workflow results after call
+          messages.splice(preWfLen, 1);
+          if (wfReply.content) {
+            process.stdout.write(wfReply.content);
+            messages.push({ role: "assistant", content: wfReply.content });
+            totalOut += Math.ceil(wfReply.content.length / 4);
           }
-
-          if (reply.tool_calls && reply.tool_calls.length > 0) {
-            // v5.6.21: Akıllı onay - sadece riskli işlemlerde onay iste
-            let approved = true;
-            for (const tc of reply.tool_calls) {
-              let args = {};
-              try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
-              const risk = assessRisk(tc.function.name, args);
-              if (risk.requiresApproval) {
-                process.stdout.write("\n");
-                approved = await confirm(
-                  `⚠ ${tc.function.name}: ${risk.reason}\n  Devam edilsin mi? (Y/n) `
-                );
-                if (!approved) break;
-              }
-            }
-            if (!approved) {
-              console.log("\n  " + tui.C.yellow("⚠ Kullanıcı onayı iptal etti, tool çalıştırılmadı."));
-              break;
-            }
-
-            messages.push({ role: "assistant", content: reply.content || null, tool_calls: reply.tool_calls });
-            for (const tc of reply.tool_calls) {
-              const name = tc.function.name;
-              let args = {};
-              try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
-              printToolCall(name, args);
-              if (name === "bash" || name === "shell_command") commandsRun++;
-              if (name === "write_file" || name === "edit_file") filesChanged++;
-              const result = await executeTool(name, args, toolDefs);
-              // v5.6.21: Sonuç gizleme - sadece status goster, yol/size gizle
-              printToolCallSafe(name, args, result);
-              const out = result.error
-                ? "ERROR: " + result.error
-                : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
-              messages.push({ role: "tool", tool_call_id: tc.id, content: (out || "(empty)").slice(0, 8000) });
-              totalIn += Math.ceil(out.length / 4);
-            }
-            process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
-            continue;
+          // Handle any tool calls from the summary (rare but possible)
+          if (wfReply.tool_calls && wfReply.tool_calls.length > 0) {
+            await processToolCalls(wfReply, config, toolDefs, messages);
           }
-          break;
         } catch (e) {
           console.log("\n  " + tui.C.red("❌ " + e.message));
-          break;
         }
+
+        totalIn += Math.ceil(((wfReply?.content || '') + report + skillInfo).length / 4) + Math.ceil(input.length / 4);
+      } else {
+        // Workflow failed or returned unexpected format — fallback to multi-turn LLM
+        process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
+        let iter = 0;
+        while (iter < MAX_ITERATIONS) {
+          iter++;
+          try {
+            const reply = await sendMessageWithTools(
+              config.providerUrl, config.providerApiKey, config.providerModel,
+              messages, toolDefs
+            );
+            if (reply.content) {
+              process.stdout.write(reply.content);
+              messages.push({ role: "assistant", content: reply.content });
+              totalOut += Math.ceil(reply.content.length / 4);
+            }
+
+            if (reply.tool_calls && reply.tool_calls.length > 0) {
+              await processToolCalls(reply, config, toolDefs, messages);
+              process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
+              continue;
+            }
+            break;
+          } catch (e) {
+            console.log("\n  " + tui.C.red("❌ " + e.message));
+            break;
+          }
+        }
+        totalIn += Math.ceil(input.length / 4);
       }
 
-      totalIn += Math.ceil(input.length / 4);
       process.stdout.write("\n\n  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
       ask();
     });
   };
   ask();
+}
+
+async function processToolCalls(reply, config, toolDefs, messages) {
+  let approved = true;
+  for (const tc of reply.tool_calls) {
+    let args = {};
+    try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
+    const risk = assessRisk(tc.function.name, args);
+    if (risk.requiresApproval) {
+      process.stdout.write("\n");
+      approved = await confirm(
+        `⚠ ${tc.function.name}: ${risk.reason}\n  Devam edilsin mi? (Y/n) `
+      );
+      if (!approved) break;
+    }
+  }
+  if (!approved) {
+    console.log("\n  " + tui.C.yellow("⚠ Kullanıcı onayı iptal etti, tool çalıştırılmadı."));
+    return;
+  }
+
+  messages.push({ role: "assistant", content: reply.content || null, tool_calls: reply.tool_calls });
+  for (const tc of reply.tool_calls) {
+    const name = tc.function.name;
+    let args = {};
+    try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
+    printToolCall(name, args);
+    const result = await executeTool(name, args, toolDefs);
+    printToolCallSafe(name, args, result);
+    const out = result.error
+      ? "ERROR: " + result.error
+      : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
+    messages.push({ role: "tool", tool_call_id: tc.id, content: (out || "(empty)").slice(0, 8000) });
+  }
 }
 
 function printSummary(files, cmds, msgs, startTime) {
