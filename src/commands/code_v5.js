@@ -21,7 +21,7 @@ const chalk = require("chalk");
 const tui = require("../utils/tui");
 const { getConfig } = require("../utils/config");
 const { loadToolDefinitions, executeTool, toOpenAIFormat } = require("../utils/tools");
-const { buildTiers, assemble } = require("../utils/system-prompt");
+const { buildTiers, assemble, discoverProjectRules } = require("../utils/system-prompt");
 const { buildSkillIndex } = require("../utils/skill-index");
 
 const IS_MAC = os.platform() === "darwin";
@@ -315,10 +315,12 @@ async function codeV5(targetPath) {
   // Three-tier system prompt (Hermes-style)
   const skillsIndexBlock = buildSkillIndex();
   const cfg = getConfig();
+  const projectRules = discoverProjectRules(cwd);
   const promptOpts = {
     botName: 'Code Agent',
     userName: cfg.userName || 'kullanıcı',
     skillsIndexBlock,
+    projectRules,
     hasHistory: false,
     userHome: os.homedir(),
   };

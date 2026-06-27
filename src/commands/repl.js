@@ -27,7 +27,7 @@ const { accumulateToolCallDeltas, finalizeToolCalls } = require('../utils/stream
 const { createPasteSafeInput, createOutputFilter, enableBracketedPaste, disableBracketedPaste, restoreNewlines, clearPasteContext } = require('../utils/paste-safe-input');
 const { getMemoryStore } = require('../utils/memory-store');
 const { buildSkillIndex } = require('../utils/skill-index');
-const { buildTiers, assemble } = require('../utils/system-prompt');
+const { buildTiers, assemble, discoverProjectRules } = require('../utils/system-prompt');
 const { ToolGuardrails } = require('../utils/tool-guardrails');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
@@ -71,7 +71,8 @@ function rebuildSystemPrompt(opts) {
     _cachedTierOpts.botName !== opts.botName ||
     _cachedTierOpts.soulSummary !== opts.soulSummary ||
     _cachedTierOpts.skillsIndexBlock !== opts.skillsIndexBlock ||
-    _cachedTierOpts.crossSessionContext !== opts.crossSessionContext;
+    _cachedTierOpts.crossSessionContext !== opts.crossSessionContext ||
+    _cachedTierOpts.projectRules !== opts.projectRules;
   
   if (needsFullRebuild || !_cachedStable) {
     const tiers = buildTiers(opts);
@@ -82,6 +83,7 @@ function rebuildSystemPrompt(opts) {
       soulSummary: opts.soulSummary,
       skillsIndexBlock: opts.skillsIndexBlock,
       crossSessionContext: opts.crossSessionContext,
+      projectRules: opts.projectRules,
     };
   }
   // Volatile always rebuilt fresh
@@ -92,6 +94,7 @@ function rebuildSystemPrompt(opts) {
     soulSummary: '',
     skillsIndexBlock: '',
     crossSessionContext: '',
+    projectRules: '',
   });
   return assemble(_cachedStable, _cachedContext, volatileOnly.volatile);
 }
@@ -696,10 +699,16 @@ async function startRepl(args) {
                        (cfg.providerUrl || '').includes('mistral.ai') ||
                        (cfg.providerUrl || '').includes('localhost') ||
                        (cfg.providerUrl || '').includes('ollama');
+  // Discover project rules (CLAUDE.md)
+  const projectRules = discoverProjectRules(process.cwd());
+  if (projectRules) {
+    console.log(chalk.cyan(`  📋 Proje kurallari bulundu (CLAUDE.md)\n`));
+  }
+
   // Build system prompt with tier caching (stable+context cached, volatile fresh)
   const promptOpts = {
     botName, userName, soulSummary, isSmallModel,
-    memorySnapshotBlock, skillsIndexBlock,
+    memorySnapshotBlock, skillsIndexBlock, projectRules,
     crossSessionContext: crossSessionContext || '',
     userHome: cfg.userHome || '',
     hasHistory: messages.length > 0,

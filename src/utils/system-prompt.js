@@ -25,6 +25,7 @@ function buildTiers(opts) {
     userHome = '',
     hasHistory = false,
     memoryFacts = [],
+    projectRules = '',
   } = opts;
   const displayBot = botName || 'Asistan';
   const displayBoss = bossName || userName || 'kullanıcı';
@@ -68,9 +69,10 @@ function buildTiers(opts) {
     skillsIndexBlock,
   ].filter(Boolean).join('\n');
 
-  // ── CONTEXT TIER (soul + cross-session, built once per resume) ──────
+  // ── CONTEXT TIER (soul + project rules + cross-session, built once per resume) ──────
   const context = [
     !isSmallModel && soulSummary ? `=== KISISELIK DOSYALARI ===\n${soulSummary}` : '',
+    projectRules ? `=== PROJE KURALLARI (CLAUDE.md) ===\n${projectRules}\n=== PROJE KURALLARI BITTI ===` : '',
     crossSessionContext ? `=== GECMIS KONUSMALAR ===\n${crossSessionContext}` : '',
   ].filter(Boolean).join('\n');
 
@@ -107,4 +109,28 @@ function stableContextKey(stable, context) {
   return stable + '|||' + context;
 }
 
-module.exports = { buildTiers, assemble, stableContextKey };
+/**
+ * CLAUDE.md auto-discover — proje kökünden oku.
+ * Cwd'den başlayıp parent dizinlere doğru CLAUDE.md arar.
+ */
+function discoverProjectRules(cwd) {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    let dir = path.resolve(cwd || process.cwd());
+    // En fazla 5 seviye yukarı çık
+    for (let i = 0; i < 5; i++) {
+      const candidate = path.join(dir, 'CLAUDE.md');
+      if (fs.existsSync(candidate)) {
+        const content = fs.readFileSync(candidate, 'utf8').trim();
+        if (content.length > 0) return content;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break; // kök dizine ulaştık
+      dir = parent;
+    }
+  } catch {}
+  return '';
+}
+
+module.exports = { buildTiers, assemble, stableContextKey, discoverProjectRules };
