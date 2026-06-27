@@ -1,126 +1,82 @@
-const fs = require('fs');
+/**
+ * cron — Scheduled task monitoring (cron-like expressions)
+ *
+ * Format (standard cron): min hour dom mon dow
+ *   e.g., "every 5 min" -> minute field = "star/5"
+ * Checks if a task should run based on its schedule.
+ */
+
 const path = require('path');
 const os = require('os');
-const cron = require('node-cron');
+const fs = require('fs');
 
-const CRON_FILE = path.join(os.homedir(), '.natureco', 'cron.json');
-const CRON_LOGS_DIR = path.join(os.homedir(), '.natureco', 'cron-logs');
+const CRON_FILE = path.join(os.homedir(), '.natureco', 'cron-jobs.json');
 
-function ensureCronDirs() {
-  const dir = path.dirname(CRON_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  if (!fs.existsSync(CRON_LOGS_DIR)) {
-    fs.mkdirSync(CRON_LOGS_DIR, { recursive: true });
-  }
+function parseCron(expr) {
+  const parts = expr.trim().split(/\s+/);
+  if (parts.length !== 5) return null;
+  const [min, hour, dom, mon, dow] = parts;
+  return { min, hour, dom, mon, dow };
 }
 
-function loadCronJobs() {
-  ensureCronDirs();
-  if (!fs.existsSync(CRON_FILE)) {
-    return [];
+function matchesField(value, pattern) {
+  if (pattern === '*') return true;
+  if (pattern.startsWith('*/')) {
+    const step = parseInt(pattern.slice(2), 10);
+    return value % step === 0;
   }
+  if (pattern.includes(',')) return pattern.split(',').some(p => matchesField(value, p));
+  if (pattern.includes('-')) {
+    const [lo, hi] = pattern.split('-').map(Number);
+    return value >= lo && value <= hi;
+  }
+  return parseInt(pattern, 10) === value;
+}
+
+function shouldRun(expr) {
+  const parsed = parseCron(expr);
+  if (!parsed) return false;
+  const now = new Date();
+  return (
+    matchesField(now.getMinutes(), parsed.min) &&
+    matchesField(now.getHours(), parsed.hour) &&
+    matchesField(now.getDate(), parsed.dom) &&
+    matchesField(now.getMonth() + 1, parsed.mon) &&
+    matchesField(now.getDay(), parsed.dow)
+  );
+}
+
+function loadJobs() {
   try {
-    const data = fs.readFileSync(CRON_FILE, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
+    if (fs.existsSync(CRON_FILE)) return JSON.parse(fs.readFileSync(CRON_FILE, 'utf8'));
+  } catch {}
+  return [];
 }
 
-function saveCronJobs(jobs) {
-  ensureCronDirs();
-  fs.writeFileSync(CRON_FILE, JSON.stringify(jobs, null, 2), 'utf-8');
-}
-
-function addCronJob(job) {
-  const jobs = loadCronJobs();
-  const id = Date.now().toString(36) + Math.random().toString(36).slice(2);
-  const newJob = {
-    id,
-    ...job,
+function addJob(job) {
+  const jobs = loadJobs();
+  const entry = {
+    id: `cron_${Date.now()}`,
+    schedule: job.schedule,
+    command: job.command,
+    description: job.description || '',
+    createdAt: Date.now(),
+    lastRun: null,
     enabled: true,
-    createdAt: new Date().toISOString(),
   };
-  jobs.push(newJob);
-  saveCronJobs(jobs);
-  return newJob;
+  jobs.push(entry);
+  const dir = path.dirname(CRON_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(CRON_FILE, JSON.stringify(jobs, null, 2));
+  return entry;
 }
 
-function removeCronJob(id) {
-  const jobs = loadCronJobs();
-  const filtered = jobs.filter(j => j.id !== id);
-  saveCronJobs(filtered);
-  return filtered.length < jobs.length;
-}
-
-function updateCronJob(id, updates) {
-  const jobs = loadCronJobs();
-  const index = jobs.findIndex(j => j.id === id);
-  if (index === -1) return false;
-  jobs[index] = { ...jobs[index], ...updates };
-  saveCronJobs(jobs);
+function removeJob(id) {
+  const jobs = loadJobs().filter(j => j.id !== id);
+  const dir = path.dirname(CRON_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(CRON_FILE, JSON.stringify(jobs, null, 2));
   return true;
 }
 
-function getCronJob(id) {
-  const jobs = loadCronJobs();
-  return jobs.find(j => j.id === id);
-}
-
-function parseCronSchedule(schedule) {
-  // Basit zamanlama formatlarını cron expression'a çevir
-  if (schedule.startsWith('every ')) {
-    const parts = schedule.split(' ');
-    if (parts[2] === 'hours') {
-      const hours = parseInt(parts[1]);
-      return `0 */${hours} * * *`;
-    }
-    if (parts[2] === 'minutes') {
-      const minutes = parseInt(parts[1]);
-      return `*/${minutes} * * * *`;
-    }
-  }
-  
-  if (schedule.startsWith('daily at ')) {
-    const time = schedule.replace('daily at ', '');
-    const [hour, minute = '0'] = time.split(':');
-    return `${minute} ${hour} * * *`;
-  }
-  
-  // Zaten cron expression ise olduğu gibi döndür
-  return schedule;
-}
-
-function validateCronExpression(expression) {
-  return cron.validate(expression);
-}
-
-function logCronOutput(jobId, output) {
-  const logFile = path.join(CRON_LOGS_DIR, `${jobId}.log`);
-  const timestamp = new Date().toISOString();
-  const logEntry = `[${timestamp}]\n${output}\n\n`;
-  fs.appendFileSync(logFile, logEntry, 'utf-8');
-}
-
-function getCronLog(jobId) {
-  const logFile = path.join(CRON_LOGS_DIR, `${jobId}.log`);
-  if (!fs.existsSync(logFile)) {
-    return null;
-  }
-  return fs.readFileSync(logFile, 'utf-8');
-}
-
-module.exports = {
-  loadCronJobs,
-  saveCronJobs,
-  addCronJob,
-  removeCronJob,
-  updateCronJob,
-  getCronJob,
-  parseCronSchedule,
-  validateCronExpression,
-  logCronOutput,
-  getCronLog,
-};
+module.exports = { parseCron, shouldRun, loadJobs, addJob, removeJob };

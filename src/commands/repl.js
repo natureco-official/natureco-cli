@@ -290,14 +290,227 @@ function apiRequest(providerUrl, providerApiKey, body, stream = false, retries =
 async function sendStreaming(providerUrl, providerApiKey, messages, model, onChunk, onToolCall) {
   const isMM = isMiniMax(providerUrl);
   const isGM = isGemini(providerUrl);
+  const planMode = getPlanMode();
+
   const toolDefs = getToolDefs();
+  // Inject plan mode virtual tools
+  const planToolDefs = [
+    {
+      name: 'EnterPlanMode',
+      description: 'Switch to plan-only mode. Research, explore, and create a detailed plan without making changes. Use ExitPlanMode when ready.',
+      parameters: { type: 'object', properties: {}, required: [] },
+      execute: async () => {
+        if (planMode.enter()) return { result: 'Plan mode activated. You can now research and plan. No changes will be made. Use ExitPlanMode when your plan is ready.' };
+        return { result: 'Already in plan mode.' };
+      },
+    },
+    {
+      name: 'ExitPlanMode',
+      description: 'Exit plan mode and present your plan for review. The plan must include steps, files to modify, and expected changes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          plan: { type: 'string', description: 'Markdown plan with ## Plan title, ### Step N sections listing files and changes' },
+          summary: { type: 'string', description: 'One-sentence summary of the plan' },
+        },
+        required: ['plan'],
+      },
+      execute: async (args) => {
+        const ok = planMode.exit(args.plan);
+        if (!ok) return { error: 'Not in plan mode.' };
+        return {
+          result: `Plan submitted for review.\n\n${args.plan}`,
+          _plan_summary: args.summary || '',
+        };
+      },
+    },
+  ];
+  toolDefs.push(...planToolDefs);
+
+  // Inject worktree virtual tools
+  const wt = getWorktree();
+  const worktreeToolDefs = [
+    {
+      name: 'EnterWorktree',
+      description: 'Create an isolated worktree for experimental changes without affecting the main project. Use ExitWorktree to merge changes back.',
+      parameters: {
+        type: 'object',
+        properties: {
+          branch: { type: 'string', description: 'Optional branch name for the worktree' },
+        },
+      },
+      execute: async (args) => wt.enter(args),
+    },
+    {
+      name: 'ExitWorktree',
+      description: 'Exit the current worktree and merge changes back to the main branch.',
+      parameters: {
+        type: 'object',
+        properties: {
+          merge: { type: 'boolean', description: 'Merge changes back (default: true)' },
+        },
+      },
+      execute: async (args) => wt.exit(args),
+    },
+  ];
+  toolDefs.push(...worktreeToolDefs);
+
+  // Inject tool-level virtual tools
+  const { getTaskManager } = require('../utils/tasks');
+  const taskMgr = getTaskManager();
+  const toolVirtualTools = [
+    {
+      name: 'CreateTask',
+      description: 'Run a command in the background. Returns immediately with a task ID. Use GetTaskResult or ListTasks to check status.',
+      parameters: {
+        type: 'object',
+        properties: {
+          command: { type: 'string', description: 'Shell command to run' },
+          timeout: { type: 'number', description: 'Timeout in ms (default: 300000)' },
+        },
+        required: ['command'],
+      },
+      execute: async (args) => taskMgr.create(args.command, args),
+    },
+    {
+      name: 'ListTasks',
+      description: 'List all background tasks with their status.',
+      parameters: { type: 'object', properties: {}, required: [] },
+      execute: async () => ({ tasks: taskMgr.list() }),
+    },
+    {
+      name: 'GetTaskResult',
+      description: 'Get the full result (stdout/stderr) of a completed or running task.',
+      parameters: {
+        type: 'object',
+        properties: { taskId: { type: 'string', description: 'Task ID' } },
+        required: ['taskId'],
+      },
+      execute: async (args) => {
+        const task = taskMgr.get(args.taskId);
+        if (!task) return { error: 'Task not found' };
+        return { result: task.stdout, error: task.stderr, status: task.status, exitCode: task.exitCode };
+      },
+    },
+    {
+      name: 'StopTask',
+      description: 'Stop a running background task.',
+      parameters: {
+        type: 'object',
+        properties: { taskId: { type: 'string' } },
+        required: ['taskId'],
+      },
+      execute: async (args) => taskMgr.stop(args.taskId),
+    },
+    {
+      name: 'SearchSessions',
+      description: 'Search past conversation sessions for information. Useful for finding previously discussed topics or decisions.',
+      parameters: {
+        type: 'object',
+        properties: { query: { type: 'string', description: 'Search query' } },
+        required: ['query'],
+      },
+      execute: async (args) => {
+        const { search } = require('../utils/session-search');
+        return { results: search(args.query, 5) };
+      },
+    },
+    {
+      name: 'RestoreFile',
+      description: 'Restore a file from its snapshot history. Use FileHistory first to list available snapshots.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filePath: { type: 'string', description: 'File path to restore' },
+          timestamp: { type: 'number', description: 'Snapshot timestamp (from FileHistory). If omitted, restores previous version.' },
+        },
+        required: ['filePath'],
+      },
+      execute: async (args) => {
+        const fh = require('../utils/file-history');
+        const snaps = fh.getHistory(args.filePath);
+        if (snaps.length === 0) return { error: 'No history for this file' };
+        const ts = args.timestamp || snaps[0].timestamp;
+        return fh.restore(args.filePath, ts);
+      },
+    },
+    {
+      name: 'FileHistory',
+      description: 'List snapshot history for a file, showing timestamps and sizes of previous versions.',
+      parameters: {
+        type: 'object',
+        properties: { filePath: { type: 'string' } },
+        required: ['filePath'],
+      },
+      execute: async (args) => {
+        const fh = require('../utils/file-history');
+        return { snapshots: fh.getHistory(args.filePath) };
+      },
+    },
+    {
+      name: 'UltraReview',
+      description: 'Run a multi-focus code review (security, style, logic, performance) on specified files or git diff.',
+      parameters: {
+        type: 'object',
+        properties: {
+          files: { type: 'array', items: { type: 'string' }, description: 'File paths to review' },
+          diff: { type: 'string', description: 'Git diff content to review instead of files' },
+        },
+      },
+      execute: async (args) => {
+        const ur = require('../utils/ultra-review');
+        if (args.diff) return ur.reviewDiff(args.diff);
+        if (args.files) {
+          const fs = require('fs');
+          return {
+            reviews: args.files.map(f => {
+              const content = fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
+              return ur.reviewFile(f, content);
+            }),
+          };
+        }
+        return { error: 'Specify files or diff' };
+      },
+    },
+    {
+      name: 'ScheduleTask',
+      description: 'Schedule a recurring task using cron expressions. E.g., "*/5 * * * *" for every 5 min.',
+      parameters: {
+        type: 'object',
+        properties: {
+          schedule: { type: 'string', description: 'Cron expression: min hour dom mon dow' },
+          command: { type: 'string', description: 'Command to run' },
+          description: { type: 'string', description: 'Optional description' },
+        },
+        required: ['schedule', 'command'],
+      },
+      execute: async (args) => require('../utils/cron').addJob(args),
+    },
+    {
+      name: 'ListScheduledTasks',
+      description: 'List all scheduled cron tasks.',
+      parameters: { type: 'object', properties: {} },
+      execute: async () => ({ jobs: require('../utils/cron').loadJobs() }),
+    },
+    {
+      name: 'RemoveScheduledTask',
+      description: 'Remove a scheduled task by ID.',
+      parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+      execute: async (args) => {
+        require('../utils/cron').removeJob(args.id);
+        return { removed: true };
+      },
+    },
+  ];
+  toolDefs.push(...toolVirtualTools);
+
   const toolParam = toOpenAIFormat(toolDefs);
   guardrails.reset();
 
   let currentMessages = messages;
   let fullText = '';
   let iterations = 0;
-  const MAX_TOOL_ITERATIONS = isMM ? 12 : 8;
+  const MAX_TOOL_ITERATIONS = effortCfg.maxToolIterations;
   const MAX_CONTEXT_TOKENS = 32000; // safety limit before compression
 
   // v5.7.18: Preflight compression — if context too long, compress middle messages
@@ -331,13 +544,42 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
     // v5.7.18: Preflight compress before each iteration to prevent context bloat
     currentMessages = preflightCompress(currentMessages);
     const shouldStream = !isMM && !isGM; // MiniMax + Gemini non-stream (tool_calls reliability)
+    // Inject plan mode prompt into system message
+    const planModePrompt = planMode.getSystemPrompt();
+    if (planModePrompt) {
+      const sysIdx = currentMessages.findIndex(m => m.role === 'system');
+      if (sysIdx >= 0) {
+        const base = currentMessages[sysIdx].content;
+        if (!base.endsWith(planModePrompt)) {
+          currentMessages[sysIdx] = { ...currentMessages[sysIdx], content: base + '\n\n' + planModePrompt };
+        }
+      }
+    } else {
+      // Clean up any stale plan mode prompt from previous iterations
+      const sysIdx = currentMessages.findIndex(m => m.role === 'system');
+      if (sysIdx >= 0) {
+        const base = currentMessages[sysIdx].content;
+        const marker = '\n\nYou are in PLAN MODE.';
+        if (base.includes(marker)) {
+          currentMessages[sysIdx] = { ...currentMessages[sysIdx], content: base.split('\n\nYou are in PLAN MODE.')[0] };
+        }
+      }
+    }
+
+    const effortLevel = getEffortLevel(cfg);
+    const effortCfg = getEffortConfig(effortLevel);
+    const fallbackChain = getFallbackChain();
+
     const body = {
-      model,
+      model: fallbackChain.current || model,
       messages: currentMessages,
       stream: shouldStream,
-      temperature: 0.3,
-      max_tokens: 2048,
+      temperature: effortCfg.temperature,
+      max_tokens: effortCfg.maxTokens,
     };
+    // Structured output support
+    const respFmt = getResponseFormat(cfg);
+    if (respFmt) body.response_format = respFmt;
     if (toolParam) body.tools = toolParam;
     if (isMM || isGM) body.tool_choice = 'auto'; // MiniMax + Gemini için explicit
 
@@ -353,7 +595,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
       fullText = content;
       // Non-stream tool call desteği
       if (msg.tool_calls && msg.tool_calls.length > 0) {
-        const toolResults = await processToolCalls(msg.tool_calls, onToolCall);
+        const toolResults = await processToolCalls(msg.tool_calls, onToolCall, rl.question.bind(rl));
         currentMessages.push(msg);
         currentMessages.push(...toolResults);
         continue; // Tekrar API çağır
@@ -368,60 +610,71 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
       : isGemini(providerUrl)
         ? `${providerUrl.replace(/\/+$/, '')}/openai/chat/completions`
         : `${providerUrl.replace(/\/+$/, '')}/chat/completions`;
-    const result = await new Promise((resolve, reject) => {
-      const req = https.request(endpoint, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${providerApiKey}`, 'Content-Type': 'application/json' },
-        timeout: 60000,
-      }, (res) => {
-        if (res.statusCode !== 200) {
-          let data = '';
-          res.on('data', c => data += c);
-          res.on('end', () => reject(new Error(`HTTP ${res.statusCode}: ${data.slice(0, 200)}`)));
-          return;
-        }
-        let buffer = '';
-        let streamText = '';
-        const toolCalls = []; // { index, id, name, args }
-        res.on('data', (chunk) => {
-          buffer += chunk.toString('utf8');
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || !trimmed.startsWith('data:')) continue;
-            const data = trimmed.slice(5).trim();
-            if (data === '[DONE]') {
-              resolve({ streamText, toolCalls });
-              return;
-            }
-            try {
-              const parsed = JSON.parse(data);
-              const choice = parsed.choices?.[0];
-              if (!choice) continue;
-              const delta = choice.delta;
-
-              // Text content
-              if (delta.content) {
-                streamText += delta.content;
-                onChunk(delta.content);
-              }
-
-              // Tool calls (streaming delta) — shared accumulator,
-              // see src/utils/streaming-tools.js for the per-index pattern.
-              if (delta.tool_calls) {
-                accumulateToolCallDeltas(toolCalls, delta.tool_calls);
-              }
-            } catch {}
+    let result;
+    try {
+      result = await new Promise((resolve, reject) => {
+        const req = https.request(endpoint, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${providerApiKey}`, 'Content-Type': 'application/json' },
+          timeout: 60000,
+        }, (res) => {
+          if (res.statusCode !== 200) {
+            let data = '';
+            res.on('data', c => data += c);
+            res.on('end', () => reject(new Error(`HTTP ${res.statusCode}: ${data.slice(0, 200)}`)));
+            return;
           }
+          let buffer = '';
+          let streamText = '';
+          const toolCalls = []; // { index, id, name, args }
+          res.on('data', (chunk) => {
+            buffer += chunk.toString('utf8');
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed || !trimmed.startsWith('data:')) continue;
+              const data = trimmed.slice(5).trim();
+              if (data === '[DONE]') {
+                resolve({ streamText, toolCalls });
+                return;
+              }
+              try {
+                const parsed = JSON.parse(data);
+                const choice = parsed.choices?.[0];
+                if (!choice) continue;
+                const delta = choice.delta;
+
+                // Text content
+                if (delta.content) {
+                  streamText += delta.content;
+                  onChunk(delta.content);
+                }
+
+                // Tool calls (streaming delta) — shared accumulator,
+                // see src/utils/streaming-tools.js for the per-index pattern.
+                if (delta.tool_calls) {
+                  accumulateToolCallDeltas(toolCalls, delta.tool_calls);
+                }
+              } catch {}
+            }
+          });
+          res.on('end', () => resolve({ streamText, toolCalls }));
         });
-        res.on('end', () => resolve({ streamText, toolCalls }));
+        req.on('error', reject);
+        req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+        req.write(JSON.stringify(body));
+        req.end();
       });
-      req.on('error', reject);
-      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
-      req.write(JSON.stringify(body));
-      req.end();
-    });
+    } catch (err) {
+      // Fallback chain: try next model on error
+      const fb = fallbackChain.recordError(body.model, err);
+      if (fb.fallback) {
+        console.log(tui.C.yellow(`\n  ⚠ ${body.model} başarısız → ${fb.nextModel} deneniyor...\n`));
+        continue; // Retry with next model
+      }
+      throw err;
+    }
 
     fullText = result.streamText;
 
@@ -436,8 +689,39 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
         tool_calls: finalized,
       });
       // Her tool call'ı çalıştır, sonuçları tool mesajı olarak ekle
-      const toolResults = await processToolCalls(finalized, onToolCall);
+      const toolResults = await processToolCalls(finalized, onToolCall, rl.question.bind(rl));
       currentMessages.push(...toolResults);
+
+      // Plan mode review: plan submitted, wait for user approval
+      if (planMode.inReview()) {
+        const { plan } = planMode.planHistory[planMode.planHistory.length - 1] || {};
+        console.log('\n' + tui.C.cyan('  📋 Plan sunuldu — onay bekleniyor...'));
+        console.log(tui.C.muted('  ' + '─'.repeat(56)));
+        console.log(plan ? `\n  ${plan.replace(/\n/g, '\n  ')}` : '');
+        console.log('\n' + tui.C.muted('  ─'.repeat(28)));
+        const approved = await new Promise(resolve => {
+          rl.question(tui.C.yellow('  Planı onaylıyor musun? [Y=exec, n=reddet, e=düzenle]: '), answer => {
+            const key = answer.trim().toLowerCase();
+            if (key === 'n' || key === 'no') { planMode.reject(); resolve(false); }
+            else if (key === 'e' || key === 'edit') { planMode.reject(); resolve('edit'); }
+            else { planMode.approve(); resolve(true); }
+          });
+        });
+        if (approved === true) {
+          console.log(tui.C.green('  ✓ Plan onaylandı. Plan uygulanıyor...\n'));
+          // Devam — model cevap versin
+        } else if (approved === 'edit') {
+          console.log(tui.C.yellow('  📝 Planı düzenleyin ve /plan ile yeniden gönderin.\n'));
+          // Plan modunda kal, mesaj ekle
+          currentMessages.push({ role: 'user', content: 'Planı düzenle ve yeniden sun.' });
+          continue;
+        } else {
+          console.log(tui.C.amber('  ⨯ Plan reddedildi. Yeniden plan yapılıyor...\n'));
+          currentMessages.push({ role: 'user', content: 'Plan reddedildi. Lütfen farklı bir yaklaşım dene.' });
+          continue;
+        }
+      }
+
       // Devam — model sonuçları görsün, cevap versin
       continue;
     }
@@ -454,8 +738,37 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
  */
 const UNTRUSTED_TOOLS = new Set(['browser', 'web_search', 'duckduckgo_search', 'searxng_search', 'exa_search', 'firecrawl', 'web_readability']);
 const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
+const { checkPreHooks, runPostHooks, permissionSummary } = require('../utils/tool-hooks');
+const { checkPermission, isApproved, markApproved, formatPermissionPrompt } = require('../utils/permissions');
+const { getPlanMode } = require('../utils/plan-mode');
+const { getWorktree } = require('../utils/worktree');
+const { getLevel: getEffortLevel, getConfig: getEffortConfig } = require('../utils/effort-levels');
+const { getResponseFormat, hasStructuredOutput } = require('../utils/structured-output');
+const { getFallbackChain } = require('../utils/fallback-chain');
 
-async function processToolCalls(toolCalls, onToolCall) {
+/**
+ * Prompt user for permission approval.
+ * Returns: true (once), 'session', 'persistent', or false (denied).
+ */
+async function askPermissionPrompt(question, hint, prompter) {
+  const full = `${tui.C.yellow('⚠')} ${tui.C.bold('İzin gerekiyor')}: ${question}\n${tui.C.muted(hint)}`;
+  return new Promise(resolve => {
+    prompter(full, answer => {
+      const key = answer.trim();
+      if (key === 'y') resolve(true);          // once
+      else if (key === 'Y') resolve('session'); // session
+      else if (key === 'p') resolve('persistent'); // disk
+      else if (key === 'a') { _permSessionCache.set('__ALL__', true); resolve(true); } // all (legacy)
+      else resolve(false);                     // no
+    });
+  });
+}
+
+/** Session permission cache (for ask hooks) */
+const _permSessionCache = new Map();
+
+
+async function processToolCalls(toolCalls, onToolCall, onAsk) {
   const toolDefs = getToolDefs();
   const results = [];
 
@@ -495,23 +808,79 @@ async function processToolCalls(toolCalls, onToolCall) {
     if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'running' });
   }
 
+  // Shared tool execution with: planCheck → permissions → hooks → execute → post-hooks
+  async function executeOne(p) {
+    // 0. Plan mode check
+    const pm = getPlanMode();
+    const planCheck = pm.checkTool(p.name, p.args);
+    if (!planCheck.allowed) {
+      const denied = { ...p, result: { error: planCheck.reason }, _plan_blocked: true };
+      if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: planCheck.reason } });
+      return denied;
+    }
+    pm.recordTool(p.name, p.args);
+
+    // 1. Permission check (config-based granular rules)
+    const perm = checkPermission(p.name, p.args);
+    if (perm.action === 'deny') {
+      const denied = { ...p, result: { error: perm.reason }, _perm_blocked: true };
+      if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: perm.reason } });
+      return denied;
+    }
+    if (perm.action === 'ask') {
+      const permKey = `${perm.rule.raw}:${JSON.stringify(p.args)}`;
+      if (!isApproved(permKey)) {
+        const ok = await askPermissionPrompt(
+          `${formatPermissionPrompt(p.name, p.args, perm.reason)}\n  ${perm.reason}`,
+          `Bu işleme izin ver? [y=once, Y=session, p=persistent, n=no] `,
+          onAsk
+        );
+        if (ok === 'persistent') markApproved(permKey, true);
+        else if (ok === 'session') markApproved(permKey, false);
+        else if (!ok) {
+          const denied = { ...p, result: { error: `İzin reddedildi: ${perm.rule.raw}` }, _perm_blocked: true };
+          if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: `İzin reddedildi: ${perm.rule.raw}` } });
+          return denied;
+        }
+      }
+    }
+
+    // 2. Pre-hook check
+    const hook = checkPreHooks(p.name, p.args);
+    if (hook.action === 'deny') {
+      const denied = { ...p, result: { error: hook.reason }, _hook_blocked: true };
+      if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: hook.reason } });
+      return denied;
+    }
+    if (hook.action === 'ask') {
+      const ok = await askPermissionPrompt(
+        permissionSummary(hook.rule, p.name, p.args),
+        `Hook onayı [y=once, Y=session, n=no]: `,
+        onAsk
+      );
+      if (!ok) {
+        const denied = { ...p, result: { error: `Hook reddetti: ${hook.rule.raw}` }, _hook_blocked: true };
+        if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: `Hook reddetti: ${hook.rule.raw}` } });
+        return denied;
+      }
+    }
+
+    const result = await executeTool(p.name, p.args, toolDefs);
+    const success = result?.success !== false;
+    guardrails.record(p.name, p.args, success);
+    return { ...p, result: runPostHooks(p.name, p.args, result) };
+  }
+
   // Run parallel batch concurrently
   if (parallelBatch.length > 0) {
-    const parallelResults = await Promise.all(parallelBatch.map(async (p) => {
-      const result = await executeTool(p.name, p.args, toolDefs);
-      const success = result?.success !== false;
-      guardrails.record(p.name, p.args, success);
-      return { ...p, result };
-    }));
+    const parallelResults = await Promise.all(parallelBatch.map(executeOne));
     results.push(...parallelResults);
   }
 
   // Run sequential batch one at a time
   for (const p of sequentialBatch) {
-    const result = await executeTool(p.name, p.args, toolDefs);
-    const success = result?.success !== false;
-    guardrails.record(p.name, p.args, success);
-    results.push({ ...p, result });
+    const r = await executeOne(p);
+    results.push(r);
   }
 
   // No-progress check: if all tools failed, inject warning
@@ -579,6 +948,7 @@ function printHelp() {
   console.log('  ' + chalk.yellow('/clear'.padEnd(22)) + chalk.gray('Ekranı temizle'));
   console.log('  ' + chalk.yellow('/history'.padEnd(22)) + chalk.gray('Bu oturumun geçmişi'));
   console.log('  ' + chalk.yellow('/memory'.padEnd(22)) + chalk.gray('Memory\'i göster'));
+  console.log('  ' + chalk.yellow('/plan [on|off|show]'.padEnd(22)) + chalk.gray('Plan modu'));
   console.log('  ' + chalk.yellow('/forget'.padEnd(22)) + chalk.gray('Memory\'i temizle'));
   console.log('  ' + chalk.yellow('/sessions'.padEnd(22)) + chalk.gray('Geçmiş oturumları listele'));
   console.log('  ' + chalk.yellow('/resume [id|last]'.padEnd(22)) + chalk.gray('Önceki oturuma dön'));
@@ -988,6 +1358,29 @@ async function startRepl(args) {
           break;
         case 'tokens':
           console.log(chalk.gray(`  Token: ~${totalInputTokens} in / ~${totalOutputTokens} out`));
+          break;
+        case 'plan':
+          if (arg === 'on' || arg === 'enter') {
+            if (planMode.enter()) console.log(tui.C.cyan('\n  📋 Plan modu aktif. Plan yapın ve /plan off ile çıkın.\n'));
+            else console.log(tui.C.yellow('  Zaten plan modunda.'));
+          } else if (arg === 'off' || arg === 'exit') {
+            if (planMode.isPlanning()) {
+              console.log(tui.C.yellow('  Plan modundan çıkılıyor. Plan yazılıp ExitPlanMode ile sunulmalı.'));
+              planMode.approve();
+            } else {
+              console.log(tui.C.yellow('  Plan modunda değil.'));
+            }
+          } else if (arg === 'show') {
+            if (planMode.planHistory.length > 0) {
+              const last = planMode.planHistory[planMode.planHistory.length - 1];
+              console.log(tui.C.cyan('\n  📋 Son Plan:\n'));
+              console.log(`  ${last.plan.replace(/\n/g, '\n  ')}`);
+            } else {
+              console.log(tui.C.yellow('  Henüz plan yok.'));
+            }
+          } else {
+            console.log(tui.C.yellow('  Kullanım: /plan on|off|show'));
+          }
           break;
         case 'save':
           const sessId = saveSession(messages, {

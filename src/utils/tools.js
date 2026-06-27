@@ -8,6 +8,12 @@
 const fs = require('fs');
 const path = require('path');
 const { globalRegistry } = require('./registry');
+const sandbox = require('./sandbox');
+
+// Lazy config read — avoids circular deps
+function _getSandboxLevel() {
+  try { return sandbox.getLevel(require('./config').getConfig()); } catch { return 'none'; }
+}
 
 const TOOLS_DIR = path.join(__dirname, '..', 'tools');
 
@@ -294,6 +300,16 @@ async function executeTool(toolName, args, toolDefs) {
       return { error: `${toolName} şu anda kullanılamıyor (check_fn engelledi)` };
     }
   }
+
+  // Sandbox restrictions for bash/shell_command
+  if (toolName === 'bash' || toolName === 'shell_command') {
+    const level = _getSandboxLevel();
+    const cmd = (args && args.command) || '';
+    if (level === 'strict' && sandbox.isNetworkCommand(cmd)) {
+      return { error: 'strict sandbox: network komutları engellendi. Daha düşük sandbox seviyesi kullanın.' };
+    }
+  }
+
   try {
     const result = await tool.execute(args || {});
     return { result };

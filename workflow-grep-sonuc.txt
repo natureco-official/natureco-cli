@@ -1,0 +1,58 @@
+# workflow kelimesi src/tools/ altında bulunan sonuçlar
+
+## skill_manage.js
+Satır 15: const description = 'Create, update (patch), or delete skills. Use skill_view(name) to read skill content first, then skill_manage to create/patch it. Skills contain reusable workflows, instructions, and conventions.';
+Satır 26: description: 'Skill name (lowercase, hyphen-separated, e.g. "my-workflow"). For patch/delete, must match an existing skill.',
+
+## blueprint.js
+Satır 74: description: 'Tekrar kullanilabilir workflow blueprint: create/load/list/execute/delete. Adimli is akisi ve degisken ikamesi.',
+
+## plugin.js
+Satır 213: description: "GitHub API entegrasyonu: PR, issue, workflow, release",
+
+## workflow.js (Ana dosya)
+Satır 6: const WORKFLOW_DIR = path.join(os.homedir(), '.natureco', 'workflows');
+Satır 7: const WORKFLOW_HISTORY = path.join(os.homedir(), '.natureco', 'workflow-history.json');
+Satır 55: async function workflow(params) {
+Satır 56: const { action, task, steps, name, workflowId, regenerateStep } = params;
+Satır 59: ensureDir(WORKFLOW_DIR);
+Satır 69: // ── RUN: Execute a complete workflow ──────────────────────────────────
+Satır 92: return { success: true, workflowId: 'passthrough', name: 'Direct Chat', status: 'completed', totalSteps: 0, completedSteps: 0, results: [{ step: 0, tool: 'chat', status: 'done', result: { reply } }], passthrough: true, reply };
+Satır 98: // Phase 1: LLM plans the workflow
+Satır 101: content: 'Sen bir workflow planlama asistanisin. Verilen gorev icin hangi tool\'larin kullanilacagini ve hangi sirayla calisacagini belirle. SADECE JSON formatinda yanit ver, baska bir sey yazma.\n\nKullanilabilir tool\'lar:\n' +
+Satır 103: '\n\nJSON format:\n{\n  "workflowName": "...",\n  "description": "...",\n  "steps": [\n    { "step": 1, "tool": "tool_name", "purpose": "...", "params": { ... } }\n  ]\n}\n\nHer adim icin params kismina tool\'un gerektirdigi parametreleri ekle. Adimlar birbirine bagimli olabilir, onceki adimin outputu sonraki adimin inputu olarak kullanilabilir.'
+Satır 129: const wfId = workflowId || 'wf_' + Date.now().toString(36);
+Satır 130: const wfFile = path.join(WORKFLOW_DIR, wfId + '.json');
+Satır 131: const wfEntry = { id: wfId, task, name: plan.workflowName || task.slice(0, 50), description: plan.description || '', steps: plan.steps, status: 'running', startedAt: new Date().toISOString(), results: [] };
+Satır 191: // Update workflow file
+Satır 198: ensureDir(path.dirname(WORKFLOW_HISTORY));
+Satır 200: try { history = JSON.parse(fs.readFileSync(WORKFLOW_HISTORY, 'utf8')); } catch {}
+Satır 201: history.unshift({ id: wfId, name: plan.workflowName || task.slice(0, 50), task, status: wfEntry.status, steps: plan.steps.length, completedAt: wfEntry.completedAt });
+Satır 202: fs.writeFileSync(WORKFLOW_HISTORY, JSON.stringify(history.slice(0, 50), null, 2));
+Satır 206: workflowId: wfId,
+Satır 207: name: plan.workflowName || '',
+Satır 219: workflowFile: wfFile,
+Satır 229: '\n\nGorev icin bir workflow plani JSON formatinda olustur. JSON disinda hicbir sey yazma.\nFormat: { "workflowName": "...", "description": "...", "estimatedSteps": N, "steps": [{ "step": 1, "tool": "...", "purpose": "...", "params": {...}, "expectedOutput": "..." }] }'
+Satır 252: fs.writeFileSync(path.join(WORKFLOW_DIR, wfId + '.json'), JSON.stringify(wf, null, 2));
+Satır 253: return { success: true, workflowId: wfId, message: name + ' kaydedildi' };
+Satır 257: const wfId = workflowId || name;
+Satır 258: if (!wfId) return { success: false, error: 'workflowId gerekli' };
+Satır 259: const wfFile = path.join(WORKFLOW_DIR, wfId + '.json');
+Satır 262: const files = fs.readdirSync(WORKFLOW_DIR).filter(f => f.endsWith('.json'));
+Satır 265: const data = JSON.parse(fs.readFileSync(path.join(WORKFLOW_DIR, f), 'utf8'));
+Satır 267: return { success: true, workflow: data };
+Satır 271: return { success: false, error: 'Workflow bulunamadi: ' + wfId };
+Satır 274: return { success: true, workflow: data };
+Satır 278: const files = fs.readdirSync(WORKFLOW_DIR).filter(f => f.endsWith('.json'));
+Satır 281: const data = JSON.parse(fs.readFileSync(path.join(WORKFLOW_DIR, f), 'utf8'));
+Satır 285: return { success: true, workflows: list };
+Satır 289: const wfId = workflowId || name;
+Satır 290: if (!wfId) return { success: false, error: 'workflowId gerekli' };
+Satır 291: const wfFile = path.join(WORKFLOW_DIR, wfId + '.json');
+Satır 298: const wfId = workflowId;
+Satır 299: if (!wfId) return { success: false, error: 'workflowId gerekli' };
+
+---
+Toplam: 50 sonuç bulundu
+Dosya: /Users/gencay/Projects/natureco-cli/workflow-grep-sonuc.txt
+Tarih: 2026

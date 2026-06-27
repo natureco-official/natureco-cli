@@ -2,6 +2,38 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.20.0] - 2026-06-27 — "CLAUDE CODE FEATURES CLONE"
+
+13 Claude Code özelliği klonlandı ve her iki CLI moduna (REPL + Code Agent) entegre edildi. 28 test dosyası, 463 test.
+
+### ✨ Yeni Özellikler
+
+- **Hooks Sistemi** (`src/utils/tool-hooks.js`): Pattern-based pre/post hooks. `ToolName(glob)` syntax ile allow/deny/ask/notify/record.
+- **Permission Sistemi** (`src/utils/permissions.js`): Granular allow/deny/ask rules + persistent approval cache (disk).
+- **Plan Mode** (`src/utils/plan-mode.js`): 3-state (normal → planning → review). Read-only mod, `/plan on|approve|reject|show` CLI.
+- **Worktrees** (`src/utils/worktree.js`): Git worktree + copytree fallback. EnterWorktree/ExitWorktree virtual tools.
+- **Sandbox** (`src/utils/sandbox.js`): none/basic/strict seviyeleri. Strict'te network komutları bloklanır, timeout kısalır.
+- **Fallback Chain** (`src/utils/fallback-chain.js`): 3 model sıralı düşüş. error/ratelimit/timeout'da otomatik geçiş.
+- **Effort Levels** (`src/utils/effort-levels.js`): low/medium/high — token limit, iteration, temperature kontrolü.
+- **File History** (`src/utils/file-history.js`): Snapshot-based undo. `.natureco/history/` altında 20 snap/file. RestoreFile + FileHistory tools.
+- **Session Search** (`src/utils/session-search.js`): Full-text `.natureco/sessions/` arama. SearchSessions tool.
+- **Task Sistemi** (`src/utils/tasks.js`): Child process background task manager. CreateTask/ListTasks/GetTaskResult/StopTask tools.
+- **Cron/Monitor** (`src/utils/cron.js`): Cron expression scheduler. ScheduleTask/ListScheduledTasks/RemoveScheduledTask tools.
+- **Structured Output** (`src/utils/structured-output.js`): JSON schema response format. Config'dan `response_format` okur.
+- **Ultra Review** (`src/utils/ultra-review.js`): 4-focus code review (security/style/logic/performance). UltraReview tool.
+
+### 🔧 Entegrasyon
+
+- `repl.js`: 14 virtual tool inject, plan review flow, permission + hooks + plan mode pipeline (`executeOne()`)
+- `code_v5.js`: Aynı 14 virtual tool, `/plan` CLI, permission/hooks/plan/effort/fallback entegrasyonu
+- `tools.js`: Sandbox strict seviyesinde bash/shell_command network bloklama
+- Otomatik file snapshot: write_file/edit_file çalıştığında history snapshot alınır
+
+### 🧪 Test
+
+- 4 yeni test dosyası: tool-hooks (13), permissions (10), plan-mode (15), worktree (9)
+- Toplam: 28 test dosyası, 463 test — tamamı yeşil
+
 ## [5.7.1] - 2026-06-25 — "BUG FIX SPRINT"
 
 Comprehensive audit-driven sprint: 7 real runtime bugs fixed, 6 new

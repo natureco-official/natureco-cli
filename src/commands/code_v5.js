@@ -21,6 +21,14 @@ const chalk = require("chalk");
 const tui = require("../utils/tui");
 const { getConfig } = require("../utils/config");
 const { loadToolDefinitions, executeTool, toOpenAIFormat } = require("../utils/tools");
+const { checkPreHooks, runPostHooks, permissionSummary } = require("../utils/tool-hooks");
+const { checkPermission, isApproved, markApproved, formatPermissionPrompt } = require("../utils/permissions");
+const { getPlanMode } = require("../utils/plan-mode");
+const { getWorktree } = require("../utils/worktree");
+const { getLevel: getEffortLevel, getConfig: getEffortConfig } = require("../utils/effort-levels");
+const { getResponseFormat } = require("../utils/structured-output");
+const { getFallbackChain } = require("../utils/fallback-chain");
+const { getTaskManager } = require("../utils/tasks");
 const { buildTiers, assemble, discoverProjectRules } = require("../utils/system-prompt");
 const { buildSkillIndex } = require("../utils/skill-index");
 
@@ -61,20 +69,34 @@ async function apiRequest(url, key, body) {
 
 async function sendMessageWithTools(providerUrl, providerKey, model, messages, toolDefs) {
   const isMM = isMiniMax(providerUrl);
+  const effortLevel = getEffortLevel();
+  const effortCfg = getEffortConfig(effortLevel);
+  const fallbackChain = getFallbackChain();
   const openaiTools = toOpenAIFormat(toolDefs);
   const body = {
-    model,
+    model: fallbackChain.current || model,
     messages,
-    temperature: 0.3,
-    max_tokens: 4096,
+    temperature: effortCfg.temperature,
+    max_tokens: effortCfg.maxTokens,
     stream: false,
   };
   if (openaiTools.length > 0) {
     body.tools = openaiTools;
     body.tool_choice = "auto";
   }
-  const res = await apiRequest(providerUrl, providerKey, body);
-  return res.choices?.[0]?.message || {};
+  const respFmt = getResponseFormat({});
+  if (respFmt) body.response_format = respFmt;
+  try {
+    const res = await apiRequest(providerUrl, providerKey, body);
+    return res.choices?.[0]?.message || {};
+  } catch (err) {
+    const fb = fallbackChain.recordError(body.model, err);
+    if (fb.fallback) {
+      console.log(tui.C.yellow(`\n  ⚠ ${body.model} başarısız → ${fb.nextModel} deneniyor...\n`));
+      return sendMessageWithTools(providerUrl, providerKey, fb.nextModel, messages, toolDefs);
+    }
+    throw err;
+  }
 }
 
 function confirm(prompt) {
@@ -284,6 +306,128 @@ async function codeV5(targetPath) {
   const projectCtx = scanProject(cwd);
   const toolDefs = loadToolDefinitions();
 
+  // Inject virtual tools
+  const planMode = getPlanMode();
+  const wt = getWorktree();
+  const taskMgr = getTaskManager();
+
+  // File tracking for summary + snapshots
+  function trackFileChanges(toolName, args, result) {
+    if (toolName === 'write_file' || toolName === 'edit_file') {
+      const fp = args.filePath || args.path;
+      if (fp && result && result.success !== false) {
+        filesChanged++;
+        try {
+          const fh = require('../utils/file-history');
+          const content = fs.readFileSync(fp, 'utf8');
+          fh.snapshot(fp, content);
+        } catch {}
+      }
+    }
+    if (toolName === 'bash' || toolName === 'shell_command') commandsRun++;
+  }
+
+  // Patch processToolCalls to use trackFileChanges
+  const _origPTC = processToolCalls;
+  processToolCalls = function(reply, config, toolDefs, messages) {
+    return _origPTC(reply, config, toolDefs, messages, trackFileChanges);
+  };
+  const virtualTools = [
+    {
+      name: 'EnterPlanMode',
+      description: 'Switch to plan-only mode. Research and plan without making changes. Use ExitPlanMode when ready.',
+      parameters: { type: 'object', properties: {}, required: [] },
+      execute: async () => {
+        if (planMode.enter()) return { result: 'Plan mode activated. Use ExitPlanMode when your plan is ready.' };
+        return { result: 'Already in plan mode.' };
+      },
+    },
+    {
+      name: 'ExitPlanMode',
+      description: 'Exit plan mode and present your plan for review.',
+      parameters: { type: 'object', properties: { plan: { type: 'string' }, summary: { type: 'string' } }, required: ['plan'] },
+      execute: async (args) => {
+        const ok = planMode.exit(args.plan);
+        if (!ok) return { error: 'Not in plan mode.' };
+        console.log(tui.C.cyan('\n  📋 Plan sunuldu. Onay için /plan approve yazın, red için /plan reject.\n'));
+        return { result: `Plan submitted.\n\n${args.plan}` };
+      },
+    },
+    {
+      name: 'EnterWorktree',
+      description: 'Create an isolated worktree for experimental changes.',
+      parameters: { type: 'object', properties: { branch: { type: 'string' } } },
+      execute: async (args) => wt.enter(args),
+    },
+    {
+      name: 'ExitWorktree',
+      description: 'Exit the current worktree and merge changes back.',
+      parameters: { type: 'object', properties: { merge: { type: 'boolean' } } },
+      execute: async (args) => wt.exit(args),
+    },
+    {
+      name: 'CreateTask', description: 'Run a command in the background.',
+      parameters: { type: 'object', properties: { command: { type: 'string' }, timeout: { type: 'number' } }, required: ['command'] },
+      execute: async (args) => taskMgr.create(args.command, args),
+    },
+    {
+      name: 'ListTasks', description: 'List all background tasks.',
+      parameters: { type: 'object', properties: {} },
+      execute: async () => ({ tasks: taskMgr.list() }),
+    },
+    {
+      name: 'GetTaskResult', description: 'Get the full result of a task.',
+      parameters: { type: 'object', properties: { taskId: { type: 'string' } }, required: ['taskId'] },
+      execute: async (args) => { const t = taskMgr.get(args.taskId); return t || { error: 'Task not found' }; },
+    },
+    {
+      name: 'StopTask', description: 'Stop a running task.',
+      parameters: { type: 'object', properties: { taskId: { type: 'string' } }, required: ['taskId'] },
+      execute: async (args) => taskMgr.stop(args.taskId),
+    },
+    {
+      name: 'SearchSessions', description: 'Search past sessions.',
+      parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+      execute: async (args) => { const { search } = require('../utils/session-search'); return { results: search(args.query, 5) }; },
+    },
+    {
+      name: 'RestoreFile', description: 'Restore a file from snapshot history.',
+      parameters: { type: 'object', properties: { filePath: { type: 'string' }, timestamp: { type: 'number' } }, required: ['filePath'] },
+      execute: async (args) => { const fh = require('../utils/file-history'); const snaps = fh.getHistory(args.filePath); if (!snaps.length) return { error: 'No history' }; return fh.restore(args.filePath, args.timestamp || snaps[0].timestamp); },
+    },
+    {
+      name: 'FileHistory', description: 'List snapshot history for a file.',
+      parameters: { type: 'object', properties: { filePath: { type: 'string' } }, required: ['filePath'] },
+      execute: async (args) => { const fh = require('../utils/file-history'); return { snapshots: fh.getHistory(args.filePath) }; },
+    },
+    {
+      name: 'UltraReview', description: 'Multi-focus code review (security, style, logic, performance).',
+      parameters: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' } }, diff: { type: 'string' } } },
+      execute: async (args) => {
+        const ur = require('../utils/ultra-review');
+        if (args.diff) return ur.reviewDiff(args.diff);
+        if (args.files) return { reviews: args.files.map(f => { try { return ur.reviewFile(f, fs.readFileSync(f, 'utf8')); } catch { return { file: f, error: 'Not found' }; } }) };
+        return { error: 'Specify files or diff' };
+      },
+    },
+    {
+      name: 'ScheduleTask', description: 'Schedule a recurring cron task.',
+      parameters: { type: 'object', properties: { schedule: { type: 'string' }, command: { type: 'string' }, description: { type: 'string' } }, required: ['schedule', 'command'] },
+      execute: async (args) => require('../utils/cron').addJob(args),
+    },
+    {
+      name: 'ListScheduledTasks', description: 'List cron tasks.',
+      parameters: { type: 'object', properties: {} },
+      execute: async () => ({ jobs: require('../utils/cron').loadJobs() }),
+    },
+    {
+      name: 'RemoveScheduledTask', description: 'Remove a cron task.',
+      parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+      execute: async (args) => { require('../utils/cron').removeJob(args.id); return { removed: true }; },
+    },
+  ];
+  toolDefs.push(...virtualTools);
+
   // Header / Welcome
   console.log("");
   console.log(tui.styled("  ╭" + "─".repeat(58) + "╮", { color: tui.PALETTE.primary }));
@@ -307,6 +451,7 @@ async function codeV5(targetPath) {
   }
 
   console.log("\n  " + tui.C.muted("Komutlar:"));
+  console.log("    " + tui.C.amber("/plan on|approve|reject|show") + tui.C.muted(" — Plan modu"));
   console.log("    " + tui.C.amber("/summary") + tui.C.muted(" — Oturum özeti"));
   console.log("    " + tui.C.amber("/done") + tui.C.muted("    — Özet + çıkış"));
   console.log("    " + tui.C.amber("Ctrl+C") + tui.C.muted("  — Çıkış"));
@@ -349,6 +494,27 @@ async function codeV5(targetPath) {
         printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
         rl.close();
         return;
+      }
+      if (input.startsWith("/plan ")) {
+        const arg = input.slice(6).trim();
+        const pm = getPlanMode();
+        if (arg === "on" || arg === "enter") {
+          if (pm.enter()) console.log(tui.C.cyan('\n  📋 Plan modu aktif.\n'));
+          else console.log(tui.C.yellow('  Zaten plan modunda.'));
+        } else if (arg === "approve") {
+          if (pm.inReview()) { pm.approve(); console.log(tui.C.green('  ✓ Plan onaylandı.\n')); }
+          else console.log(tui.C.yellow('  Onay bekleyen plan yok.'));
+        } else if (arg === "reject") {
+          if (pm.inReview()) { pm.reject(); console.log(tui.C.amber('  ⨯ Plan reddedildi.\n')); }
+          else console.log(tui.C.yellow('  Onay bekleyen plan yok.'));
+        } else if (arg === "show") {
+          if (pm.planHistory.length > 0) console.log(tui.C.cyan('\n  📋 Son Plan:\n  ' + pm.planHistory[pm.planHistory.length - 1].plan.replace(/\n/g, '\n  ') + '\n'));
+          else console.log(tui.C.yellow('  Henüz plan yok.'));
+        } else {
+          console.log(tui.C.yellow('  Kullanım: /plan on|approve|reject|show'));
+        }
+        process.stdout.write("\n  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
+        return ask();
       }
 
       // Workflow step — run before every request
@@ -457,11 +623,13 @@ async function codeV5(targetPath) {
 
 const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
 
-async function processToolCalls(reply, config, toolDefs, messages) {
+async function processToolCalls(reply, config, toolDefs, messages, onToolResult) {
   for (const tc of reply.tool_calls) {
     let args = {};
     try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
     const risk = assessRisk(tc.function.name, args);
+
+    // Built-in risk assessment
     if (risk.requiresApproval) {
       process.stdout.write("\n");
       const approved = await confirm(
@@ -469,6 +637,49 @@ async function processToolCalls(reply, config, toolDefs, messages) {
       );
       if (!approved) {
         console.log("\n  " + tui.C.yellow("⚠ Kullanıcı onayı iptal etti, tool çalıştırılmadı."));
+        return;
+      }
+    }
+
+    // Plan mode check
+    const pm = getPlanMode();
+    const planCheck = pm.checkTool(tc.function.name, args);
+    if (!planCheck.allowed) {
+      console.log("\n  " + tui.C.red("⛔ Plan modunda engellendi: " + planCheck.reason));
+      return;
+    }
+    pm.recordTool(tc.function.name, args);
+
+    // Permission check
+    const perm = checkPermission(tc.function.name, args);
+    if (perm.action === 'deny') {
+      console.log("\n  " + tui.C.red("⛔ İzin engelledi: " + perm.reason));
+      return;
+    }
+    if (perm.action === 'ask') {
+      const permKey = `${perm.rule.raw}:${JSON.stringify(args)}`;
+      if (!isApproved(permKey)) {
+        process.stdout.write("\n");
+        const ok = await confirm(`İzin gerekli: ${formatPermissionPrompt(tc.function.name, args, perm.reason)}\n  İzin ver? [y=once, Y=session, p=persistent, n=no] `);
+        if (ok === 'persistent') markApproved(permKey, true);
+        else if (ok === 'session' || ok === true) markApproved(permKey, false);
+        else {
+          console.log("\n  " + tui.C.yellow("⛔ İzin reddedildi"));
+          return;
+        }
+      }
+    }
+
+    // Pre-hook check
+    const hook = checkPreHooks(tc.function.name, args);
+    if (hook.action === 'deny') {
+      console.log("\n  " + tui.C.red("⛔ Hook engelledi: " + hook.rule.raw));
+      return;
+    }
+    if (hook.action === 'ask') {
+      const ok = await confirm(`Hook onayı: ${permissionSummary(hook.rule, tc.function.name, args)}\n  İzin verilsin mi? (y/N) `);
+      if (!ok) {
+        console.log("\n  " + tui.C.yellow("⛔ Hook reddetti: " + hook.rule.raw));
         return;
       }
     }
@@ -491,8 +702,9 @@ async function processToolCalls(reply, config, toolDefs, messages) {
   // Run parallel-safe tools concurrently
   if (parallelSafe.length > 0) {
     const results = await Promise.all(parallelSafe.map(async (p) => {
-      const result = await executeTool(p.name, p.args, toolDefs);
+      const result = runPostHooks(p.name, p.args, await executeTool(p.name, p.args, toolDefs));
       printToolCallSafe(p.name, p.args, result);
+      if (onToolResult) onToolResult(p.name, p.args, result);
       const out = result.error
         ? "ERROR: " + result.error
         : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
@@ -505,8 +717,9 @@ async function processToolCalls(reply, config, toolDefs, messages) {
 
   // Run sequential tools one at a time
   for (const p of sequential) {
-    const result = await executeTool(p.name, p.args, toolDefs);
+    const result = runPostHooks(p.name, p.args, await executeTool(p.name, p.args, toolDefs));
     printToolCallSafe(p.name, p.args, result);
+    if (onToolResult) onToolResult(p.name, p.args, result);
     const out = result.error
       ? "ERROR: " + result.error
       : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
