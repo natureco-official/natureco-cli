@@ -98,9 +98,34 @@ async function workflow(params) {
 
   const skillsIndexBlock = buildSkillIndex();
 
+  // Non-tool-calling model tespiti
+  function supportsToolCalls() {
+    const url = (providerUrl || '').toLowerCase();
+    // MiniMax, Gemini (direct), Ollama, Mistral (direct) tool calling'i desteklemez
+    if (url.includes('minimax')) return false;
+    if (url.includes('ollama')) return false;
+    if (url.includes('localhost')) return false;
+    if (url.includes('groq')) return false;
+    return true; // OpenAI, Anthropic, vs.
+  }
+
   // ── RUN: Execute a complete workflow ──────────────────────────────────
   if (action === 'run') {
     if (!task) return { success: false, error: 'task gerekli' };
+
+    // Non-tool-calling modellerde dogrudan passthrough (plan yok, direkt uretim)
+    if (!supportsToolCalls()) {
+      const memCtx = memoryContext();
+      const sysMsg = 'Sen yardimci bir asistansin. Kullanici ne istediyse onu dogrudan yap. Dosya olusturulacaksa icerigi eksiksiz olarak yanitla.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') + '\n\n' + skillsIndexBlock;
+      const chatBody = { model, stream: false, messages: [{ role: 'system', content: sysMsg }, { role: 'user', content: task }], temperature: 0.7, max_tokens: 4000 };
+      try {
+        const chatResult = await apiCall(providerUrl, providerApiKey, chatBody);
+        const reply = chatResult.choices?.[0]?.message?.content || '';
+        return { success: true, workflowId: 'passthrough', name: 'Direct Generation', status: 'completed', totalSteps: 0, completedSteps: 0, results: [{ step: 0, tool: 'chat', status: 'done', result: { reply } }], passthrough: true, reply };
+      } catch (e) {
+        return { success: false, error: 'Yanit alinamadi: ' + e.message };
+      }
+    }
 
     // Phase 0: Check if simple chat (passthrough) — no planning needed
     const simpleCheckPrompt = {
