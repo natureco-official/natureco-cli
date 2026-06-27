@@ -453,37 +453,62 @@ async function codeV5(targetPath) {
   ask();
 }
 
+const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
+
 async function processToolCalls(reply, config, toolDefs, messages) {
-  let approved = true;
   for (const tc of reply.tool_calls) {
     let args = {};
     try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
     const risk = assessRisk(tc.function.name, args);
     if (risk.requiresApproval) {
       process.stdout.write("\n");
-      approved = await confirm(
+      const approved = await confirm(
         `⚠ ${tc.function.name}: ${risk.reason}\n  Devam edilsin mi? (Y/n) `
       );
-      if (!approved) break;
+      if (!approved) {
+        console.log("\n  " + tui.C.yellow("⚠ Kullanıcı onayı iptal etti, tool çalıştırılmadı."));
+        return;
+      }
     }
-  }
-  if (!approved) {
-    console.log("\n  " + tui.C.yellow("⚠ Kullanıcı onayı iptal etti, tool çalıştırılmadı."));
-    return;
   }
 
   messages.push({ role: "assistant", content: reply.content || null, tool_calls: reply.tool_calls });
-  for (const tc of reply.tool_calls) {
-    const name = tc.function.name;
+
+  const parsed = reply.tool_calls.map(tc => {
     let args = {};
     try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
-    printToolCall(name, args);
-    const result = await executeTool(name, args, toolDefs);
-    printToolCallSafe(name, args, result);
+    return { name: tc.function.name, args, id: tc.id };
+  });
+
+  const parallelSafe = parsed.filter(p => PARALLEL_SAFE_TOOLS.has(p.name));
+  const sequential = parsed.filter(p => !PARALLEL_SAFE_TOOLS.has(p.name));
+
+  // Print all tool calls
+  for (const p of parsed) printToolCall(p.name, p.args);
+
+  // Run parallel-safe tools concurrently
+  if (parallelSafe.length > 0) {
+    const results = await Promise.all(parallelSafe.map(async (p) => {
+      const result = await executeTool(p.name, p.args, toolDefs);
+      printToolCallSafe(p.name, p.args, result);
+      const out = result.error
+        ? "ERROR: " + result.error
+        : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
+      return { id: p.id, content: (out || "(empty)").slice(0, 8000) };
+    }));
+    for (const r of results) {
+      messages.push({ role: "tool", tool_call_id: r.id, content: r.content });
+    }
+  }
+
+  // Run sequential tools one at a time
+  for (const p of sequential) {
+    const result = await executeTool(p.name, p.args, toolDefs);
+    printToolCallSafe(p.name, p.args, result);
     const out = result.error
       ? "ERROR: " + result.error
       : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
-    messages.push({ role: "tool", tool_call_id: tc.id, content: (out || "(empty)").slice(0, 8000) });
+    messages.push({ role: "tool", tool_call_id: p.id, content: (out || "(empty)").slice(0, 8000) });
   }
 }
 
