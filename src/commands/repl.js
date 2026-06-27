@@ -118,7 +118,7 @@ const CLI_COMMANDS = {
   '/models':    { desc: 'Modeller', run: ['models', 'list'] },
   '/memory-ls': { desc: 'Memory dosyaları', run: ['memory', 'list'] },
   '/seo':       { desc: 'SEO denetimi (URL gerek)', needsArg: true, run: ['seo', 'audit'] },
-  '/naturehub': { desc: 'Nature Hub post (text gerek)', needsArg: true, run: ['naturehub', 'post'] },
+  '/naturehub': { desc: 'Bota mesaj gönder (text gerek)', needsArg: true, run: ['naturehub', 'post'] },
   '/dashboard': { desc: 'Web dashboard başlat (port 7421)', run: ['dashboard', 'start'] },
 };
 

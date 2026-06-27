@@ -177,7 +177,12 @@ async function workflow(params) {
       plan = JSON.parse(jsonStr);
       if (!plan.steps || !Array.isArray(plan.steps)) throw new Error('Steps bulunamadi');
     } catch (e) {
-      return { success: false, error: 'Plan cozumlenemedi: ' + e.message, raw: planResult.choices?.[0]?.message?.content?.slice(0, 500) };
+      // JSON parse hatasi — modelin ham ciktisini passthrough chat olarak goster
+      const rawReply = planResult.choices?.[0]?.message?.content || '';
+      if (rawReply) {
+        return { success: true, workflowId: 'passthrough', name: 'Direct Chat', status: 'completed', totalSteps: 0, completedSteps: 0, results: [{ step: 0, tool: 'chat', status: 'done', result: { reply: rawReply } }], passthrough: true, reply: rawReply };
+      }
+      return { success: false, error: 'Plan cozumlenemedi: ' + e.message, raw: rawReply.slice(0, 500) };
     }
 
     // Save plan

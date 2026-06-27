@@ -98,7 +98,9 @@ function help() {
       icon: '🌿',
       title: 'NatureCo Native',
       rows: [
-        { name: 'natureco naturehub post "<text>"', desc: 'Nature Hub\'a içerik yayınla' },
+        { name: 'natureco naturehub post "<text>"', desc: 'NatureCo API ile bota mesaj gönder' },
+        { name: 'natureco naturehub list', desc: 'Botlarını listele' },
+        { name: 'natureco naturehub info [bot_id]', desc: 'Bot detayı' },
         { name: 'natureco medium draft <file.md>', desc: 'Medium makale taslağı' },
         { name: 'natureco medium publish <file.md>', desc: 'Medium\'da yayınla' },
         { name: 'natureco seo audit <url>', desc: 'SEO denetimi (skor 0-100)' },
