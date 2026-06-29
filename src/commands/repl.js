@@ -796,7 +796,7 @@ async function processToolCalls(toolCalls, onToolCall, onAsk) {
     const name = tc.function?.name || tc.name;
     const argsStr = tc.function?.arguments || tc.args || '{}';
     const id = tc.id || `call_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    let args = {};
+    let args;
     try {
       args = typeof argsStr === 'string' ? JSON.parse(argsStr) : argsStr;
     } catch (e) {

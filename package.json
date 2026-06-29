@@ -66,7 +66,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
-    "@inquirer/prompts": "^8.5.0",
+    "@inquirer/prompts": "^8.5.2",
     "@slack/web-api": "^7.17.0",
     "@whiskeysockets/baileys": "^7.0.0-rc10",
     "chalk": "^4.1.2",
@@ -76,7 +76,7 @@
     "mattermost": "^3.4.0",
     "node-cron": "^4.2.1",
     "node-telegram-bot-api": "^0.67.0",
-    "openai": "^6.44.0",
+    "openai": "^6.45.0",
     "pino": "^8.21.0",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
@@ -85,9 +85,9 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.9",
-    "eslint": "^9.39.4",
+    "eslint": "^10.6.0",
     "globals": "^15.15.0",
     "vitest": "^4.1.9"
   }

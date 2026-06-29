@@ -130,7 +130,6 @@ function createPasteSafeInput(source = process.stdin) {
           pasteBuffer += segment;
           out += segment.replace(/\r\n|\r|\n/g, NEWLINE_PLACEHOLDER);
           carry = str.slice(flushLen);
-          str = '';
           break;
         }
         const pasted = str.slice(0, endIdx);
@@ -152,7 +151,6 @@ function createPasteSafeInput(source = process.stdin) {
         // satır sonlarını gizle (terminal-agnostik heuristik).
         out += escapeEmbeddedNewlines(str.slice(0, flushLen));
         carry = str.slice(flushLen);
-        str = '';
         break;
       }
       out += escapeEmbeddedNewlines(str.slice(0, startIdx));

@@ -9,6 +9,11 @@ updates:
     labels:
       - "dependencies"
       - "automated"
+    ignore:
+      # commander 15+ is ESM-only; this project is CommonJS.
+      # Revisit if/when the project migrates to ESM.
+      - dependency-name: "commander"
+        versions: [">=15"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

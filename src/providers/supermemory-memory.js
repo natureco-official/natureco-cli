@@ -32,7 +32,7 @@ class SupermemoryMemoryProvider extends MemoryProvider {
         ...this._getConfig().options,
       });
     } catch (e) {
-      throw new Error('supermemory paketi yuklu degil. npm install supermemory');
+      throw new Error('supermemory paketi yuklu degil. npm install supermemory', { cause: e });
     }
   }
 
