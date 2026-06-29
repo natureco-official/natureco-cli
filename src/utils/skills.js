@@ -212,7 +212,7 @@ async function installSkill(slug) {
 
     fs.writeFileSync(path.join(skillDir, 'SKILL.md'), content, 'utf8');
   } catch (err) {
-    throw new Error(`Skill yüklenemedi: ${err.message}`);
+    throw new Error(`Skill yüklenemedi: ${err.message}`, { cause: err });
   }
 }
 

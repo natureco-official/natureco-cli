@@ -836,7 +836,7 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
   }
 
   // Apply token budget trimming
-  messages = TB.trimMessages(messages);
+  TB.trimMessages(messages);
 
   // Save to conversation history (only user and final assistant message)
   history.push({ role: 'user', content: message });

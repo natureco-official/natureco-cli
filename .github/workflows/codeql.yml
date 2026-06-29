@@ -1,5 +1,9 @@
 name: "CodeQL"
 on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   schedule:
     - cron: '15 6 * * 1'
   workflow_dispatch:
@@ -14,6 +18,11 @@ jobs:
         language: [ 'javascript' ]
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    - run: npm ci
     - uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}

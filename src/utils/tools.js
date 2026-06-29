@@ -255,7 +255,7 @@ function _cachedCheckFn(fn, key) {
   const now = Date.now();
   const cached = _checkFnCache.get(key);
   if (cached && now - cached.ts < 30000) return cached.result;
-  let result = true;
+  let result;
   try { result = fn() !== false; } catch { result = false; }
   _checkFnCache.set(key, { result, ts: now });
   return result;

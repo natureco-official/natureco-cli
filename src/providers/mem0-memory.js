@@ -38,7 +38,7 @@ class Mem0MemoryProvider extends MemoryProvider {
         this._mode = 'oss';
       }
     } catch (e) {
-      throw new Error('mem0ai paketi yuklu degil. npm install mem0ai');
+      throw new Error('mem0ai paketi yuklu degil. npm install mem0ai', { cause: e });
     }
   }
 

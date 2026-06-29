@@ -29,7 +29,7 @@ function runAppleScript(script) {
 function parseAlarmTime(input) {
   const now = new Date();
   let target = new Date();
-  let hours = 0, minutes = 0;
+  let hours, minutes;
 
   // Format: "18:00" veya "18:30 tomorrow"
   const hmMatch = input.match(/(\d{1,2}):(\d{2})(?:\s+(tomorrow|yarın|today|bugün|next\s+(\w+)))?/i);
