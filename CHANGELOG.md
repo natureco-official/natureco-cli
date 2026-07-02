@@ -2,6 +2,35 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.21.0] - 2026-07-02 — "GÜVENİLİRLİK SPRİNTİ" (gerçek API E2E denetimi)
+
+Gerçek MiniMax API anahtarıyla uçtan uca canlı test turu; bulunan her hata düzeltilip yine canlı doğrulandı. 461 test yeşil.
+
+### 🐛 Kritik Düzeltmeler
+
+- **Pipe/script modu tamamen kırıktı**: paste algılayıcı non-TTY girdide (pipe, script, CI) çok satırlı chunk'ları "yapıştırma" sanıp komutları yutuyordu — `echo "soru" | natureco chat` hiç çalışmıyordu. Non-TTY'de saf geçiş + regresyon testi.
+- **EOF yanıtı kesiyordu**: pipe girdisi bittiğinde REPL, LLM yanıtı hâlâ üretilirken kapanıyordu. Artık süren işlem beklenir; kapalı readline'da `prompt()` çağrısı (Node 24 "readline was closed" çökmesi) korunur; non-TTY'de inquirer soruları güvenli varsayılanlara döner.
+- **Maliyet takibi hiç kayıt yapmıyordu**: `recordUsage` hiçbir API yoluna bağlanmamıştı — `natureco cost` hep $0.00 gösteriyordu. Üç yola da (normal, streaming, Anthropic) bağlandı.
+- **Streaming'de sessiz token kaybı**: SSE satırı chunk sınırında bölününce parse hatası yutulup içerik kayboluyordu. Buffer taşıma eklendi.
+- **REPL profil izolasyonunu deliyordu**: yerel `getConfig` kopyası `--profile` bayrağını yok sayıp gerçek config'i okuyordu; memory/sessions/repl-state yolları da homedir'e sabitti. Hepsi merkezi config/profile bağlandı.
+- **Windows'ta `npm install` kırılabiliyordu**: `postinstall: ... || true` cmd.exe'de geçersiz (`true` yok). `scripts/postinstall.js`'e bağlandı — asla kurulum kırmaz, CI'da atlanır; `scripts/` npm paketine eklendi (`files`).
+- **EPIPE çökmesi**: `natureco help | head` gibi boru zincirlerinde 255 ile çöküyordu. EPIPE artık normal akış sayılır (exit 0).
+
+### 💰 Maliyet
+
+- **`ask` %97 daha ucuz**: tek atımlık soruda 47 aracın şeması (~15K token) gönderiliyordu; varsayılan artık araçsız (~470 token), `--tools` ile açılır.
+- MiniMax URL toleransı: `.../v1` ile biten providerUrl `404 page not found` veriyordu; endpoint kurucu tek kaynağa (`buildChatEndpoint`) indirildi ve `/v1` toleranslı.
+- `$0.15¢` karışık para gösterimi düzeltildi (1 sentin altı yalnızca `¢`).
+
+### 🔧 İyileştirmeler
+
+- Yazım hatasında komut önerisi: `natureco docto` → `(Did you mean doctor?)`.
+- `workflow` aracı tanımı ve sistem yönergesi netleştirildi: sohbet/bilgi sorusunda araç çağrılmaz.
+- Girdide BOM/sıfır-genişlik karakter temizliği (PowerShell echo BOM'u).
+- `NATURECO_DEBUG=1` ile unhandled rejection stack'i stderr'a yazılır.
+- Windows test uyumluluğu: `USERPROFILE` override, yol ayracı, spawn timeout'ları — 15 flaky test düzeltildi.
+- Kök dizin temizliği: `fibonacci.js`, `README.md.bak`, `.codedna.db`, ölü `postinstall-doctor.js` kaldırıldı; repo URL'leri `natureco-official`'a eşitlendi.
+
 ## [5.20.0] - 2026-06-27 — "CLAUDE CODE FEATURES CLONE"
 
 13 Claude Code özelliği klonlandı ve her iki CLI moduna (REPL + Code Agent) entegre edildi. 28 test dosyası, 463 test.
