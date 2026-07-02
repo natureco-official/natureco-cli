@@ -111,6 +111,20 @@ function onPasteDetected(pasteStr) {
 function createPasteSafeInput(source = process.stdin) {
   const proxy = new PassThrough();
 
+  // Non-TTY (pipe, script, CI) girdide paste algılama ANLAMSIZ ve zararlı:
+  // chunk'lar doğal olarak çok satırlı gelir, her girdi "paste" sanılıp
+  // satır sonları placeholder'a çevrilir ve komutlar hiç işlenmez.
+  // İnteraktif olmayan kaynakta saf geçiş yap.
+  if (!source.isTTY) {
+    source.pipe(proxy);
+    source.on('error', (e) => proxy.emit('error', e));
+    proxy.isTTY = source.isTTY;
+    proxy.setRawMode = source.setRawMode ? source.setRawMode.bind(source) : undefined;
+    proxy.ref = source.ref ? source.ref.bind(source) : undefined;
+    proxy.unref = source.unref ? source.unref.bind(source) : undefined;
+    return proxy;
+  }
+
   let inPaste = false;
   let carry = ''; // marker'ın chunk sınırında bölünmesine karşı tampon
   let pasteBuffer = ''; // onPasteDetected için biriken paste içeriği

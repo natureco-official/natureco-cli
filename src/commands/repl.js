@@ -122,10 +122,12 @@ const CLI_COMMANDS = {
   '/dashboard': { desc: 'Web dashboard başlat (port 7421)', run: ['dashboard', 'start'] },
 };
 
-const MEMORY_DIR = path.join(os.homedir(), '.natureco', 'memory');
-const SESSION_DIR = path.join(os.homedir(), '.natureco', 'sessions');
-const SESSIONS_INDEX = path.join(os.homedir(), '.natureco', 'sessions.json');
-const REPL_STATE = path.join(os.homedir(), '.natureco', 'repl-state.json');
+// Profil desteği: --profile <ad> ile ~/.natureco-<ad> kullanılır (config ile tutarlı)
+const { CONFIG_DIR: PROFILE_DIR } = require('../utils/config');
+const MEMORY_DIR = path.join(PROFILE_DIR, 'memory');
+const SESSION_DIR = path.join(PROFILE_DIR, 'sessions');
+const SESSIONS_INDEX = path.join(PROFILE_DIR, 'sessions.json');
+const REPL_STATE = path.join(PROFILE_DIR, 'repl-state.json');
 
 function ensureDir(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
