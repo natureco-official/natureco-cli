@@ -126,14 +126,88 @@ async function workflow(params) {
   if (action === 'run') {
     if (!task) return { success: false, error: 'task gerekli' };
 
-    // Non-tool-calling modellerde dogrudan passthrough (plan yok, direkt uretim)
+    // Non-tool-calling modellerde once simple/complex kontrolu yap
     if (!supportsToolCalls()) {
       const memCtx = memoryContext();
-      const sysMsg = 'Sen yardimci bir asistansin. Kullanici ne istediyse onu dogrudan yap. Dosya olusturulacaksa icerigi eksiksiz olarak yanitla.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') + '\n\n' + skillsIndexBlock;
-      const chatBody = { model, stream: false, messages: chatMessages(sysMsg, task), temperature: 0.7, max_tokens: 4000 };
+      // Phase 0: Check if simple chat or complex task
+      const simpleCheckPrompt = {
+        role: 'system',
+        content: 'Gorevin basit bir selamlasma/sohbet mi yoksa arac gerektiren bir islem mi oldugunu belirle. Sadece "simple" veya "complex" yaz, kesinlikle baska bir sey yazma.\n\nSimple: selamlasma, nasilsin, bugun ne yaptin, havadan sudan, genel bilgi sorusu, ben kimim, adim ne, kullanici bilgisi sorgulama, hatirlatma talebi\nComplex: dosya islemleri, kod yazma, arastirma, karsilastirma, duzenleme, otomasyon'
+      };
+      let isComplex = true;
       try {
-        const chatResult = await apiCall(providerUrl, providerApiKey, chatBody);
-        const reply = chatResult.choices?.[0]?.message?.content || '';
+        const checkBody = { model, stream: false, messages: [simpleCheckPrompt, { role: 'user', content: task }], temperature: 0, max_tokens: 20 };
+        const checkResult = await apiCall(providerUrl, providerApiKey, checkBody);
+        const raw = (checkResult.choices?.[0]?.message?.content || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+        isComplex = raw !== 'simple';
+      } catch {}
+
+      if (!isComplex) {
+        // Simple chat — passthrough
+        const sysMsg = 'Sen yardimci bir asistansin. Kisa ve oz yanit ver. Konusma gecmisi varsa onceki mesajlari dikkate al.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') + '\n\n' + skillsIndexBlock;
+        const chatBody = { model, stream: false, messages: chatMessages(sysMsg, task), temperature: 0.7, max_tokens: 1000 };
+        try {
+          const chatResult = await apiCall(providerUrl, providerApiKey, chatBody);
+          const reply = chatResult.choices?.[0]?.message?.content || '';
+          return { success: true, workflowId: 'passthrough', name: 'Direct Chat', status: 'completed', totalSteps: 0, completedSteps: 0, results: [], passthrough: true, reply };
+        } catch (e) {
+          return { success: false, error: 'Sohbet yaniti alinamadi: ' + e.message };
+        }
+      }
+
+      // Complex task for non-tool-calling model: ask LLM for structured file ops
+      const execSysMsg = 'Gorevi tamamlamak icin hangi dosyalarin olusturulacagini JSON olarak belirt. SADECE JSON yaz.\n\n' +
+        'Kullanici bilgisi:\n' + (memCtx || '') +
+        '\n\nMasaustu yolu: ' + require('path').join(require('os').homedir(), 'Desktop') +
+        '\n\nKullanici home: ' + require('os').homedir() +
+        '\n\nJSON format:\n{"files": [{"path": "/tam/dosya/yolu/dosya.html", "content": "dosya icerigi buraya"}]}\n\nHer dosya icin path ve content zorunlu. path TAM yol olmali (~ veya goreceli degil). Birden fazla dosya olusturulabilir.' +
+        '\n\n' + skillsIndexBlock;
+      const execBody = { model, stream: false, messages: chatMessages(execSysMsg, task), temperature: 0.3, max_tokens: 8000 };
+      try {
+        const execResult = await apiCall(providerUrl, providerApiKey, execBody);
+        const reply = execResult.choices?.[0]?.message?.content || '';
+
+        // Try to extract JSON with file operations
+        const jsonStart = reply.indexOf('{');
+        const jsonEnd = reply.lastIndexOf('}');
+        let stepResults = [];
+        let fileWriteSuccess = false;
+
+        if (jsonStart !== -1 && jsonEnd > jsonStart) {
+          try {
+            const plan = JSON.parse(reply.slice(jsonStart, jsonEnd + 1));
+            if (plan.files && Array.isArray(plan.files)) {
+              // Execute file writes locally
+              for (const f of plan.files) {
+                try {
+                  const wfPath = f.path ? require('path').resolve(f.path.replace(/^~/, require('os').homedir())) : '';
+                  if (!wfPath) continue;
+                  require('fs').mkdirSync(require('path').dirname(wfPath), { recursive: true });
+                  require('fs').writeFileSync(wfPath, f.content || '', 'utf-8');
+                  const stats = require('fs').statSync(wfPath);
+                  stepResults.push({ step: 1, tool: 'write_file', status: 'done', args: { path: wfPath }, result: { success: true, path: wfPath, size: stats.size } });
+                  fileWriteSuccess = true;
+                } catch (wfErr) {
+                  stepResults.push({ step: 1, tool: 'write_file', status: 'error', error: wfErr.message });
+                }
+              }
+            }
+          } catch {}
+        }
+
+        if (fileWriteSuccess) {
+          const lines = stepResults.map(r => { const p = r.result?.path || ''; const s = r.result?.size || 0; const name = require('path').basename(p); return `  ✓ ${name} oluşturuldu (${s} bytes)`; }).join('\n');
+          const reply = `Dosya(lar) başarıyla oluşturuldu:\n${lines}`;
+          return {
+            success: true, workflowId: 'file_write_' + Date.now().toString(36),
+            name: 'File Operations', status: 'completed',
+            totalSteps: stepResults.length, completedSteps: stepResults.length,
+            results: stepResults,
+            passthrough: true, reply,
+          };
+        }
+
+        // If no structured file ops detected, return LLM reply as passthrough
         return { success: true, workflowId: 'passthrough', name: 'Direct Generation', status: 'completed', totalSteps: 0, completedSteps: 0, results: [{ step: 0, tool: 'chat', status: 'done', result: { reply } }], passthrough: true, reply };
       } catch (e) {
         return { success: false, error: 'Yanit alinamadi: ' + e.message };
