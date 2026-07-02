@@ -2,7 +2,7 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
-## [5.22.1] - 2026-07-02 — "NON-TOOL-CALLING FIX" (MiniMax dosya yazma)
+## [5.23.0] - 2026-07-02 — "NON-TOOL-CALLING FIX" (MiniMax dosya yazma)
 
 ### 🐛 Düzeltme
 - **MiniMax (non-tool-calling) dosya oluşturamıyordu**: workflow non-tool-calling path'inde simple/complex ayrımı yoktu — LLM yanıtını doğrudan sohbete yazıp geçiyordu. Artık complex görevlerde LLM'den JSON plan istenir, dosyalar Node.js tarafında yazılır.
