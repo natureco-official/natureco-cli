@@ -69,6 +69,9 @@ function install(opts = {}) {
   const onRejection = (reason) => {
     const payload = { kind: 'unhandledRejection', error: _serializeError(reason) };
     try { audit?.logSync('error', payload); } catch { /* ignore */ }
+    if (process.env.NATURECO_DEBUG) {
+      stderr(`\n[DEBUG] stack:\n${payload.error.stack || '(stack yok)'}\n`);
+    }
     stderr(
       `\n  ✗ Beklenmedik bir hata oluştu (unhandled promise rejection).\n` +
       `    Detay: ${payload.error.message}\n` +

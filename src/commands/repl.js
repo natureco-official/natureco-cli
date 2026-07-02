@@ -1154,7 +1154,12 @@ async function startRepl(args) {
     prompt: tui.styled('\n  You  ', { color: tui.PALETTE.primary, bold: true }),
     terminal: true,
   });
-  rl.prompt();
+  // Pipe/script kullanımında EOF, yanıt hâlâ üretilirken gelir —
+  // aktif işlem varken kapanışı bekletmek için sayaç + kapalı-rl koruması
+  let _busy = 0;
+  let _rlClosed = false;
+  const safePrompt = () => { if (!_rlClosed) rl.prompt(); };
+  safePrompt();
 
   const cleanup = async (exitCode = 0) => {
     if (messages.length > 1) {
@@ -1254,8 +1259,18 @@ async function startRepl(args) {
   process.on('SIGTERM', () => cleanup(0));
 
   rl.on('line', async (input) => {
-    const line = restoreNewlines(input).trim();
-    if (!line) { rl.prompt(); return; }
+    // BOM ve benzeri görünmez karakterleri temizle (PowerShell echo BOM'lu gönderir)
+    const line = restoreNewlines(input).replace(/[\u200B\u200C\u200D\uFEFF]/g, '').trim();
+    if (!line) { safePrompt(); return; }
+    _busy++;
+    try {
+      await handleLine(line);
+    } finally {
+      _busy--;
+    }
+  });
+
+  async function handleLine(line) {
 
     // Çok satırlı paste: output filter'a echo'yu durdurma sinyalini ver
     clearPasteContext();
@@ -1414,7 +1429,7 @@ async function startRepl(args) {
             console.log(chalk.yellow(`  Bilinmeyen komut: /${cmd}. /help yazın.`));
           }
       }
-      rl.prompt();
+      safePrompt();
       return;
     }
 
@@ -1562,10 +1577,18 @@ async function startRepl(args) {
       process.stdout.write('\n');
       console.log(chalk.red('  ❌ ' + err.message));
     }
-    rl.prompt();
-  });
+    safePrompt();
+  }
 
-  rl.on('close', () => cleanup(0));
+  rl.on('close', () => {
+    _rlClosed = true;
+    // EOF (pipe/script): süren yanıt varsa bitmesini bekle, sonra kapan
+    const wait = () => {
+      if (_busy > 0) { setTimeout(wait, 200); return; }
+      cleanup(0);
+    };
+    wait();
+  });
 }
 
 module.exports = startRepl;
