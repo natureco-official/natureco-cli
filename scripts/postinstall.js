@@ -105,6 +105,8 @@ function runDoctor() {
 }
 
 function main() {
+  // CI'da atla \u2014 hiz + log gurultusu (kurulumun kendisi zaten test ediliyor)
+  if (process.env.CI || process.env.NATURECO_SKIP_POSTINSTALL) return;
   log('\n\u{1F33F} NatureCo CLI - Post-install\n', '\x1b[35m');
   fixChalk();
   ensureHomeNatureco();
@@ -113,4 +115,11 @@ function main() {
   log('\n\u2705 Tamamlandi!\n  Simdi: natureco setup\n', '\x1b[32m');
 }
 
-main();
+// Post-install KURULUMU ASLA KIRMAMALI \u2014 eski `|| true` cmd.exe'de calismiyordu
+try {
+  main();
+} catch (e) {
+  warn('Post-install tamamlanamadi: ' + e.message);
+  warn('Kurulum yine de basarili. Sonra `natureco doctor` calistirin.');
+}
+process.exit(0);

@@ -23,11 +23,18 @@ function collectLines(src) {
   });
 }
 
+/** Paste algılama yalnızca TTY'de aktif — TTY kaynağı simüle et. */
+function ttySource() {
+  const src = new PassThrough();
+  src.isTTY = true;
+  return src;
+}
+
 describe('paste-safe-input', () => {
   afterEach(() => clearPasteContext());
 
   it('bracketed paste içindeki çok satırlı metni TEK bir line event olarak verir', async () => {
-    const src = new PassThrough();
+    const src = ttySource();
     const promise = collectLines(src);
     src.write('\x1b[200~satır1\nsatır2\nsatır3\x1b[201~');
     src.write('\n'); // gerçek Enter
@@ -35,6 +42,16 @@ describe('paste-safe-input', () => {
     const lines = await promise;
     expect(lines.length).toBe(1);
     expect(lines[0]).toBe('satır1\nsatır2\nsatır3');
+  });
+
+  it('non-TTY (pipe/script) girdide paste algılama devre dışı — satırlar aynen işlenir', async () => {
+    const src = new PassThrough(); // isTTY yok = pipe
+    const promise = collectLines(src);
+    // Pipe'ta chunk'lar çok satırlı gelir — paste sanılmamalı
+    src.write('birinci komut\nikinci komut\n');
+    src.end();
+    const lines = await promise;
+    expect(lines).toEqual(['birinci komut', 'ikinci komut']);
   });
 
   it('paste markerı olmadan normal yazılan satırlar eskisi gibi ayrı ayrı submit edilir', async () => {
@@ -49,7 +66,7 @@ describe('paste-safe-input', () => {
   });
 
   it('paste markerı chunk sınırına bölünse bile doğru ayrıştırılır', async () => {
-    const src = new PassThrough();
+    const src = ttySource();
     const promise = collectLines(src);
     const full = '\x1b[200~satır A\nsatır B\x1b[201~\n';
     // Marker'ı ortadan ikiye bölerek gönder
@@ -143,7 +160,7 @@ describe('createOutputFilter', () => {
 
   it('gerçek terminal senaryosu: pasted metin output\'ta placeholder içermez', async () => {
     // Çok satırlı paste + Enter simülasyonu
-    const src = new PassThrough();
+    const src = ttySource();
     const out = new PassThrough();
     const filter = createOutputFilter(out);
     const proxy = createPasteSafeInput(src);

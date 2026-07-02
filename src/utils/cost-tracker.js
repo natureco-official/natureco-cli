@@ -339,7 +339,8 @@ function checkBudget() {
 
 function formatUSD(amount) {
   if (amount === 0) return '$0.00';
-  if (amount < 0.01) return `$${(amount * 100).toFixed(2)}¢`;
+  // 1 sentin altı: yalnızca sent işareti ("0.15¢"), $ ile karıştırma
+  if (amount < 0.01) return `${(amount * 100).toFixed(2)}¢`;
   return `$${amount.toFixed(4)}`;
 }
 

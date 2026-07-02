@@ -56,9 +56,9 @@ function buildTiers(opts) {
 
     // Tool rules (stable)
     `ONEMLI: Tool cagirma SIMULE ETME. Sadece duz metin cevap ver. Islem yapmak gerekirse tool'u gercekten cagir.`,
-    `!!! ZORUNLU !!! HER istekte ILK OLARAK workflow(action="run", task="<kullanici mesaji>") cagir. workflow tool'u ne yapilacagini analiz eder, uygun tool'lari secer ve sirayla calistirir.`,
-    `workflow basit selamlasmalarda passthrough yapar, karmasik islerde adim adim plan+uygulama yapar.`,
-    `workflow'dan sonra ek tool cagirmaya GEREK YOK — workflow her seyi halleder.`,
+    `TOOL KURALI: Selamlasma, sohbet, bilgi sorusu, fikir/aciklama isteklerinde TOOL CAGIRMA — dogrudan yanit ver. Bu en hizli ve en ucuz yoldur.`,
+    `EYLEM gerektiren isteklerde (dosya okuma/yazma, komut calistirma, arama, hatirlatici, cok adimli gorev) workflow(action="run", task="<istek>") cagir — uygun tool'lari secip sirayla calistirir.`,
+    `Tek ve net bir tool yeterliyse (or. read_file, web_search) workflow yerine dogrudan o tool'u cagirabilirsin.`,
     `COK KRITIK: Goreve baslamadan ONCE <available_skills> listesini tara. Ilgili skill varsa skill_view(name) ile yukle, SONRA goreve basla.`,
     `KRITIK: Skill yuklemeden islem yapma. Ilgili skill varsa once yukle.`,
     `KRITIK: Kullanici kisisel bilgi verdiginde memory(action=add, target=user) ile kaydet.`,

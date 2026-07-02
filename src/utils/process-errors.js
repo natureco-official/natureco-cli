@@ -69,6 +69,9 @@ function install(opts = {}) {
   const onRejection = (reason) => {
     const payload = { kind: 'unhandledRejection', error: _serializeError(reason) };
     try { audit?.logSync('error', payload); } catch { /* ignore */ }
+    if (process.env.NATURECO_DEBUG) {
+      stderr(`\n[DEBUG] stack:\n${payload.error.stack || '(stack yok)'}\n`);
+    }
     stderr(
       `\n  ✗ Beklenmedik bir hata oluştu (unhandled promise rejection).\n` +
       `    Detay: ${payload.error.message}\n` +
@@ -79,6 +82,9 @@ function install(opts = {}) {
   };
 
   const onException = (err) => {
+    // EPIPE: çıktı bir boruya aktarılırken okuyucu kapandı (ör. `natureco help | head`).
+    // Hata değil, normal akış — sessizce başarıyla çık.
+    if (err && err.code === 'EPIPE') { exit(0); return; }
     const payload = { kind: 'uncaughtException', error: _serializeError(err) };
     try { audit?.logSync('error', payload); } catch { /* ignore */ }
     stderr(
@@ -89,6 +95,14 @@ function install(opts = {}) {
     );
     exit(1);
   };
+
+  // Akış seviyesinde EPIPE — stdout/stderr 'error' olayı uncaughtException'a
+  // dönüşmeden önce yakala (Node bazı platformlarda stream error olarak verir)
+  const onStreamError = (err) => {
+    if (err && err.code === 'EPIPE') exit(0);
+  };
+  process.stdout.on('error', onStreamError);
+  process.stderr.on('error', onStreamError);
 
   process.on('unhandledRejection', onRejection);
   process.on('uncaughtException', onException);

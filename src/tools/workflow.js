@@ -405,7 +405,7 @@ async function workflow(params) {
 
 module.exports = {
   name: 'workflow',
-  description: '[ORCHESTRATOR] Cok adimli is akisi: gorev ver, AI en uygun tool\'lari secer ve sirayla calistirir. Plan/run/save/load/list/delete/retry.',
+  description: '[ORCHESTRATOR] SADECE cok adimli EYLEM gorevleri icin (dosya islemleri, komutlar, arastirma zinciri). Soru-cevap, sohbet, bilgi/aciklama isteklerinde KULLANMA — onlara dogrudan metinle yanit ver. Plan/run/save/load/list/delete/retry.',
   inputSchema: {
     type: 'object',
     properties: {

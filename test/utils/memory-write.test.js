@@ -14,12 +14,16 @@ import os from 'os';
 
 let tmpHome;
 let originalHome;
+let originalUserProfile;
 let mod; // re-require fresh per test so HOME-derived MEMORY_DIR is correct
 
 beforeEach(() => {
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'natureco-mw-'));
   originalHome = process.env.HOME;
+  originalUserProfile = process.env.USERPROFILE;
   process.env.HOME = tmpHome;
+  // Windows'ta os.homedir() USERPROFILE okur — ikisini de override et
+  process.env.USERPROFILE = tmpHome;
   delete process.env.NATURECO_MAX_FACTS;
   process.env.NATURECO_QUIET_MEMORY = '1'; // silence warn for most tests
   // Drop the require cache so MEMORY_DIR (computed at require time) re-uses HOME
@@ -29,6 +33,8 @@ beforeEach(() => {
 
 afterEach(() => {
   process.env.HOME = originalHome;
+  if (originalUserProfile === undefined) delete process.env.USERPROFILE;
+  else process.env.USERPROFILE = originalUserProfile;
   if (tmpHome && fs.existsSync(tmpHome)) {
     fs.rmSync(tmpHome, { recursive: true, force: true });
   }
