@@ -23,6 +23,8 @@ function buildTiers(opts) {
     skillsIndexBlock = '',
     crossSessionContext = '',
     userHome = '',
+    platform = '',
+    desktopPath = '',
     hasHistory = false,
     memoryFacts = [],
     projectRules = '',
@@ -58,7 +60,8 @@ function buildTiers(opts) {
     `ONEMLI: Tool cagirma SIMULE ETME. Sadece duz metin cevap ver. Islem yapmak gerekirse tool'u gercekten cagir.`,
     `TOOL KURALI: Selamlasma, sohbet, bilgi sorusu, fikir/aciklama isteklerinde TOOL CAGIRMA — dogrudan yanit ver. Bu en hizli ve en ucuz yoldur.`,
     `EYLEM gerektiren isteklerde (dosya okuma/yazma, komut calistirma, arama, hatirlatici, cok adimli gorev) workflow(action="run", task="<istek>") cagir — uygun tool'lari secip sirayla calistirir.`,
-    `Tek ve net bir tool yeterliyse (or. read_file, web_search) workflow yerine dogrudan o tool'u cagirabilirsin.`,
+    `Tek ve net bir tool yeterliyse (or. read_file, web_search, write_file) workflow yerine dogrudan o tool'u cagirabilirsin.`,
+    `DOSYA YAZMA: SADECE write_file tool'unu kullan. "bulk-file-operations", "create-file", "file-write" gibi tool'lar YOK. write_file(content, file_path) kullan. Dosya yolu olarak desktopPath veya userHome kullan.`,
     `COK KRITIK: Goreve baslamadan ONCE <available_skills> listesini tara. Ilgili skill varsa skill_view(name) ile yukle, SONRA goreve basla.`,
     `KRITIK: Skill yuklemeden islem yapma. Ilgili skill varsa once yukle.`,
     `KRITIK: Kullanici kisisel bilgi verdiginde memory(action=add, target=user) ile kaydet.`,
@@ -88,6 +91,8 @@ function buildTiers(opts) {
 
     // User environment (stable within session but changes on resume)
     userHome ? `Kullanicinin home: ${userHome}` : '',
+    platform ? `Isletim sistemi: ${platform}` : '',
+    desktopPath ? `Masaustu yolu: ${desktopPath}` : '',
     hasHistory ? 'Bu oturum daha onceki konusmalarin devami.' : '',
   ].filter(Boolean).join('\n');
 

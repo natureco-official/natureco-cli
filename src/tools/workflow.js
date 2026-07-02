@@ -83,7 +83,7 @@ function apiCall(providerUrl, apiKey, body) {
 }
 
 async function workflow(params) {
-  const { action, task, steps, name, workflowId, regenerateStep } = params;
+  const { action, task, steps, name, workflowId, regenerateStep, conversationHistory } = params;
   const cfg = loadConfig();
   const tools = allToolNames();
   ensureDir(WORKFLOW_DIR);
@@ -97,6 +97,19 @@ async function workflow(params) {
   }
 
   const skillsIndexBlock = buildSkillIndex();
+
+  // Build chat messages with optional conversation history for context
+  function chatMessages(sysMsg, userTask) {
+    const msgs = [{ role: 'system', content: sysMsg }];
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      for (const m of conversationHistory) {
+        if (m._internal) continue;
+        msgs.push({ role: m.role, content: m.content || '' });
+      }
+    }
+    msgs.push({ role: 'user', content: userTask });
+    return msgs;
+  }
 
   // Non-tool-calling model tespiti
   function supportsToolCalls() {
@@ -117,7 +130,7 @@ async function workflow(params) {
     if (!supportsToolCalls()) {
       const memCtx = memoryContext();
       const sysMsg = 'Sen yardimci bir asistansin. Kullanici ne istediyse onu dogrudan yap. Dosya olusturulacaksa icerigi eksiksiz olarak yanitla.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') + '\n\n' + skillsIndexBlock;
-      const chatBody = { model, stream: false, messages: [{ role: 'system', content: sysMsg }, { role: 'user', content: task }], temperature: 0.7, max_tokens: 4000 };
+      const chatBody = { model, stream: false, messages: chatMessages(sysMsg, task), temperature: 0.7, max_tokens: 4000 };
       try {
         const chatResult = await apiCall(providerUrl, providerApiKey, chatBody);
         const reply = chatResult.choices?.[0]?.message?.content || '';
@@ -141,10 +154,10 @@ async function workflow(params) {
     } catch {}
 
     if (isSimple) {
-      // Passthrough: just chat with LLM, no tools — include user memory
+      // Passthrough: just chat with LLM, no tools — include user memory + conversation history
       const memCtx = memoryContext();
-      const sysMsg = 'Sen yardimci bir asistansin. Kisa ve oz yanit ver.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') + '\n\n' + skillsIndexBlock;
-      const chatBody = { model, stream: false, messages: [{ role: 'system', content: sysMsg }, { role: 'user', content: task }], temperature: 0.7, max_tokens: 1000 };
+      const sysMsg = 'Sen yardimci bir asistansin. Kisa ve oz yanit ver. Konusma gecmisi varsa onceki mesajlari dikkate al.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') + '\n\n' + skillsIndexBlock;
+      const chatBody = { model, stream: false, messages: chatMessages(sysMsg, task), temperature: 0.7, max_tokens: 1000 };
       try {
         const chatResult = await apiCall(providerUrl, providerApiKey, chatBody);
         const reply = chatResult.choices?.[0]?.message?.content || '';
@@ -417,6 +430,7 @@ module.exports = {
       regenerateStep: { type: 'number', description: '(retry) Yeniden calistirilacak adim numarasi' },
       newParams: { type: 'object', description: '(retry) Yeni parametreler' },
       description: { type: 'string', description: 'Aciklama' },
+      conversationHistory: { type: 'array', description: '(internal) REPL konusma gecmisi', items: { type: 'object' } },
     },
     required: ['action'],
   },

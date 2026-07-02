@@ -1090,6 +1090,8 @@ async function startRepl(args) {
     memorySnapshotBlock, skillsIndexBlock, projectRules,
     crossSessionContext: crossSessionContext || '',
     userHome: cfg.userHome || '',
+    platform: process.platform,
+    desktopPath: cfg.userHome ? path.join(cfg.userHome, 'Desktop') : '',
     hasHistory: messages.length > 0,
     memoryFacts: memory.facts || [],
   };
@@ -1468,7 +1470,8 @@ async function startRepl(args) {
       // v5.13.0: Run workflow FIRST for every request
       process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
       const wfToolDefs = getToolDefs();
-      const wfResult = await executeTool('workflow', { action: 'run', task: line }, wfToolDefs);
+      const recentHistory = messages.length > 1 ? messages.slice(-10) : [];
+      const wfResult = await executeTool('workflow', { action: 'run', task: line, conversationHistory: recentHistory }, wfToolDefs);
       const wf = wfResult?.result || {};
       if (wf.success !== false) {
         const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
