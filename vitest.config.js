@@ -12,8 +12,10 @@ module.exports = defineConfig({
       include: ['src/**/*.js'],
       exclude: ['node_modules', 'test'],
     },
-    testTimeout: 10000,
-    hookTimeout: 10000,
+    // Windows'ta süreç başlatma yavaş; paralel yük altında spawn'lı testler
+    // 10sn'yi aşabiliyor — flaky'liği önlemek için cömert tut
+    testTimeout: 60000,
+    hookTimeout: 30000,
     forceExit: true,
   },
 });

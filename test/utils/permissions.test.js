@@ -5,12 +5,16 @@ import os from 'os';
 
 let tmpHome;
 let originalHome;
+let originalUserProfile;
 let perms;
 
 beforeEach(() => {
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'natureco-perms-'));
   originalHome = process.env.HOME;
+  originalUserProfile = process.env.USERPROFILE;
   process.env.HOME = tmpHome;
+  // Windows'ta os.homedir() USERPROFILE okur — ikisini de override et
+  process.env.USERPROFILE = tmpHome;
   delete require.cache[require.resolve('../../src/utils/permissions')];
   delete require.cache[require.resolve('../../src/utils/tool-hooks')];
   perms = require('../../src/utils/permissions');
@@ -18,6 +22,8 @@ beforeEach(() => {
 
 afterEach(() => {
   process.env.HOME = originalHome;
+  if (originalUserProfile === undefined) delete process.env.USERPROFILE;
+  else process.env.USERPROFILE = originalUserProfile;
   if (tmpHome && fs.existsSync(tmpHome)) {
     fs.rmSync(tmpHome, { recursive: true, force: true });
   }

@@ -3,6 +3,8 @@
 const { Command } = require('commander');
 const chalk = require('chalk');
 const packageJson = require('../package.json');
+// Küresel çökme/EPIPE yakalayıcıları — ham Node stack yerine düzgün mesaj + audit log
+require('../src/utils/process-errors').install();
 const login = require('../src/commands/login');
 const logout = require('../src/commands/logout');
 const bots = require('../src/commands/bots');

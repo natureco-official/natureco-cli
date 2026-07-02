@@ -5,18 +5,24 @@ import os from 'os';
 
 let tmpHome;
 let originalHome;
+let originalUserProfile;
 let hooks;
 
 beforeEach(() => {
   tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'natureco-hooks-'));
   originalHome = process.env.HOME;
+  originalUserProfile = process.env.USERPROFILE;
   process.env.HOME = tmpHome;
+  // Windows'ta os.homedir() USERPROFILE okur — ikisini de override et
+  process.env.USERPROFILE = tmpHome;
   delete require.cache[require.resolve('../../src/utils/tool-hooks')];
   hooks = require('../../src/utils/tool-hooks');
 });
 
 afterEach(() => {
   process.env.HOME = originalHome;
+  if (originalUserProfile === undefined) delete process.env.USERPROFILE;
+  else process.env.USERPROFILE = originalUserProfile;
   if (tmpHome && fs.existsSync(tmpHome)) {
     fs.rmSync(tmpHome, { recursive: true, force: true });
   }

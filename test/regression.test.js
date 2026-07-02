@@ -13,21 +13,27 @@ describe('regression: all commands', () => {
   it('bin/natureco.js passes syntax check', () => {
     const result = require('child_process').execSync(
       `node --check "${BIN_PATH}"`,
-      { encoding: 'utf8', timeout: 5000 }
+      { encoding: 'utf8', timeout: 30000 }
     );
     expect(result).toBe('');
   });
 
   it('all command files pass syntax check', () => {
-    for (const file of commandFiles) {
-      const filePath = path.join(COMMANDS_DIR, file);
-      const result = require('child_process').execSync(
-        `node --check "${filePath}"`,
-        { encoding: 'utf8', timeout: 5000, stdio: 'pipe' }
-      );
-      expect(result).toBe('');
-    }
-  });
+    // Tek node süreciyle toplu kontrol — dosya başına 5sn'lik execSync,
+    // paralel test yükü altında (bilhassa Windows'ta) timeout'a düşüyordu
+    const script =
+      'const cp = require("child_process");' +
+      'for (const f of process.argv.slice(1)) {' +
+      '  cp.execFileSync(process.execPath, ["--check", f], { stdio: "pipe" });' +
+      '}' +
+      'console.log("OK");';
+    const filePaths = commandFiles.map(f => path.join(COMMANDS_DIR, f));
+    const result = require('child_process').execFileSync(
+      process.execPath, ['-e', script, ...filePaths],
+      { encoding: 'utf8', timeout: 180000 }
+    );
+    expect(result.trim()).toBe('OK');
+  }, 240000);
 
   it('all command modules can be required without error', () => {
     for (const file of commandFiles) {
@@ -39,7 +45,7 @@ describe('regression: all commands', () => {
   it('natureco --help renders without error', () => {
     const result = require('child_process').execSync(
       `node "${BIN_PATH}" --help`,
-      { encoding: 'utf8', timeout: 10000 }
+      { encoding: 'utf8', timeout: 60000 }
     );
     expect(result).toContain('natureco');
     expect(result).toContain('chat');
@@ -115,7 +121,7 @@ describe('regression: subcommand --help', () => {
     it(`natureco ${cmd} --help works`, () => {
       const result = require('child_process').execSync(
         `node "${BIN_PATH}" ${cmd} --help`,
-        { encoding: 'utf8', timeout: 10000, stdio: 'pipe' }
+        { encoding: 'utf8', timeout: 60000, stdio: 'pipe' }
       );
       expect(result).toBeTruthy();
     });
@@ -136,7 +142,7 @@ describe('regression: utils', () => {
       const filePath = path.join(utilsDir, file);
       const result = require('child_process').execSync(
         `node --check "${filePath}"`,
-        { encoding: 'utf8', timeout: 5000 }
+        { encoding: 'utf8', timeout: 30000 }
       );
       expect(result).toBe('');
     }

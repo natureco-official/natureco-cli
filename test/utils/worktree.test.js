@@ -1,11 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 
 describe('worktree', () => {
   let worktree;
+  let sandboxDir;
+  let originalCwd;
 
   beforeEach(() => {
+    // Gerçek proje dizinini kirletme — worktree'ler cwd/.natureco altına yazar;
+    // yarıda kesilen bir test koşusu repo köküne artık bırakıyordu.
+    originalCwd = process.cwd();
+    sandboxDir = fs.mkdtempSync(path.join(os.tmpdir(), 'natureco-wt-'));
+    fs.mkdirSync(path.join(sandboxDir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(sandboxDir, 'src', 'index.js'), '// sandbox\n');
+    process.chdir(sandboxDir);
+
     delete require.cache[require.resolve('../../src/utils/worktree')];
     worktree = require('../../src/utils/worktree');
     const wt = worktree.getWorktree();
@@ -18,6 +29,8 @@ describe('worktree', () => {
   afterEach(() => {
     const wt = worktree.getWorktree();
     if (wt.active) { try { wt.exit({ merge: false }); } catch {} }
+    process.chdir(originalCwd);
+    try { fs.rmSync(sandboxDir, { recursive: true, force: true }); } catch {}
   });
 
   describe('enter', () => {
@@ -93,7 +106,8 @@ describe('worktree', () => {
       const wt = worktree.getWorktree();
       wt.enter({ id: 'test-resolve' });
       const cwd = process.cwd();
-      const resolved = wt.resolvePath(path.join(cwd, 'src/index.js'));
+      // Windows'ta ayraç '\' olduğundan platformdan bağımsız karşılaştır
+      const resolved = wt.resolvePath(path.join(cwd, 'src/index.js')).split(path.sep).join('/');
       expect(resolved).toContain('worktrees/test-resolve');
       expect(resolved).toContain('src/index.js');
       wt.exit({ merge: false });
