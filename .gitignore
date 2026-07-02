@@ -75,3 +75,8 @@ nc-restore/
 !.env.example
 .npmrc
 **/.npmrc
+
+# Yerel oturum artiklari
+*.bak
+.codedna.db
+.natureco/

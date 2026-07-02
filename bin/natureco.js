@@ -76,7 +76,8 @@ const program = new Command();
 program
   .name('natureco')
   .description('NatureCo AI Bot Terminal Interface')
-  .version(packageJson.version);
+  .version(packageJson.version)
+  .showSuggestionAfterError(true); // yazım hatasında "şunu mu demek istediniz?"
 
 program.addHelpText('after', `
 ${chalk.yellow('🤖 AI & Chat')}

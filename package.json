@@ -8,6 +8,7 @@
   "files": [
     "bin/",
     "src/",
+    "scripts/",
     "skills/",
     "README.md",
     "CHANGELOG.md",
@@ -23,7 +24,7 @@
     "lint:fix": "eslint src/ bin/ test/ --fix",
     "lint:errors-only": "eslint src/ bin/ test/ --quiet",
     "smoke": "node --check bin/natureco.js && node bin/natureco.js help",
-    "postinstall": "node bin/natureco.js doctor || true",
+    "postinstall": "node scripts/postinstall.js",
     "prepublishOnly": "node --check bin/natureco.js && eslint src/ bin/ test/ --quiet && vitest run"
   },
   "keywords": [
@@ -55,10 +56,10 @@
   "homepage": "https://natureco.me/cli",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/natureco/natureco-cli.git"
+    "url": "git+https://github.com/natureco-official/natureco-cli.git"
   },
   "bugs": {
-    "url": "https://github.com/natureco/natureco-cli/issues"
+    "url": "https://github.com/natureco-official/natureco-cli/issues"
   },
   "license": "MIT",
   "engines": {
