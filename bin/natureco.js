@@ -261,7 +261,8 @@ program
 program
   .command('ask <question>')
   .description('Ask a single question to your default bot')
-  .action(ask);
+  .option('--tools', 'araç kullanımını etkinleştir (varsayılan: kapalı — %90 daha az token)')
+  .action((question, options) => ask(question, options));
 
 program
   .command('run <script>')

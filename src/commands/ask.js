@@ -5,7 +5,7 @@ const { getSkillPrompts } = require('../utils/skills');
 const { getMemoryPrompt } = require('../utils/memory');
 const { getAgentsPrompt } = require('../utils/agents');
 
-async function ask(question) {
+async function ask(question, options = {}) {
   const apiKey = getApiKey();
 
   if (!apiKey) {
@@ -41,7 +41,9 @@ async function ask(question) {
   }, 80);
 
   try {
-    const response = await sendMessage(apiKey, defaultBotId, question, null, systemPrompt, { stream: false });
+    // Tek atımlık soru: 47 araç şeması göndermek ~15K token israfıydı.
+    // Varsayılan araçsız (~%90 tasarruf); --tools ile açılabilir.
+    const response = await sendMessage(apiKey, defaultBotId, question, null, systemPrompt, { stream: false, noTools: !options.tools });
     
     clearInterval(loadingInterval);
     process.stdout.write('\r');

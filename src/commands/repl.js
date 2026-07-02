@@ -132,17 +132,15 @@ function ensureDir(dir) {
 }
 
 function getConfig() {
+  // Merkezi config'e delege — --profile desteği, backup ve validation
+  // yerel kopyada yoktu; REPL kullanıcının gerçek config'ini okuyordu
   try {
-    return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8'));
+    return require('../utils/config').getConfig() || {};
   } catch { return {}; }
 }
 
-function isMiniMax(url) {
-  return url && (url.includes('minimax.io') || url.includes('minimaxi.com') || url.includes('minimax.cn'));
-}
-function isGemini(url) {
-  return url && (url.includes('generativelanguage.googleapis.com') || url.includes('gemini'));
-}
+// Tek doğruluk kaynağı: provider-detect (MiniMax /v1 toleransı dahil)
+const { isMiniMax, isGemini, buildChatEndpoint } = require('../utils/provider-detect');
 
 function loadMemory(username) {
   const file = path.join(MEMORY_DIR, `${(username || 'default').toLowerCase()}.json`);
@@ -246,12 +244,7 @@ function extractFacts(messages, currentFacts) {
 
 function apiRequest(providerUrl, providerApiKey, body, stream = false, retries = 3) {
   return new Promise((resolve, reject) => {
-    const isMM = isMiniMax(providerUrl);
-    const endpoint = isMM
-      ? `${providerUrl.replace(/\/+$/, '')}/v1/text/chatcompletion_v2`
-      : isGemini(providerUrl)
-        ? `${providerUrl.replace(/\/+$/, '')}/openai/chat/completions`
-        : `${providerUrl.replace(/\/+$/, '')}/chat/completions`;
+    const endpoint = buildChatEndpoint(providerUrl);
     const doRequest = (attempt) => {
       const req = https.request(endpoint, {
         method: 'POST',
@@ -622,13 +615,8 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
       break;
     }
 
-    // OpenAI uyumlu streaming (veya MiniMax /v1/text/chatcompletion_v2)
-    // v5.9.5: Gemini /openai/chat/completions — provider-detect.js buildChatEndpoint
-    const endpoint = isMM
-      ? `${providerUrl.replace(/\/+$/, '')}/v1/text/chatcompletion_v2`
-      : isGemini(providerUrl)
-        ? `${providerUrl.replace(/\/+$/, '')}/openai/chat/completions`
-        : `${providerUrl.replace(/\/+$/, '')}/chat/completions`;
+    // OpenAI uyumlu streaming — tek doğruluk kaynağı buildChatEndpoint
+    const endpoint = buildChatEndpoint(providerUrl);
     let result;
     try {
       result = await new Promise((resolve, reject) => {
@@ -1120,7 +1108,8 @@ async function startRepl(args) {
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
   console.log(tui.C.muted('  Provider: ') + tui.C.brand(providerUrl.replace(/https?:\/\//, '')));
   console.log(tui.C.muted('  Model:    ') + tui.C.brand(model));
-  console.log(tui.C.muted('  Kullanıcı: ') + tui.C.brand((memory.nickname || cfg.userName) + (memory.nickname ? ` (${cfg.userName})` : '')));
+  const displayUser = memory.nickname || cfg.userName || require('os').userInfo().username || 'Kullanıcı';
+  console.log(tui.C.muted('  Kullanıcı: ') + tui.C.brand(displayUser + (memory.nickname && cfg.userName ? ` (${cfg.userName})` : '')));
   console.log(tui.C.muted('  Bot:      ') + tui.C.brand(memory.botName || 'Asistan'));
   if (messages.length > 1) {
     console.log(tui.C.muted('  Oturum:   ') + tui.C.amber(`${messages.filter(m => m.role === 'user' || m.role === 'assistant').length} mesaj (resume)`));

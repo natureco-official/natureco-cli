@@ -21,7 +21,7 @@ const guardrails = new ToolGuardrails();
  * re-exported here so the historical `detectProvider` reference inside
  * api.js continues to work without touching every call site.
  */
-const { detectProvider, isMiniMax, isGemini } = require('./provider-detect');
+const { detectProvider, isMiniMax, isGemini, buildChatEndpoint } = require('./provider-detect');
 
 /**
  * v5.5.0: Tool definitions'ı provider'a göre normalize et
@@ -548,12 +548,8 @@ function formatToolsForAnthropic() {
  */
 async function sendMessageOpenAICompatible(providerConfig, messages, tools) {
   const baseUrl = providerConfig.url.replace(/\/+$/, '');
-  // v5.9.5: buildChatEndpoint handles MiniMax, Gemini, and OpenAI-compatible.
-  const endpoint = isMiniMax(baseUrl)
-    ? `${baseUrl}/v1/text/chatcompletion_v2`
-    : isGemini(baseUrl)
-      ? `${baseUrl}/openai/chat/completions`
-      : `${baseUrl}/chat/completions`;
+  // Tek doğruluk kaynağı: provider-detect.buildChatEndpoint (MiniMax /v1 toleransı dahil)
+  const endpoint = buildChatEndpoint(baseUrl);
   const requestBody = {
     model: providerConfig.model,
     messages: messages,
@@ -589,12 +585,31 @@ async function sendMessageOpenAICompatible(providerConfig, messages, tools) {
     || data.response
     || data.content
     || '';
+  // Maliyet takibi — usage döndüren her çağrı kaydedilir (natureco cost)
+  recordUsageSafe(providerConfig, data.usage);
   return {
     role: 'assistant',
     content,
     tool_calls: data.choices?.[0]?.message?.tool_calls || undefined,
     usage: data.usage || undefined,
   };
+}
+
+/**
+ * Kullanımı cost-tracker'a kaydet; takip hatası asıl akışı asla bozmasın.
+ */
+function recordUsageSafe(providerConfig, usage) {
+  if (!usage) return;
+  try {
+    const { recordUsage } = require('./cost-tracker');
+    recordUsage({
+      provider: detectProvider(providerConfig.url, providerConfig.model),
+      model: providerConfig.model,
+      input: usage.prompt_tokens ?? usage.input_tokens ?? 0,
+      output: usage.completion_tokens ?? usage.output_tokens ?? 0,
+      command: process.argv.slice(2).find(a => !a.startsWith('-')) || null,
+    });
+  } catch { /* takip hatası sessiz geçilir */ }
 }
 
 /**
@@ -628,7 +643,7 @@ async function sendMessageAnthropic(providerConfig, messages, tools) {
   }
 
   const data = await response.json();
-  
+
   // Convert Anthropic response to OpenAI format
   const content = data.content.find(c => c.type === 'text')?.text || '';
   const toolCalls = data.content
@@ -641,7 +656,10 @@ async function sendMessageAnthropic(providerConfig, messages, tools) {
         arguments: JSON.stringify(c.input)
       }
     }));
-  
+
+  // Maliyet takibi (Anthropic: input_tokens/output_tokens)
+  recordUsageSafe(providerConfig, data.usage);
+
   return {
     role: 'assistant',
     content: content,
@@ -1021,12 +1039,8 @@ async function streamProviderCompletion(providerConfig, messages, tools) {
 
 async function streamOpenAICompletion(providerConfig, messages, tools) {
   const baseUrl = providerConfig.url.replace(/\/+$/, '');
-  // v5.9.5: buildChatEndpoint handles MiniMax, Gemini, and OpenAI-compatible.
-  const endpoint = isMiniMax(baseUrl)
-    ? `${baseUrl}/v1/text/chatcompletion_v2`
-    : isGemini(baseUrl)
-      ? `${baseUrl}/openai/chat/completions`
-      : `${baseUrl}/chat/completions`;
+  // Tek doğruluk kaynağı: provider-detect.buildChatEndpoint (MiniMax /v1 toleransı dahil)
+  const endpoint = buildChatEndpoint(baseUrl);
 
   const requestBody = {
     model: providerConfig.model,
@@ -1058,19 +1072,26 @@ async function streamOpenAICompletion(providerConfig, messages, tools) {
   let fullText = '';
   const toolCalls = [];
   let hasToolCalls = false;
+  let streamUsage = null;
+  // SSE satırları TCP chunk sınırında bölünebilir — kuyruk buffer'da taşınmalı,
+  // yoksa bölünen JSON parse edilemez ve token sessizce kaybolur
+  let sseBuffer = '';
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
 
-    const chunk = decoder.decode(value, { stream: true });
-    const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+    sseBuffer += decoder.decode(value, { stream: true });
+    const parts = sseBuffer.split('\n');
+    sseBuffer = parts.pop() || ''; // son (muhtemelen yarım) satırı sakla
+    const lines = parts.filter(l => l.startsWith('data: '));
 
     for (const line of lines) {
       const data = line.slice(6).trim();
       if (data === '[DONE]') continue;
       try {
         const parsed = JSON.parse(data);
+        if (parsed.usage) streamUsage = parsed.usage; // son chunk'ta gelir
         const delta = parsed.choices?.[0]?.delta;
         if (!delta) continue;
 
@@ -1087,6 +1108,8 @@ async function streamOpenAICompletion(providerConfig, messages, tools) {
       } catch {}
     }
   }
+  // Maliyet takibi — sağlayıcı stream sonunda usage gönderdiyse kaydet
+  recordUsageSafe(providerConfig, streamUsage);
 
       if (hasToolCalls) {
     process.stdout.write('\n');

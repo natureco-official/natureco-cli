@@ -55,8 +55,12 @@ function isGemini(url) {
  * and standard OpenAI-compatible providers.
  */
 function buildChatEndpoint(providerUrl) {
-  const base = (providerUrl || '').replace(/\/+$/, '');
-  if (isMiniMax(base)) return `${base}/v1/text/chatcompletion_v2`;
+  let base = (providerUrl || '').replace(/\/+$/, '');
+  if (isMiniMax(base)) {
+    // Kullanıcı OpenAI alışkanlığıyla .../v1 girerse /v1/v1/... 404'üne düşmesin
+    base = base.replace(/\/v1$/, '');
+    return `${base}/v1/text/chatcompletion_v2`;
+  }
   if (isGemini(base)) return `${base}/openai/chat/completions`;
   return `${base}/chat/completions`;
 }
