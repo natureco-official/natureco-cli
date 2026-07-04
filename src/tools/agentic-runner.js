@@ -21,7 +21,7 @@ const os = require('os');
 // icinde approvals politikasini uyguluyor (isSafeCommand → direkt; tehlikeli → red;
 // digerleri → allowlist/full moda gore). Yani keyfi/yikici komut calismaz.
 // Diger ~85 arac (discord, telegram, cron, browser...) bilerek DISARIDA.
-const DEFAULT_ALLOWED = ['write_file', 'read_file', 'edit_file', 'skill_view', 'bash'];
+const DEFAULT_ALLOWED = ['write_file', 'read_file', 'edit_file', 'skill_view', 'bash', 'file_search', 'list_dir'];
 
 const TOOL_ALIASES = {
   write_file: 'write_file', create_file: 'write_file', writefile: 'write_file', write: 'write_file', create: 'write_file', save_file: 'write_file', new_file: 'write_file',
@@ -29,6 +29,8 @@ const TOOL_ALIASES = {
   edit_file: 'edit_file', editfile: 'edit_file', str_replace: 'edit_file', str_replace_editor: 'edit_file', replace_in_file: 'edit_file',
   skill_view: 'skill_view', skillview: 'skill_view', load_skill: 'skill_view', view_skill: 'skill_view', skill: 'skill_view',
   bash: 'bash', run_command: 'bash', shell: 'bash', shell_command: 'bash', exec: 'bash', run_terminal: 'bash', terminal: 'bash', run: 'bash', command: 'bash',
+  file_search: 'file_search', glob: 'file_search', find_files: 'file_search', search_files: 'file_search', find: 'file_search',
+  list_dir: 'list_dir', ls: 'list_dir', dir: 'list_dir', list_directory: 'list_dir', filesystem: 'list_dir',
 };
 
 function expandHome(p) {
@@ -136,11 +138,58 @@ function makeStreamFilter(onText, onTool) {
   };
 }
 
+/**
+ * Streaming model-adi temizleyici: canli akarken model kendi adini soylerse
+ * (MiniMax/Claude/GPT...) persona adiyla degistir. Kelime sinirinda (bosluk)
+ * emit eder — boylece bir chunk'ta "Mini", digerinde "Max" gelse bile kelime
+ * tam olusmadan gonderilmez, sizinti olmaz. onText'e temizlenmis metin gider.
+ */
+function makeSanitizeStream(botName, onText) {
+  const name = botName || 'Asistan';
+  let buf = '';
+  const clean = (s) => s
+    .replace(/\bMiniMaxi?\b/gi, name)
+    .replace(/\bChatGPT\b/gi, name)
+    .replace(/\bGPT-?[0-9.]*\b/gi, name)
+    .replace(/\bClaude(?:\s*[0-9.]+)?\b/gi, name)
+    .replace(/\bM2\.5\b/gi, name);
+  return {
+    push(chunk) {
+      buf += (chunk || '');
+      const lastWs = Math.max(buf.lastIndexOf(' '), buf.lastIndexOf('\n'), buf.lastIndexOf('\t'));
+      if (lastWs >= 0) {
+        const safe = buf.slice(0, lastWs + 1);
+        buf = buf.slice(lastWs + 1);
+        if (onText) onText(clean(safe));
+      }
+    },
+    end() { if (buf && onText) onText(clean(buf)); buf = ''; },
+  };
+}
+
 function sanitizeArgs(args) {
   const a = { ...args };
   if (typeof a.content === 'string' && a.content.length > 160) a.content = `[${a.content.length} chars]`;
   if (typeof a.new_string === 'string' && a.new_string.length > 160) a.new_string = `[${a.new_string.length} chars]`;
   return a;
+}
+
+// Modele geri beslenecek metin. KRITIK: read_file/list_dir/file_search/bash gibi
+// araclarda modelin GORMESI gereken asil cikti (content/output/results/items) geri
+// verilmeli — yoksa model "okudum ama icerik yok" diye takilir.
+function buildFeedback(norm, res) {
+  if (typeof res === 'string') return `${norm} sonucu:\n` + res.slice(0, 2500);
+  const ok = res && res.success !== false;
+  if (!ok) return `${norm} HATA: ${(res && res.error) || 'bilinmeyen hata'}`;
+  if (norm === 'write_file') return `write_file OK: ${res.path || ''} (${res.size != null ? res.size : '?'} bytes)`;
+  let body = '';
+  if (res.content != null) body = String(res.content).slice(0, 2500);
+  else if (res.output != null) body = String(res.output).slice(0, 2000);
+  else if (res.stdout != null) body = String(res.stdout).slice(0, 2000);
+  else if (res.results != null) body = JSON.stringify(res.results).slice(0, 2000);
+  else if (res.items != null) body = JSON.stringify(res.items).slice(0, 2000);
+  const head = `${norm} OK` + (res.path ? ` (${res.path})` : '');
+  return body ? `${head}:\n${body}` : head;
 }
 
 /**
@@ -214,17 +263,9 @@ async function executeCall(call, opts = {}) {
   }
   try {
     const res = await fn(args);
-    let feedback, status;
-    if (typeof res === 'string') {
-      status = 'done';
-      feedback = `${norm} sonucu:\n` + res.slice(0, 1500);
-    } else {
-      const ok = res && res.success !== false;
-      status = ok ? 'done' : 'error';
-      feedback = ok
-        ? `${norm} OK` + (res.path ? `: ${res.path} (${res.size != null ? res.size : '?'} bytes)` : (res.output ? ': ' + String(res.output).slice(0, 300) : ''))
-        : `${norm} HATA: ${res && res.error}`;
-    }
+    const ok = typeof res === 'string' ? true : (res && res.success !== false);
+    const status = ok ? 'done' : 'error';
+    const feedback = buildFeedback(norm, res);
     records.push({ tool: norm, status, args: sanitizeArgs(args), result: res });
     return { records, feedback };
   } catch (e) {
@@ -278,4 +319,4 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
   return { records: allRecords, reply: finalReply, iterations };
 }
 
-module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, TOOL_ALIASES, DEFAULT_ALLOWED };
+module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, makeSanitizeStream, TOOL_ALIASES, DEFAULT_ALLOWED };

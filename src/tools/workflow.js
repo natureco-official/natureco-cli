@@ -117,6 +117,58 @@ function apiCall(providerUrl, apiKey, body) {
   });
 }
 
+// Streaming (SSE) varyanti — onDelta(token) canli cagirilir; sonunda {content, toolCalls} doner.
+// OpenAI-uyumlu delta formati (MiniMax chatcompletion_v2, Gemini /openai, OpenAI, ...).
+function apiCallStream(providerUrl, apiKey, body, onDelta) {
+  return new Promise((resolve, reject) => {
+    const base = providerUrl.replace(/\/+$/, '');
+    const endpoint = isMiniMax(base)
+      ? base + '/v1/text/chatcompletion_v2'
+      : isGemini(base)
+        ? base + '/openai/chat/completions'
+        : base + '/chat/completions';
+    const req = https.request(endpoint, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      timeout: 120000,
+    }, (res) => {
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => reject(new Error('HTTP ' + res.statusCode + ': ' + data.slice(0, 300))));
+        return;
+      }
+      res.setEncoding('utf8');
+      let sseBuf = '';
+      let content = '';
+      const toolCalls = [];
+      res.on('data', (chunk) => {
+        sseBuf += chunk;
+        const parts = sseBuf.split('\n');
+        sseBuf = parts.pop(); // eksik son satiri buffer'da tut
+        for (const line of parts) {
+          const l = line.trim();
+          if (!l.startsWith('data:')) continue;
+          const payload = l.slice(5).trim();
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(payload);
+            const delta = parsed.choices?.[0]?.delta;
+            if (!delta) continue;
+            if (delta.content) { content += delta.content; if (onDelta) onDelta(delta.content); }
+            if (Array.isArray(delta.tool_calls)) { for (const tc of delta.tool_calls) toolCalls.push(tc); }
+          } catch { /* eksik/parcali JSON — atla */ }
+        }
+      });
+      res.on('end', () => resolve({ content, toolCalls }));
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+    req.write(JSON.stringify(body));
+    req.end();
+  });
+}
+
 async function workflow(params) {
   const { action, task, steps, name, workflowId, regenerateStep, conversationHistory } = params;
   const cfg = loadConfig();
@@ -176,11 +228,15 @@ async function workflow(params) {
         '\n\nKullanabilecegin araclar:',
         '- write_file: dosya olustur/uzerine yaz. parametreler: path (TAM yol), content (dosyanin TAM icerigi). Kod/oyun/site isteniyorsa TUM icerigi content icine yaz, kisaltma.',
         '- read_file: dosya oku. parametre: path',
-        '- edit_file: dosyada metin degistir. parametreler: path, old_string, new_string',
-        '- bash: kabuk komutu calistir (npm, git, node, python, test, ls, mkdir...). parametre: command. Guvenli komutlar dogrudan calisir; yikici/tehlikeli komutlar guvenlik politikasiyla engellenir.',
+        '- edit_file: MEVCUT dosyada metin degistir. parametreler: path, old_string (birebir mevcut metin), new_string. Bir dosyanin bir kismini degistirirken write_file yerine bunu kullan (tum dosyayi yeniden yazma).',
+        '- file_search: glob ile dosya bul. parametre: pattern (orn. "**/*.js", "src/**/*.json").',
+        '- list_dir: dizin icerigini listele. parametre: path',
+        '- bash: kabuk komutu calistir (npm, git, node, python, test, ls, grep/findstr, mkdir...). parametre: command. Guvenli komutlar dogrudan calisir; yikici/tehlikeli komutlar guvenlik politikasiyla engellenir. Icerik aramasi icin grep/findstr kullan.',
         '- skill_view: gorevle ilgili bir skill yukle. parametre: name',
         '\nKurallar:',
-        '- Kod yazdiktan sonra gerektiginde bash ile calistir/test et (orn. "node dosya.js", "npm test"); hata cikarsa duzelt.',
+        '- MEVCUT bir dosyayi degistirmeden ONCE read_file ile oku; sonra edit_file ile hedefli degisiklik yap (tum dosyayi write_file ile ezme).',
+        '- Bir seyi nerede oldugunu bilmiyorsan once file_search/list_dir/bash(grep) ile kesfet.',
+        '- Kod yazdiktan/degistirdikten sonra gerektiginde bash ile calistir/test et (orn. "node dosya.js", "npm test"); hata cikarsa duzelt.',
         '- Birden fazla dosya gerekiyorsa her biri icin AYRI write_file cagir.',
         '- Kullanici "masaustu"/"desktop" dediyse ve tam yol vermediyse dosyayi buraya yaz: ' + desktop,
         '- Goreceli yol yerine TAM yol kullan.',
@@ -194,7 +250,21 @@ async function workflow(params) {
         for (const hm of conversationHistory) { if (hm._internal) continue; historyMessages.push({ role: hm.role, content: hm.content || '' }); }
       }
 
+      // Streaming: yalnizca TTY'de ve caller (repl) stream:true gecince. SSE token'lari
+      // XML-gizleyen filtre + model-adi sanitizer zincirinden gecip stdout'a canli akar.
+      const streamOn = params.stream === true && !!(process.stdout && process.stdout.isTTY);
+      const botName = cfg.botName || 'Asistan';
+      const { makeStreamFilter, makeSanitizeStream } = require('./agentic-runner');
+
       async function callModel(msgs) {
+        if (streamOn) {
+          const sani = makeSanitizeStream(botName, t => process.stdout.write(t));
+          const filter = makeStreamFilter(t => sani.push(t), null);
+          const body = { model, stream: true, messages: msgs, temperature: 0.3, max_tokens: 16000 };
+          const out = await apiCallStream(providerUrl, providerApiKey, body, d => filter.push(d));
+          filter.end(); sani.end();
+          return { content: out.content || '', toolCalls: out.toolCalls || [] };
+        }
         const body = { model, stream: false, messages: msgs, temperature: 0.3, max_tokens: 16000 };
         const r = await apiCall(providerUrl, providerApiKey, body);
         const msg = r.choices?.[0]?.message || {};
@@ -210,7 +280,9 @@ async function workflow(params) {
         let finalReply = reply || '';
         if (fileWrites.length > 0) {
           const lines = fileWrites.map(r => `  ✓ ${path.basename((r.result && r.result.path) || (r.args && r.args.path) || '')} olusturuldu (${(r.result && r.result.size != null) ? r.result.size : '?'} bytes)`).join('\n');
-          finalReply = (finalReply ? finalReply + '\n\n' : '') + 'Dosya(lar):\n' + lines;
+          const fileSummary = 'Dosya(lar):\n' + lines;
+          finalReply = (finalReply ? finalReply + '\n\n' : '') + fileSummary;
+          if (streamOn) process.stdout.write('\n\n' + fileSummary + '\n');
         }
         const done = records.filter(r => r.status === 'done').length;
         return {
@@ -222,6 +294,7 @@ async function workflow(params) {
           completedSteps: done,
           results: records.map((r, i) => ({ step: i + 1, ...r })),
           passthrough: true,
+          streamed: streamOn,
           reply: finalReply || 'Tamamlandi.',
         };
       } catch (e) {

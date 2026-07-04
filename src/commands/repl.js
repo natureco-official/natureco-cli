@@ -1493,16 +1493,20 @@ async function startRepl(args) {
       messages[0] = { role: 'system', content: systemPrompt, _internal: true };
 
       // v5.13.0: Run workflow FIRST for every request
-      process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
+      // v5.26: TTY'de canli streaming — spinner yerine yanit akarak gelir (workflow stdout'a akitir)
+      const wantStream = !!(process.stdout && process.stdout.isTTY);
+      if (!wantStream) process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
       const wfToolDefs = getToolDefs();
       const recentHistory = messages.length > 1 ? messages.slice(-10) : [];
-      const wfResult = await executeTool('workflow', { action: 'run', task: line, conversationHistory: recentHistory }, wfToolDefs);
+      const wfResult = await executeTool('workflow', { action: 'run', task: line, conversationHistory: recentHistory, stream: wantStream }, wfToolDefs);
       const wf = wfResult?.result || {};
-      if (wf.success !== false) {
-        const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
-        process.stdout.write(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
-      } else {
-        process.stdout.write(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
+      if (!wf.streamed) {
+        if (wf.success !== false) {
+          const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
+          process.stdout.write(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
+        } else {
+          process.stdout.write(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
+        }
       }
 
       if (wf.passthrough && wf.reply !== undefined && wf.reply !== null) {
@@ -1522,7 +1526,9 @@ async function startRepl(args) {
         fixedReply = fixedReply.replace(/Ben\s+GPT[^.!?,;:\n]*/gi, 'Ben ' + displayBotName);
         fixedReply = fixedReply.replace(/Ben\s+Asistan[\s\w\.]*/gi, 'Ben ' + displayBotName);
         fixedReply = fixedReply.replace(/\*\*(?:MiniMax|Claude|GPT|M2\.5|M2)[^\*]*\*\*/gi, '**' + displayBotName + '**');
-        process.stdout.write('\n' + fixedReply + '\n');
+        // streamed ise yanit zaten canli basildi (sanitize edilerek) — tekrar basma
+        if (wf.streamed) process.stdout.write('\n');
+        else process.stdout.write('\n' + fixedReply + '\n');
         messages.push({ role: 'assistant', content: fixedReply });
         totalInputTokens += Math.ceil(line.length / 4);
         totalOutputTokens += Math.ceil(fullReply.length / 4);

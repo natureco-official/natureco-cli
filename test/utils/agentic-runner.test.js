@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import mod from '../../src/tools/agentic-runner.js';
 
-const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter } = mod;
+const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter, makeSanitizeStream } = mod;
 
 describe('parseAgenticCalls', () => {
   it('<minimax:tool_call> icindeki write_file (path+content) cagirisini cozer', () => {
@@ -102,6 +102,28 @@ describe('makeStreamFilter (canli akis)', () => {
   });
 });
 
+describe('makeSanitizeStream (model adi temizleme)', () => {
+  const collect = (chunks, bot = 'Hinata') => {
+    let out = '';
+    const s = makeSanitizeStream(bot, t => { out += t; });
+    for (const c of chunks) s.push(c);
+    s.end();
+    return out;
+  };
+  it('model adini persona ile degistirir', () => {
+    expect(collect(['Ben MiniMax, ', 'sana yardim ederim.'])).toBe('Ben Hinata, sana yardim ederim.');
+  });
+  it('kelime chunk sinirinda bolunse bile ham model adini sizdirmaz', () => {
+    expect(collect(['Ben Mini', 'Max burada.'])).toBe('Ben Hinata burada.');
+  });
+  it('Claude/GPT gibi diger model adlarini da degistirir', () => {
+    expect(collect(['Ben Claude ', 've GPT-4 degilim.'])).toBe('Ben Hinata ve Hinata degilim.');
+  });
+  it('normal metni bozmaz', () => {
+    expect(collect(['Merhaba dunya, ', 'nasilsin?'])).toBe('Merhaba dunya, nasilsin?');
+  });
+});
+
 describe('executeCall', () => {
   it('bulk "files" dizisini her dosya icin write_file\'a yonlendirir', async () => {
     const written = [];
@@ -145,6 +167,19 @@ describe('executeCall', () => {
     expect(reached).toBe(false); // bash.js'e hic ulasmamali
     expect(records[0].status).toBe('error');
     expect(feedback).toMatch(/CALISTIRILMADI|tehlikeli/i);
+  });
+
+  it('read_file icerigini feedback\'e koyar (model gormeli, yoksa "okudum ama bos" takilir)', async () => {
+    const loadTool = () => ({ execute: async () => ({ success: true, path: '/x.js', content: 'const answer = 42;' }) });
+    const { records, feedback } = await executeCall({ tool: 'read_file', args: { path: '/x.js' } }, { loadTool });
+    expect(records[0].status).toBe('done');
+    expect(feedback).toContain('const answer = 42;');
+  });
+
+  it('bash ciktisini feedback\'e koyar', async () => {
+    const loadTool = () => ({ execute: async () => ({ success: true, output: 'merhaba dunya' }) });
+    const { feedback } = await executeCall({ tool: 'bash', args: { command: 'node app.js' } }, { loadTool, isDangerous: () => false });
+    expect(feedback).toContain('merhaba dunya');
   });
 
   it('allowlist icindeki write_file\'i calistirir ve ~ genisletir', async () => {

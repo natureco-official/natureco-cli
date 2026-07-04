@@ -2,6 +2,17 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.26.0] - 2026-07-04 — "CANLI STREAMING + KEŞFET→DÜZENLE→DOĞRULA"
+
+### ✨ Yeni
+- **Canlı streaming (TTY)**: yanit artik token token akarak gelir (Hermes/Claude Code hissi). SSE → tool-call/skill XML'ini gizleyen filtre → model-adi sanitizer ("Ben MiniMax"→"Ben {bot}") zinciri; kelime chunk sinirinda bolunse bile sizinti yok. Non-TTY (pipe/CI) bloklu yola duser. `makeStreamFilter` + `makeSanitizeStream` (birim testli).
+- **Keşfet→düzenle→doğrula**: ajana `file_search` (glob), `list_dir` ve MEVCUT dosyayi hedefli degistiren `edit_file` eklendi; sistem prompt'u "once oku, sonra edit_file ile duzenle, sonra calistirip dogrula" akisini ogretir. E2E dogrulandi (dosyayi oku→edit→node ile calistir→sonucu raporla).
+
+### 🐛 Düzeltme
+- **Okuma araclari icerigi modele donmuyordu**: `read_file`/`list_dir`/`file_search`/`bash` sonucu ajana sadece "OK" olarak donuyordu → model icerigi goremeyip "okudum ama bos" diye takiliyordu. Feedback artik gercek ciktiyi (content/output/results) modele verir.
+
+Doğrulama: MiniMax ile E2E (oku→edit→calistir; streaming XML/model-adi sizintisiz); **484 test yeşil**, ESLint temiz.
+
 ## [5.25.0] - 2026-07-04 — "PROVIDER-AGNOSTİK + STREAMING ALTYAPISI"
 
 ### ✨ İyileştirme
