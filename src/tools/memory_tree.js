@@ -21,7 +21,7 @@ const os = require('os');
 const ROOTS = [
   { id: '1-kisisel', title: 'Kişisel & Tercihler', branches: ['Kimlik', 'Tercihler', 'İletişim Kalıpları'] },
   { id: '2-teknik', title: 'Teknik & Projeler', branches: ['Projeler', 'Kurulum & Sistem', 'Teknik Referans'] },
-  { id: '3-kararlar', title: 'Kararlar, Kurallar & Dersler', branches: ['Kararlar', 'Kurallar & Kısıtlar', 'Öğrenilen Dersler', 'Tarihli Olaylar'] },
+  { id: '3-kararlar', title: 'Kararlar, Kurallar & Dersler', branches: ['Bekleyen İşler', 'Kararlar', 'Kurallar & Kısıtlar', 'Öğrenilen Dersler', 'Tarihli Olaylar'] },
 ];
 
 function treeDir(username) {
@@ -105,6 +105,35 @@ function search(username, query) {
   return hits;
 }
 
+// Oturum basinda proaktif hatirlatma icin: 3-kararlar / "Bekleyen İşler" dalindaki yapraklar.
+function getPending(username) {
+  const txt = readSafe(username, '3-kararlar');
+  const out = [];
+  let inBranch = false;
+  for (const line of txt.split('\n')) {
+    if (line.startsWith('## ')) inBranch = /bekleyen/i.test(line);
+    else if (inBranch && /^\s*-\s+\S/.test(line)) out.push(line.trim().replace(/^-\s*/, ''));
+  }
+  return out;
+}
+
+// Bir yapragi (tamamlanan bekleyen is gibi) kaldir — query iceren "- ..." satirlarini siler.
+function remove(username, root, query) {
+  ensureTree(username);
+  const r = resolveRoot(root || '3-kararlar');
+  const q = String(query || '').toLowerCase().trim();
+  if (!q) return { success: false, error: 'query gerekli' };
+  const txt = readSafe(username, r.id);
+  const kept = [];
+  let removed = 0;
+  for (const line of txt.split('\n')) {
+    if (/^\s*-\s+/.test(line) && line.toLowerCase().includes(q)) { removed++; continue; }
+    kept.push(line);
+  }
+  if (removed) fs.writeFileSync(rootPath(username, r.id), kept.join('\n'), 'utf8');
+  return { success: true, removed, root: r.id };
+}
+
 function append(username, root, branch, content) {
   ensureTree(username);
   const r = resolveRoot(root);
@@ -149,8 +178,11 @@ module.exports = {
         if (!p.content) return { success: false, error: 'content (yaprak metni) gerekli' };
         return append(u, p.root || '1-kisisel', p.branch || 'Genel', p.content);
       }
-      return { success: false, error: 'bilinmeyen action: ' + p.action + ' (index|read|search|append)' };
+      if (p.action === 'remove' || p.action === 'done') {
+        return remove(u, p.root || '3-kararlar', p.query || p.content);
+      }
+      return { success: false, error: 'bilinmeyen action: ' + p.action + ' (index|read|search|append|remove)' };
     } catch (e) { return { success: false, error: e.message }; }
   },
-  _internal: { ensureTree, buildIndex, buildDigest, readRoot, search, append, treeDir, rootPath, ROOTS },
+  _internal: { ensureTree, buildIndex, buildDigest, readRoot, search, append, getPending, remove, treeDir, rootPath, ROOTS },
 };

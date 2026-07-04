@@ -262,6 +262,7 @@ async function workflow(params) {
         '\nKurallar:',
         '- Kullanici kalici bilgi paylasirsa (isim, tercih, parola, proje, karar, onemli detay) ya da "hatirla / not al / kaydet" derse HEMEN KAYDET (username="' + memUser + '"): kisa tek bilgi → memory_write; zengin/kategorize bilgi → memory_tree(append, dogru root/branch). Trivial/gecici seyleri kaydetme.',
         '- Kullaniciya ozel bir sey sorulunca (gecmis, proje, tercih, karar) once memory_tree(search/read) ile ilgili kok/dali OKU (hedefli, tum hafizayi degil). Tek primary: bilgi tek yerde yasar; digerine sadece "bkz:". Credential/secret ASLA duz metin.',
+        '- Bir is YARIM kalirsa ya da kullanici "sonra / yarin / daha sonra yapalim" derse memory_tree(action:append, root:"3-kararlar", branch:"Bekleyen İşler", content:"...") ile kaydet — yeni oturum basinda otomatik hatirlatilir. Bir bekleyen is TAMAMLANINCA memory_tree(action:remove, root:"3-kararlar", query:"<anahtar kelime>") ile kaldir.',
         '- MEVCUT bir dosyayi degistirmeden ONCE read_file ile oku; sonra edit_file ile hedefli degisiklik yap (tum dosyayi write_file ile ezme).',
         '- Bir seyi nerede oldugunu bilmiyorsan once file_search/list_dir/bash(grep) ile kesfet.',
         '- Kod yazdiktan/degistirdikten sonra gerektiginde bash ile calistir/test et (orn. "node dosya.js", "npm test"); hata cikarsa duzelt.',

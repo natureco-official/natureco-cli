@@ -55,4 +55,20 @@ describe('memory_tree (ağaç-hafıza)', () => {
     expect(res.success).toBe(true);
     expect(res.results.some((r) => /node 24/.test(r))).toBe(true);
   });
+
+  it('getPending "Bekleyen İşler" dalındaki işleri döner (oturum başı hatırlatma)', () => {
+    append(U, '3-kararlar', 'Bekleyen İşler', 'landing sayfasi deploy edilecek');
+    append(U, '3-kararlar', 'Kararlar', 'bu bekleyen degil');
+    const p = mod._internal.getPending(U);
+    expect(p.some((x) => /landing/.test(x))).toBe(true);
+    expect(p.some((x) => /bekleyen degil/.test(x))).toBe(false); // sadece Bekleyen İşler dalı
+  });
+
+  it('remove tamamlanan bekleyen işi kaldırır', () => {
+    append(U, '3-kararlar', 'Bekleyen İşler', 'test gorevi tamamla');
+    expect(mod._internal.getPending(U).some((x) => /test gorevi/.test(x))).toBe(true);
+    const r = mod._internal.remove(U, '3-kararlar', 'test gorevi');
+    expect(r.removed).toBeGreaterThan(0);
+    expect(mod._internal.getPending(U).some((x) => /test gorevi/.test(x))).toBe(false);
+  });
 });

@@ -1161,6 +1161,17 @@ async function startRepl(args) {
   console.log(tui.C.brand('  👋 Ben ' + displayBotName + ', ' + displayUserName + '. Sen nasilsin?'));
   console.log('');
 
+  // Theseus deseni: oturum basinda "geçen sefer kalanlari" proaktif hatirlat
+  // (3-kararlar / "Bekleyen İşler" dali). Ajan yarim isleri buraya memory_tree ile yazar.
+  try {
+    const pending = require('../tools/memory_tree')._internal.getPending(cfg.userName);
+    if (pending && pending.length) {
+      console.log(tui.C.muted('  📌 Geçen oturumdan kalanlar:'));
+      for (const item of pending.slice(0, 6)) console.log(tui.C.muted('     • ' + item));
+      console.log('');
+    }
+  } catch { /* hafiza yoksa sessiz gec */ }
+
   // v5.4.14: SOUL'dan onemli bilgileri de goster
   if (soulSummary) {
     const soulPreview = soulSummary.split('\n').slice(0, 3).join(' ').substring(0, 200);

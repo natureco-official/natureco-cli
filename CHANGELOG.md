@@ -2,6 +2,14 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.33.0] - 2026-07-04 — "OTURUM-BAŞI BEKLEYEN-İŞ HATIRLATMASI (Theseus deseni)"
+
+### ✨ Yeni (Hafıza)
+- **Bekleyen is hatirlatmasi**: her yeni oturum basinda (natureco chat) hafiza agacindaki `3-kararlar / Bekleyen İşler` dali okunur ve "📌 Geçen oturumdan kalanlar: ..." olarak proaktif gosterilir (Theseus'un "gecen sefer su kalmisti" davranisi). Ajan yarim kalan isi / "sonra yapalim" denileni memory_tree ile bu dala yazar; is bitince memory_tree(action:remove) ile kaldirir.
+- memory_tree yeni action: `remove` (tamamlanan yapragi sil).
+
+Doğrulama: gercek PTY oturumunda startup'ta "📌 Geçen oturumdan kalanlar" + bekleyen is gorundu; +2 test (getPending/remove); **500 test yeşil**, ESLint temiz.
+
 ## [5.32.0] - 2026-07-04 — "AĞAÇ-HAFIZA + OTURUMLAR ARASI KALICILIK (Theseus mimarisi)"
 
 ### ✨ Yeni (Hafıza)
