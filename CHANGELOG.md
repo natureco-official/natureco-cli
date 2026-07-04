@@ -2,6 +2,14 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.29.0] - 2026-07-04 — "ask KUTU-ÇIKIŞI DÜZELTMESİ + çekirdek komut denetimi"
+
+### 🐛 Düzeltme
+- **`natureco ask` kutu-cikisi patliyordu**: `defaultBotId` ayarli degilse "Varsayilan bot ayarlanmamis" ile cikiyordu (birincil komut, yeni kullaniciyi duvara toslatiyordu). Artik ayarli degilse hesaptaki ILK botu otomatik secer; hic bot yoksa net yonlendirme.
+
+### ✅ Çekirdek komut denetimi (MiniMax + Gemini ile)
+`ask` (duzeltildi), `chat`, `code`, `memory`, `models`, `cost`, `doctor` (10/10 PASS), `help`, `--version` → hepsi calisiyor. (Harici servis gerektiren discord/telegram/cron/mcp/signal denetim disi.)
+
 ## [5.28.0] - 2026-07-04 — "AJAN EXEC GÜVENLİK POLİTİKASI (deny-by-default)"
 
 ### 🔒 Güvenlik

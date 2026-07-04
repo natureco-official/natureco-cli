@@ -14,10 +14,19 @@ async function ask(question, options = {}) {
   }
 
   const config = getConfig();
-  const defaultBotId = config.defaultBotId;
+  let defaultBotId = config.defaultBotId;
+
+  // defaultBotId ayarli degilse hesaptaki ILK botu otomatik sec — birincil bir komut
+  // ("natureco ask ...") kutu-cikisi patlamasin. (chat/code zaten cfg.botName ile calisir.)
+  if (!defaultBotId) {
+    try {
+      const { bots } = await getBots(apiKey);
+      if (bots && bots.length > 0) defaultBotId = bots[0].id;
+    } catch { /* ag hatasi — asagida net mesaj */ }
+  }
 
   if (!defaultBotId) {
-    console.log(chalk.red('\n❌ Varsayılan bot ayarlanmamış. "natureco config set defaultBotId <bot-id>" ile ayarlayın.\n'));
+    console.log(chalk.red('\n❌ Hiç bot bulunamadı. "natureco chat" ile yerel sağlayıcıyı kullanabilir ya da bir bot oluşturabilirsiniz.\n'));
     process.exit(1);
   }
 
