@@ -222,6 +222,11 @@ async function workflow(params) {
       const { runAgentic } = require('./agentic-runner');
       const memCtx = memoryContext();
       const desktop = path.join(os.homedir(), 'Desktop');
+      const memUser = cfg.userName || 'default';
+      // Theseus deseni: oturum basinda hafiza agacini PROAKTIF yukle (on-demand aramaya
+      // guvenme). Digest = kayitli bilgiler (icerik); Index = yapi (kok→dal).
+      let treeIndex = '', treeDigest = '';
+      try { const mt = require('./memory_tree')._internal; treeDigest = mt.buildDigest(memUser); treeIndex = mt.buildIndex(memUser); } catch {}
       // Tam mod (sahibin opt-in'i): tum arac+skill'ler acilir, keyfi shell (yikici haric).
       const execFull = cfg.agentExec === 'full' || cfg.computerUse === true || String(process.env.NATURECO_AGENT_EXEC || '').toLowerCase() === 'full';
       let fullToolsBlock = '';
@@ -252,7 +257,11 @@ async function workflow(params) {
         '- list_dir: dizin icerigini listele. parametre: path',
         '- bash: kabuk komutu calistir (npm, git, node, python, test, ls, grep/findstr, mkdir...). parametre: command. Guvenli komutlar dogrudan calisir; yikici/tehlikeli komutlar guvenlik politikasiyla engellenir. Icerik aramasi icin grep/findstr kullan.',
         '- skill_view: gorevle ilgili bir skill yukle. parametre: name',
+        '- memory_write: HIZLI tek bilgi kaydet (isim, kisa tercih). parametreler: username ("' + memUser + '"), fact, category. YENI oturumda hatirlanir.',
+        '- memory_tree: AGAC-HAFIZA — zengin/kategorize kalici bilgi (proje, karar, teknik not, kisisel detay). action: index|read|search|append; username="' + memUser + '"; append icin: root (1-kisisel|2-teknik|3-kararlar) + branch (dal basligi) + content (yaprak). YENI oturumda hatirlanir.',
         '\nKurallar:',
+        '- Kullanici kalici bilgi paylasirsa (isim, tercih, parola, proje, karar, onemli detay) ya da "hatirla / not al / kaydet" derse HEMEN KAYDET (username="' + memUser + '"): kisa tek bilgi → memory_write; zengin/kategorize bilgi → memory_tree(append, dogru root/branch). Trivial/gecici seyleri kaydetme.',
+        '- Kullaniciya ozel bir sey sorulunca (gecmis, proje, tercih, karar) once memory_tree(search/read) ile ilgili kok/dali OKU (hedefli, tum hafizayi degil). Tek primary: bilgi tek yerde yasar; digerine sadece "bkz:". Credential/secret ASLA duz metin.',
         '- MEVCUT bir dosyayi degistirmeden ONCE read_file ile oku; sonra edit_file ile hedefli degisiklik yap (tum dosyayi write_file ile ezme).',
         '- Bir seyi nerede oldugunu bilmiyorsan once file_search/list_dir/bash(grep) ile kesfet.',
         '- Kod yazdiktan/degistirdikten sonra gerektiginde bash ile calistir/test et (orn. "node dosya.js", "npm test"); hata cikarsa duzelt.',
@@ -263,6 +272,8 @@ async function workflow(params) {
         '- Basit sohbet/selamlasma ise arac cagirma, dogrudan kisa yanit ver.',
         execFull ? '- Kullanici uygulama ac / tarayici kontrol / muzik cal / ekran / GUI istediyse yukaridaki computer-use araclarini KULLAN — "yapamam/engellendi" DEME, dogrudan ilgili araci cagir.' : '',
         fullToolsBlock,
+        treeDigest ? ('\n\nBILDIGIN KALICI HAFIZA (bu kullaniciya ait, onceki oturumlardan hatirladiklarin; kullaniciya ozel bir sey sorulursa ONCE BUNU KULLAN — dosya arama, uydurma):\n' + treeDigest) : '',
+        treeIndex ? ('\n\nHafiza agaci yapisi (yukarida olmayan detay icin memory_tree(action:read/search) ile ilgili kok/dali oku):\n' + treeIndex) : '',
         skillsIndexBlock ? '\n\n' + skillsIndexBlock : '',
       ].filter(Boolean).join('\n');
 

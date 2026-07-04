@@ -2,6 +2,16 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.32.0] - 2026-07-04 — "AĞAÇ-HAFIZA + OTURUMLAR ARASI KALICILIK (Theseus mimarisi)"
+
+### ✨ Yeni (Hafıza)
+- **Oturumlar arası hafiza DUZELDI**: eski persist dar regex kaliplariyla (sadece "adim X") fact cikariyordu; keyfi bilgi ("parolam X, hatirla") kayboluyordu. Artik ajan `memory_write` ile ANINDA kaydeder → yeni oturumda hatirlanir (E2E: parola S1→S2 ✓).
+- **Agac-hafiza (`memory_tree`)**: kullanicinin OpenCode/Theseus icin tasarladigi tree-memory mimarisinden uyarlandi. Kok (1-kisisel/2-teknik/3-kararlar) → dal (## baslik) → yaprak. action: index|read|search|append. Duz `facts[]` listesinin "coplুğe donme" sorununu cozer; kategorize + logaritmik erisim.
+- **Proaktif yukleme (Theseus deseni)**: her istekte hafiza agaci sistem prompt'una otomatik enjekte edilir ("BILDIGIN KALICI HAFIZA") → ajan on-demand aramaya guvenmeden baglami ZATEN bilir. (E2E: "NatureCoPixel neyle yapiliyor?"→"Godot" ✓; hafiza ile dosya sistemini ayirt eder.)
+- Tek-primary + "bkz:" capraz referans; credential/secret asla duz metin.
+
+Doğrulama: memory_write + memory_tree E2E (S1 kaydet → S2 yeni oturum hatirla); 6 yeni tree testi; **498 test yeşil**, ESLint temiz.
+
 ## [5.31.0] - 2026-07-04 — "CHAT/CODE ARAYÜZ ZENGİNLEŞTİRME (araç görünürlüğü + düşünme + input alanı)"
 
 ### ✨ Yeni (UX)

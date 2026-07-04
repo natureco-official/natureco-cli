@@ -21,7 +21,7 @@ const os = require('os');
 // icinde approvals politikasini uyguluyor (isSafeCommand → direkt; tehlikeli → red;
 // digerleri → allowlist/full moda gore). Yani keyfi/yikici komut calismaz.
 // Diger ~85 arac (discord, telegram, cron, browser...) bilerek DISARIDA.
-const DEFAULT_ALLOWED = ['write_file', 'read_file', 'edit_file', 'skill_view', 'bash', 'file_search', 'list_dir'];
+const DEFAULT_ALLOWED = ['write_file', 'read_file', 'edit_file', 'skill_view', 'bash', 'file_search', 'list_dir', 'memory_write', 'memory_tree'];
 
 const TOOL_ALIASES = {
   write_file: 'write_file', create_file: 'write_file', writefile: 'write_file', write: 'write_file', create: 'write_file', save_file: 'write_file', new_file: 'write_file',
@@ -31,6 +31,8 @@ const TOOL_ALIASES = {
   bash: 'bash', run_command: 'bash', shell: 'bash', shell_command: 'bash', exec: 'bash', run_terminal: 'bash', terminal: 'bash', run: 'bash', command: 'bash',
   file_search: 'file_search', glob: 'file_search', find_files: 'file_search', search_files: 'file_search', find: 'file_search',
   list_dir: 'list_dir', ls: 'list_dir', dir: 'list_dir', list_directory: 'list_dir', filesystem: 'list_dir',
+  memory_write: 'memory_write', remember: 'memory_write', save_memory: 'memory_write', memorize: 'memory_write', memory_save: 'memory_write', save_fact: 'memory_write',
+  memory_tree: 'memory_tree', tree_memory: 'memory_tree', memory: 'memory_tree', hafiza: 'memory_tree',
 };
 
 function expandHome(p) {
