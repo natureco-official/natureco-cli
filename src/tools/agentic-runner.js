@@ -47,6 +47,42 @@ function defaultIsDangerous(cmd) {
   try { return require('../utils/approvals').isDangerousCommand(cmd); } catch { return false; }
 }
 
+// Ajan exec politikasi (deny-by-default): ajan yalnizca guvenli komut SINIFLARINI
+// otonom calistirir. Ag/yayin/sistem/ayricalik komutlari (curl, wget, ssh, sudo,
+// git push, npm publish, docker, systemctl...) engellenir — model urettigi komut
+// milyonlarca cihazda kontrolsuz calismasin. Power-user: NATURECO_AGENT_EXEC=full.
+// Interaktif y/n yerine bunu sectik: pipe/CI/non-TTY'de calisir, readline cakismaz,
+// deterministik + test edilebilir (kullanici tikla-gec etmez).
+const AGENT_EXEC_ALLOW = new Set([
+  'node', 'npm', 'npx', 'yarn', 'pnpm', 'bun', 'deno',
+  'python', 'python3', 'py', 'pip', 'pip3', 'pipx', 'pytest', 'poetry',
+  'go', 'cargo', 'rustc', 'java', 'javac', 'mvn', 'gradle', 'ruby', 'gem', 'bundle',
+  'php', 'composer', 'dotnet', 'tsc', 'tsx', 'ts-node', 'jest', 'vitest', 'mocha',
+  'eslint', 'prettier', 'ruff', 'black', 'flake8', 'mypy', 'make', 'cmake', 'meson', 'ninja',
+  'ls', 'dir', 'cat', 'type', 'head', 'tail', 'pwd', 'echo', 'printf', 'grep', 'findstr',
+  'find', 'wc', 'which', 'where', 'whereis', 'tree', 'stat', 'file', 'sort', 'uniq', 'diff',
+  'mkdir', 'touch', 'cp', 'copy', 'mv', 'move', 'git', 'jq', 'sed', 'awk', 'date', 'env', 'whoami',
+]);
+const AGENT_EXEC_BLOCK_PATTERNS = [
+  /\bnpm\s+publish\b/i, /\byarn\s+publish\b/i, /\bpnpm\s+publish\b/i,
+  /\bgit\s+push\b/i, /\bgit\s+remote\s+(add|set-url)\b/i,
+  /\bnpm\s+(un)?deprecate\b/i, /\bnpm\s+owner\b/i,
+];
+function agentExecAllowed(command) {
+  if (String(process.env.NATURECO_AGENT_EXEC || '').toLowerCase() === 'full') return true;
+  const cmd = String(command || '').trim();
+  if (!cmd) return false;
+  if (AGENT_EXEC_BLOCK_PATTERNS.some(re => re.test(cmd))) return false;
+  // pipe/zincir (&&, ||, |, ;) ile ayrilmis HER segmentin ilk komutunu dogrula
+  const segments = cmd.split(/&&|\|\||\||;/).map(s => s.trim()).filter(Boolean);
+  for (const seg of segments) {
+    const first = (seg.split(/\s+/)[0] || '').replace(/^["']|["']$/g, '');
+    const base = (first.split(/[\\/]/).pop() || '').toLowerCase().replace(/\.(exe|cmd|bat|ps1)$/, '');
+    if (!AGENT_EXEC_ALLOW.has(base)) return false;
+  }
+  return true;
+}
+
 /**
  * Model metninden agentic tool cagrilarini cikar.
  * Destekler: <invoke name><parameter name> (opsiyonel <minimax:tool_call> sarmali),
@@ -249,6 +285,11 @@ async function executeCall(call, opts = {}) {
       records.push({ tool: 'bash', status: 'error', args: { command: cmd }, error: 'Yikici/tehlikeli komut ajan modunda engellendi' });
       return { records, feedback: `bash: "${cmd.slice(0, 80)}" yikici/tehlikeli goruldugu icin ajan tarafindan CALISTIRILMADI. Gerekirse kullanici komutu kendisi calistirabilir.` };
     }
+    const execOk = opts.agentExecAllowed || agentExecAllowed;
+    if (!execOk(cmd)) {
+      records.push({ tool: 'bash', status: 'error', args: { command: cmd }, error: 'Ajan exec politikasi disinda' });
+      return { records, feedback: `bash: "${cmd.slice(0, 80)}" ajan guvenlik politikasi disinda (ag/yayin/sistem komutu olabilir). Otomatik CALISTIRILMADI. Kullanici manuel calistirabilir; tum komutlara izin: NATURECO_AGENT_EXEC=full.` };
+    }
   }
 
   let mod;
@@ -319,4 +360,4 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
   return { records: allRecords, reply: finalReply, iterations };
 }
 
-module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, makeSanitizeStream, TOOL_ALIASES, DEFAULT_ALLOWED };
+module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, makeSanitizeStream, agentExecAllowed, TOOL_ALIASES, DEFAULT_ALLOWED };

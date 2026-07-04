@@ -2,6 +2,14 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.28.0] - 2026-07-04 — "AJAN EXEC GÜVENLİK POLİTİKASI (deny-by-default)"
+
+### 🔒 Güvenlik
+- **Ajan exec politikasi**: agentic yolda `bash` artik deny-by-default — ajan yalnizca guvenli komut SINIFLARINI otonom calistirir (node/npm/npx/python/pip/go/cargo/git-local/ls/grep/mkdir/test-runner...). Ag/yayin/sistem/ayricalik komutlari (curl, wget, ssh, scp, sudo, git push, npm publish, docker, systemctl...) OTOMATIK CALISTIRILMAZ; zincirdeki gizli komut da yakalanir (`ls && curl` → blok). Neden interaktif y/n degil: pipe/CI/non-TTY'de calismaz + REPL readline'iyla cakisir + kullanici tikla-gec yapar → deny-by-default politika otonom ajan icin daha guvenli. Power-user: `NATURECO_AGENT_EXEC=full`.
+- Katmanli guvenlik: yikici-komut guard (rm -rf) + exec politikasi + bash.js approvals + agentic allowlist (yalnizca 7 arac).
+
+Doğrulama: mesru kodlama komutlari (node/npm) E2E calisir; curl/git push/npm publish engellenir; **489 test yeşil**, ESLint temiz.
+
 ## [5.27.0] - 2026-07-04 — "GEMINI DÜZELTMESİ + DÖNGÜ BİRLEŞTİRME (2 sağlayıcı E2E)"
 
 ### 🐛 Düzeltme / ✨ İyileştirme
