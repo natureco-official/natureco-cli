@@ -231,11 +231,11 @@ async function workflow(params) {
           '\n\nTAM MOD ACIK — su araclara da ERISIMIN VAR; o an ne gerekiyorsa dogrudan cagir:',
           '- mac_app_open: macOS uygulamasi ac. parametre: appName (orn. "WhatsApp", "Google Chrome", "Spotify")',
           '- mac_app_quit: macOS uygulamasi kapat. parametre: appName',
-          '- browser: tarayici otomasyonu (Playwright). parametreler: action ("open"/"screenshot"/"html"/"evaluate"), url, script',
+          '- browser: HEADLESS tarayici otomasyonu (icerik cek/screenshot — kullaniciya GORUNMEZ). parametreler: action, url, script',
           '- computer_use: GUI otomasyonu. parametreler: action ("screenshot"/"click"/"type"/"keypress"/"scroll"), x, y, text, key',
           '- social_open: muzik/video/sosyal ac. parametreler: query, platform (spotify/youtube...)',
           '- macos_screenshot: ekran goruntusu al',
-          '- bash ile de acabilirsin: "open -a WhatsApp", "open https://...", "start chrome https://..."',
+          '\nGORUNUR ACMA (onemli): Kullanici "kendi tarayicimda ac / gorunur ac / dinlemek/izlemek istiyorum" derse `browser` (headless, gorunmez) DEGIL, GORUNUR ac: macOS bash ile `open "https://..."` ya da `open -a "Google Chrome" "https://..."`; Windows `start "" "https://..."`. Uygulama icin `open -a WhatsApp` / mac_app_open. Muzik/video icin dogrudan YouTube/Spotify URL\'sini `open` ile ac.',
           '\nTum arac listesi (isimle cagir; parametre yanlissa <tool_results> duzeltir): ' + allNames.join(', '),
         ].join('\n');
       }
@@ -279,11 +279,14 @@ async function workflow(params) {
 
       async function callModel(msgs) {
         if (streamOn) {
-          const sani = makeSanitizeStream(botName, t => process.stdout.write(t));
+          let cleared = false;
+          const clearThinking = () => { if (!cleared) { process.stdout.write('\r\x1b[K'); cleared = true; } };
+          process.stdout.write('\x1b[2m  💭 düşünüyor…\x1b[0m');
+          const sani = makeSanitizeStream(botName, t => { clearThinking(); process.stdout.write(t); });
           const filter = makeStreamFilter(t => sani.push(t), null);
           const body = { model, stream: true, messages: msgs, temperature: 0.3, max_tokens: 16000 };
           const out = await apiCallStream(providerUrl, providerApiKey, body, d => filter.push(d));
-          filter.end(); sani.end();
+          filter.end(); sani.end(); clearThinking();
           return { content: out.content || '', toolCalls: out.toolCalls || [] };
         }
         const body = { model, stream: false, messages: msgs, temperature: 0.3, max_tokens: 16000 };
@@ -292,10 +295,28 @@ async function workflow(params) {
         return { content: msg.content || '', toolCalls: msg.tool_calls || [] };
       }
 
+      // Araç aktivitesi gösterimi (TTY streaming): her araç icin "🔧 label · hint ✓/✗"
+      const TOOL_LABEL = { write_file: 'dosya yaz', read_file: 'oku', edit_file: 'düzenle', bash: 'komut', file_search: 'ara', list_dir: 'listele', skill_view: 'skill', browser: 'tarayıcı', browser_use: 'tarayıcı', mac_app_open: 'uygulama aç', mac_app_quit: 'uygulama kapat', computer_use: 'GUI', social_open: 'medya aç', macos_screenshot: 'ekran görüntüsü' };
+      function briefHint(args) {
+        if (!args || typeof args !== 'object') return '';
+        const v = args.appName || args.query || args.name || args.url || args.command || args.pattern || args.path || args.action;
+        return v ? String(v).replace(/\s+/g, ' ').slice(0, 46) : '';
+      }
+      const onEvent = streamOn ? (ev) => {
+        if (ev.phase === 'start') {
+          const label = TOOL_LABEL[ev.tool] || ev.tool;
+          const hint = briefHint(ev.args);
+          process.stdout.write('\n\x1b[2m  🔧 ' + label + (hint ? ' · ' + hint : '') + '\x1b[0m');
+        } else {
+          const rec = (ev.records || [])[0] || {};
+          process.stdout.write(rec.status === 'done' ? ' \x1b[32m✓\x1b[0m' : ' \x1b[31m✗\x1b[0m');
+        }
+      } : null;
+
       try {
         const { records, reply } = await runAgentic({
           callModel, systemPrompt: sysMsg, historyMessages, task,
-          toolsDir: __dirname, execFull, maxIterations: 15,
+          toolsDir: __dirname, execFull, onEvent, maxIterations: 15,
         });
         const fileWrites = records.filter(r => r.tool === 'write_file' && r.status === 'done');
         let finalReply = reply || '';

@@ -2,6 +2,16 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.31.0] - 2026-07-04 — "CHAT/CODE ARAYÜZ ZENGİNLEŞTİRME (araç görünürlüğü + düşünme + input alanı)"
+
+### ✨ Yeni (UX)
+- **Araç görünürlugu**: agentic akista her arac ekranda gorunur — "🔧 <etiket> · <ozet> ✓/✗" (write_file/edit_file/bash/browser/mac_app_open...). Onceden streaming tool XML'ini gizlerken arac aktivitesi de gorunmuyordu; artik gorunur.
+- **Düsünme gostergesi**: model yanit uretirken "💭 düşünüyor…", ilk token gelince temizlenir.
+- **Gorunur input alani**: REPL prompt'u "💬 Sen ▸" + her girdiden once ince ayirici cizgi (cikti/girdi net ayrilir; readline tek-satir → satir duzenleme bozulmaz).
+- **Gorunur acma yonlendirmesi (full mod)**: "kendi tarayicimda ac / dinlemek istiyorum" → headless `browser` yerine gorunur `open`/`start`/`mac_app_open` kullanilir.
+
+Doğrulama: streaming UI E2E (💭 + 🔧 + ✓ gorunuyor); REPL regresyon; **492 test yeşil**.
+
 ## [5.30.0] - 2026-07-04 — "TAM KONTROL MODU (sahip opt-in: tüm araç+skill + computer-use)"
 
 ### ✨ Yeni

@@ -1178,14 +1178,20 @@ async function startRepl(args) {
   const rl = readline.createInterface({
     input: createPasteSafeInput(process.stdin),
     output: createOutputFilter(process.stdout),
-    prompt: tui.styled('\n  You  ', { color: tui.PALETTE.primary, bold: true }),
+    prompt: tui.styled('  💬 Sen ▸ ', { color: tui.PALETTE.primary, bold: true }),
     terminal: true,
   });
   // Pipe/script kullanımında EOF, yanıt hâlâ üretilirken gelir —
   // aktif işlem varken kapanışı bekletmek için sayaç + kapalı-rl koruması
   let _busy = 0;
   let _rlClosed = false;
-  const safePrompt = () => { if (!_rlClosed) rl.prompt(); };
+  // Görünür input alanı: her prompttan önce ince ayırıcı çizgi (readline prompt'u tek-satır
+  // kalir → satir duzenleme/gecmis bozulmaz). Cikti ile girdi arasini net ayirir.
+  const safePrompt = () => {
+    if (_rlClosed) return;
+    try { process.stdout.write(tui.styled('\n  ' + '─'.repeat(54) + '\n', { color: tui.PALETTE.muted })); } catch {}
+    rl.prompt();
+  };
   safePrompt();
 
   const cleanup = async (exitCode = 0) => {
@@ -1465,7 +1471,7 @@ async function startRepl(args) {
 
     // Çok satırlı (paste) mesajları gönderildikten sonra ekranda göster
     if (line.indexOf('\n') !== -1) {
-      process.stdout.write(tui.styled('  You  ', { color: tui.PALETTE.primary, bold: true }));
+      process.stdout.write(tui.styled('  💬 Sen ▸ ', { color: tui.PALETTE.primary, bold: true }));
       process.stdout.write(line + '\n');
     }
 

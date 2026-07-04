@@ -326,7 +326,7 @@ async function executeCall(call, opts = {}) {
  * callModel(messages) => Promise<{ content, toolCalls }>
  * Donus: { records, reply, iterations }
  */
-async function runAgentic({ callModel, systemPrompt, historyMessages, task, toolsDir, loadTool, allowed, execFull, maxIterations = 15 }) {
+async function runAgentic({ callModel, systemPrompt, historyMessages, task, toolsDir, loadTool, allowed, execFull, onEvent, maxIterations = 15 }) {
   const messages = [{ role: 'system', content: systemPrompt }];
   for (const mm of historyMessages || []) messages.push({ role: mm.role, content: mm.content || '' });
   messages.push({ role: 'user', content: task });
@@ -349,7 +349,9 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
     messages.push({ role: 'assistant', content: content || '' });
     const feedbacks = [];
     for (const call of calls) {
+      if (onEvent) { try { onEvent({ phase: 'start', tool: call.tool, args: call.args }); } catch {} }
       const { records, feedback } = await executeCall(call, { toolsDir, loadTool, allowed: allowedSet, execFull });
+      if (onEvent) { try { onEvent({ phase: 'end', tool: call.tool, args: call.args, records }); } catch {} }
       allRecords.push(...records);
       feedbacks.push(feedback);
     }
