@@ -2,6 +2,15 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.30.0] - 2026-07-04 — "TAM KONTROL MODU (sahip opt-in: tüm araç+skill + computer-use)"
+
+### ✨ Yeni
+- **Tam kontrol modu** (`natureco config set agentExec full` veya `NATURECO_AGENT_EXEC=full`): sahibi opt-in yapinca ajan **TUM araclara + skill'lere** erisir ve **her shell komutunu** calistirabilir (yikici komutlar — rm -rf — tam modda bile bloklu kalir). Computer-use araclari: `mac_app_open` (WhatsApp/Chrome/Spotify ac), `browser` (Playwright otomasyonu), `computer_use` (GUI: tikla/yaz/ekran goruntusu), `social_open` (muzik/video), `macos_screenshot`. Full modda sistem prompt'u bu araclari modele tanitir ("yapamam deme, ilgili araci cagir").
+- Safe modda (varsayilan) `open`/`start`/`xdg-open` (uygulama/URL ac) da izinli — asistan temel acma islerini yapar.
+- **Iki kademeli guvenlik**: Safe (varsayilan, milyonlar) = dosya araclari + guvenli shell. Full (sahip opt-in) = her sey. Katmanli: yikici-komut guard her modda aktif.
+
+Doğrulama: full modda `browser` araci E2E (example.com → "Example Domain"); **492 test yeşil**, ESLint temiz.
+
 ## [5.29.0] - 2026-07-04 — "ask KUTU-ÇIKIŞI DÜZELTMESİ + çekirdek komut denetimi"
 
 ### 🐛 Düzeltme

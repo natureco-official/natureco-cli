@@ -62,13 +62,18 @@ const AGENT_EXEC_ALLOW = new Set([
   'ls', 'dir', 'cat', 'type', 'head', 'tail', 'pwd', 'echo', 'printf', 'grep', 'findstr',
   'find', 'wc', 'which', 'where', 'whereis', 'tree', 'stat', 'file', 'sort', 'uniq', 'diff',
   'mkdir', 'touch', 'cp', 'copy', 'mv', 'move', 'git', 'jq', 'sed', 'awk', 'date', 'env', 'whoami',
+  'open', 'start', 'xdg-open', 'explorer', // uygulama/URL/dosya ac (dusuk risk, asistan icin gerekli)
 ]);
 const AGENT_EXEC_BLOCK_PATTERNS = [
   /\bnpm\s+publish\b/i, /\byarn\s+publish\b/i, /\bpnpm\s+publish\b/i,
   /\bgit\s+push\b/i, /\bgit\s+remote\s+(add|set-url)\b/i,
   /\bnpm\s+(un)?deprecate\b/i, /\bnpm\s+owner\b/i,
 ];
-function agentExecAllowed(command) {
+// Full modda ("agentExec: full") acilan computer-use araclari: tarayici otomasyonu,
+// uygulama ac/kapat, GUI (tikla/yaz/ekran goruntusu). Safe modda (varsayilan) KAPALI.
+const FULL_TOOLS = ['browser', 'browser_use', 'mac_app_open', 'mac_app_quit', 'social_open', 'computer_use', 'macos_screenshot'];
+function agentExecAllowed(command, opts) {
+  if (opts && opts.full) return true;
   if (String(process.env.NATURECO_AGENT_EXEC || '').toLowerCase() === 'full') return true;
   const cmd = String(command || '').trim();
   if (!cmd) return false;
@@ -262,9 +267,10 @@ async function executeCall(call, opts = {}) {
     return { records, feedback: feedbacks.join('\n') };
   }
 
-  if (!allowed.has(norm)) {
-    records.push({ tool: rawTool, status: 'error', error: 'Bu modda kullanilamayan arac: ' + rawTool });
-    return { records, feedback: `${rawTool}: bu arac bu modda kullanilamaz (izin verilenler: ${[...allowed].join(', ')})` };
+  // Full modda (sahibin opt-in'i) TUM araclar acik; safe modda sadece allowlist.
+  if (!opts.execFull && !allowed.has(norm)) {
+    records.push({ tool: rawTool, status: 'error', error: 'Guvenli modda kapali arac: ' + rawTool });
+    return { records, feedback: `${rawTool}: guvenli modda kapali. Tum arac+skill'ler icin tam mod: "natureco config set agentExec full" (veya NATURECO_AGENT_EXEC=full). Guvenli modda acik: ${[...allowed].join(', ')}` };
   }
 
   const args = { ...(call.args || {}) };
@@ -285,10 +291,10 @@ async function executeCall(call, opts = {}) {
       records.push({ tool: 'bash', status: 'error', args: { command: cmd }, error: 'Yikici/tehlikeli komut ajan modunda engellendi' });
       return { records, feedback: `bash: "${cmd.slice(0, 80)}" yikici/tehlikeli goruldugu icin ajan tarafindan CALISTIRILMADI. Gerekirse kullanici komutu kendisi calistirabilir.` };
     }
-    const execOk = opts.agentExecAllowed || agentExecAllowed;
+    const execOk = opts.agentExecAllowed || ((c) => agentExecAllowed(c, { full: opts.execFull }));
     if (!execOk(cmd)) {
-      records.push({ tool: 'bash', status: 'error', args: { command: cmd }, error: 'Ajan exec politikasi disinda' });
-      return { records, feedback: `bash: "${cmd.slice(0, 80)}" ajan guvenlik politikasi disinda (ag/yayin/sistem komutu olabilir). Otomatik CALISTIRILMADI. Kullanici manuel calistirabilir; tum komutlara izin: NATURECO_AGENT_EXEC=full.` };
+      records.push({ tool: 'bash', status: 'error', args: { command: cmd }, error: 'Guvenli mod exec politikasi disinda' });
+      return { records, feedback: `bash: "${cmd.slice(0, 80)}" guvenli mod politikasi disinda (ag/yayin/sistem). Tam kontrol icin: "natureco config set agentExec full" (veya NATURECO_AGENT_EXEC=full). Yikici komutlar (rm -rf) tam modda bile bloklu.` };
     }
   }
 
@@ -320,12 +326,12 @@ async function executeCall(call, opts = {}) {
  * callModel(messages) => Promise<{ content, toolCalls }>
  * Donus: { records, reply, iterations }
  */
-async function runAgentic({ callModel, systemPrompt, historyMessages, task, toolsDir, loadTool, allowed, maxIterations = 15 }) {
+async function runAgentic({ callModel, systemPrompt, historyMessages, task, toolsDir, loadTool, allowed, execFull, maxIterations = 15 }) {
   const messages = [{ role: 'system', content: systemPrompt }];
   for (const mm of historyMessages || []) messages.push({ role: mm.role, content: mm.content || '' });
   messages.push({ role: 'user', content: task });
 
-  const allowedSet = allowed ? new Set(allowed) : new Set(DEFAULT_ALLOWED);
+  const allowedSet = allowed ? new Set(allowed) : new Set([...DEFAULT_ALLOWED, ...(execFull ? FULL_TOOLS : [])]);
   const allRecords = [];
   let finalReply = '';
   let iterations = 0;
@@ -343,7 +349,7 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
     messages.push({ role: 'assistant', content: content || '' });
     const feedbacks = [];
     for (const call of calls) {
-      const { records, feedback } = await executeCall(call, { toolsDir, loadTool, allowed: allowedSet });
+      const { records, feedback } = await executeCall(call, { toolsDir, loadTool, allowed: allowedSet, execFull });
       allRecords.push(...records);
       feedbacks.push(feedback);
     }

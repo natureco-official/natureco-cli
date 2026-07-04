@@ -222,6 +222,23 @@ async function workflow(params) {
       const { runAgentic } = require('./agentic-runner');
       const memCtx = memoryContext();
       const desktop = path.join(os.homedir(), 'Desktop');
+      // Tam mod (sahibin opt-in'i): tum arac+skill'ler acilir, keyfi shell (yikici haric).
+      const execFull = cfg.agentExec === 'full' || cfg.computerUse === true || String(process.env.NATURECO_AGENT_EXEC || '').toLowerCase() === 'full';
+      let fullToolsBlock = '';
+      if (execFull) {
+        const allNames = tools.filter(t => t !== 'workflow');
+        fullToolsBlock = [
+          '\n\nTAM MOD ACIK — su araclara da ERISIMIN VAR; o an ne gerekiyorsa dogrudan cagir:',
+          '- mac_app_open: macOS uygulamasi ac. parametre: appName (orn. "WhatsApp", "Google Chrome", "Spotify")',
+          '- mac_app_quit: macOS uygulamasi kapat. parametre: appName',
+          '- browser: tarayici otomasyonu (Playwright). parametreler: action ("open"/"screenshot"/"html"/"evaluate"), url, script',
+          '- computer_use: GUI otomasyonu. parametreler: action ("screenshot"/"click"/"type"/"keypress"/"scroll"), x, y, text, key',
+          '- social_open: muzik/video/sosyal ac. parametreler: query, platform (spotify/youtube...)',
+          '- macos_screenshot: ekran goruntusu al',
+          '- bash ile de acabilirsin: "open -a WhatsApp", "open https://...", "start chrome https://..."',
+          '\nTum arac listesi (isimle cagir; parametre yanlissa <tool_results> duzeltir): ' + allNames.join(', '),
+        ].join('\n');
+      }
       const sysMsg = [
         'Sen NatureCo adli, arac kullanabilen bir yapay zeka ajanisin. Kullanicinin istegini SADECE anlatarak degil, ARACLARI cagirarak fiilen gerceklestir.',
         memCtx ? '\nKullanici bilgisi:\n' + memCtx : '',
@@ -244,6 +261,8 @@ async function workflow(params) {
         '- Goreceli yol yerine TAM yol kullan.',
         '- Arac sonuclari <tool_results> icinde geri gelir; gorev bitince ARAC CAGIRMADAN tek cumlelik ozet yaz.',
         '- Basit sohbet/selamlasma ise arac cagirma, dogrudan kisa yanit ver.',
+        execFull ? '- Kullanici uygulama ac / tarayici kontrol / muzik cal / ekran / GUI istediyse yukaridaki computer-use araclarini KULLAN — "yapamam/engellendi" DEME, dogrudan ilgili araci cagir.' : '',
+        fullToolsBlock,
         skillsIndexBlock ? '\n\n' + skillsIndexBlock : '',
       ].filter(Boolean).join('\n');
 
@@ -276,7 +295,7 @@ async function workflow(params) {
       try {
         const { records, reply } = await runAgentic({
           callModel, systemPrompt: sysMsg, historyMessages, task,
-          toolsDir: __dirname, maxIterations: 15,
+          toolsDir: __dirname, execFull, maxIterations: 15,
         });
         const fileWrites = records.filter(r => r.tool === 'write_file' && r.status === 'done');
         let finalReply = reply || '';

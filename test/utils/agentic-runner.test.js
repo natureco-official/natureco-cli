@@ -153,6 +153,32 @@ describe('agentExecAllowed (ajan exec politikasi)', () => {
     expect(records[0].status).toBe('error');
     expect(feedback).toMatch(/politikasi disinda|CALISTIRILMADI/i);
   });
+  it('open/start/xdg-open (uygulama/URL ac) safe modda bile izinli', () => {
+    expect(agentExecAllowed('open -a WhatsApp')).toBe(true);
+    expect(agentExecAllowed('open https://youtube.com')).toBe(true);
+    expect(agentExecAllowed('start chrome https://x')).toBe(true);
+  });
+  it('full opt ile her komut acilir (osascript/curl)', () => {
+    expect(agentExecAllowed('osascript -e "tell app"', { full: true })).toBe(true);
+    expect(agentExecAllowed('curl http://x', { full: true })).toBe(true);
+  });
+});
+
+describe('full mod arac erisimi (execFull)', () => {
+  it('safe modda computer-use araci (browser) kapali; full modda acik', async () => {
+    let loaded = false;
+    const loadTool = () => { loaded = true; return { execute: async () => ({ success: true, output: 'ok' }) }; };
+    const safeAllow = new Set(['write_file', 'read_file', 'edit_file', 'skill_view', 'bash']);
+    const safe = await executeCall({ tool: 'browser', args: { action: 'open', url: 'https://x' } }, { loadTool, allowed: safeAllow });
+    expect(loaded).toBe(false);
+    expect(safe.records[0].status).toBe('error');
+    expect(safe.feedback).toMatch(/agentExec full|guvenli modda kapali/i);
+
+    loaded = false;
+    const full = await executeCall({ tool: 'browser', args: { action: 'open', url: 'https://x' } }, { loadTool, execFull: true, allowed: safeAllow });
+    expect(loaded).toBe(true);
+    expect(full.records[0].status).toBe('done');
+  });
 });
 
 describe('executeCall', () => {
@@ -174,7 +200,7 @@ describe('executeCall', () => {
     const { records, feedback } = await executeCall({ tool: 'discord', args: { message: 'spam' } }, { loadTool });
     expect(loaded).toBe(false);
     expect(records[0].status).toBe('error');
-    expect(feedback).toMatch(/kullanilamaz/i);
+    expect(feedback).toMatch(/guvenli modda kapali|agentExec full/i);
   });
 
   it('bash allowlist icinde — komut icin bash.js\'e yonlendirir (guvenligi bash.js uygular)', async () => {
