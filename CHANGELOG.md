@@ -2,6 +2,14 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.25.0] - 2026-07-04 — "PROVIDER-AGNOSTİK + STREAMING ALTYAPISI"
+
+### ✨ İyileştirme
+- **Provider-agnostik**: agentic düzeltmeler MiniMax'e özel DEĞİL — `workflow.js`'in paylaşılan non-tool-calling dalında çalışır (MiniMax, Groq, Ollama, yerel modeller). Tool-calling sağlayıcıları (OpenAI, Anthropic, Gemini) kendi native `tool_calls` yolunu kullanır (dokunulmadı). `agentic-runner` hem native `tool_calls` hem native XML parse eder → sağlayıcıdan bağımsız çalışır.
+- **Streaming altyapısı**: canlı akışta tool-call/skill protokol jetonlarını (`<minimax:tool_call>`, `<invoke>`, `<skill>`) gizleyip düz metni gösteren, chunk sınırında bölünen tag'leri doğru işleyen akış filtresi (`makeStreamFilter`, 4 test). Tam devreye alma (streaming-güvenli model-adı temizleme ile birlikte) sonraki adım.
+
+> Not: v5.24.0'daki büyük düzeltmeler (MiniMax dosya yazma, komut çalıştırma, memory recall) bu sürümde de yer alır.
+
 ## [5.24.0] - 2026-07-04 — "AGENTIC SERTLEŞTİRME" (MiniMax native tool-call + komut çalıştırma)
 
 Kök neden: **MiniMax M2.5 agentic bir model** — tool call'ları OpenAI `tool_calls` JSON'u yerine metin içinde native XML olarak üretir (`<minimax:tool_call><invoke name="write_file">...`) ve skill'i `<skill>ad</skill>` ile yükler. 5.23.0'ın tek-atış JSON planı bunu yakalayamıyordu; `JSON.parse` patlayıp boş `catch{}` yutunca dosya sessizce yazılmıyordu ("masaüstünde yarış oyunu yapamadı").

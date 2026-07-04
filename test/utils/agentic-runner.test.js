@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import mod from '../../src/tools/agentic-runner.js';
 
-const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic } = mod;
+const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter } = mod;
 
 describe('parseAgenticCalls', () => {
   it('<minimax:tool_call> icindeki write_file (path+content) cagirisini cozer', () => {
@@ -68,6 +68,37 @@ describe('stripProtocolTokens', () => {
   it('invoke/skill/minimax bloklarini temizler', () => {
     const s = 'Ozet metni.<minimax:tool_call><invoke name="x"></invoke></minimax:tool_call><skill>y</skill>';
     expect(stripProtocolTokens(s)).toBe('Ozet metni.');
+  });
+});
+
+describe('makeStreamFilter (canli akis)', () => {
+  const collect = (chunks) => {
+    let out = ''; let tools = 0;
+    const f = makeStreamFilter(t => { out += t; }, () => { tools++; });
+    for (const c of chunks) f.push(c);
+    f.end();
+    return { out, tools };
+  };
+
+  it('duz metni oldugu gibi gecirir', () => {
+    expect(collect(['Merhaba ', 'dunya']).out).toBe('Merhaba dunya');
+  });
+
+  it('protokol blogunu gizler, oncesindeki prozu gosterir, onTool tetikler', () => {
+    const { out, tools } = collect(['Hemen yaziyorum. <minimax:tool_call><invoke name="write_file"><parameter name="path">/x</parameter></invoke></minimax:tool_call>']);
+    expect(out).toBe('Hemen yaziyorum. ');
+    expect(tools).toBe(1);
+  });
+
+  it('chunk sinirinda bolunen tag\'i dogru isler', () => {
+    // "<inv" bir chunk'ta, "oke ...>" sonraki chunk'ta gelir — ham gosterilmemeli
+    const { out, tools } = collect(['Yapiyorum <inv', 'oke name="write_file"><parameter name="path">/x</parameter></invoke>']);
+    expect(out).toBe('Yapiyorum ');
+    expect(tools).toBe(1);
+  });
+
+  it('literal <div> gibi marker olmayan etiketi gecirir', () => {
+    expect(collect(['Kod: <div>selam</div> bitti']).out).toBe('Kod: <div>selam</div> bitti');
   });
 });
 

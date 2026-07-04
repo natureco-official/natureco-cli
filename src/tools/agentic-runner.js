@@ -98,6 +98,44 @@ function stripProtocolTokens(s) {
     .trim();
 }
 
+/**
+ * Streaming ekran filtresi: model canli akarken duz metni goster, ama tool-call/skill
+ * protokol bloklarini (<minimax:tool_call>, <invoke>, <skill>, <available_skills>)
+ * kullaniciya HAM gosterme. Bir protokol jetonu gorunce o tur icin gostermeyi keser
+ * (icerik yine tam biriktirilir; parse sonra yapilir). Kismi tag chunk sinirinda
+ * bolunebilir — sonda olasi kismi-tag kuyrugunu tutar.
+ *
+ *   const f = makeStreamFilter(t => process.stdout.write(t), () => process.stdout.write(' 🔧'));
+ *   f.push(deltaChunk); ... ; f.end();
+ */
+function makeStreamFilter(onText, onTool) {
+  const MARKERS = ['<minimax:tool_call', '<invoke', '<skill>', '<available_skills'];
+  let buf = '';
+  let suppressed = false;
+  return {
+    push(chunk) {
+      if (suppressed) return;
+      buf += (chunk || '');
+      let idx = -1;
+      for (const mk of MARKERS) { const i = buf.indexOf(mk); if (i !== -1 && (idx === -1 || i < idx)) idx = i; }
+      if (idx !== -1) {
+        if (idx > 0 && onText) onText(buf.slice(0, idx));
+        buf = '';
+        suppressed = true;
+        if (onTool) onTool();
+        return;
+      }
+      const lastLt = buf.lastIndexOf('<');
+      if (lastLt === -1) { if (buf && onText) onText(buf); buf = ''; return; }
+      if (lastLt > 0 && onText) onText(buf.slice(0, lastLt));
+      buf = buf.slice(lastLt);
+      // buf artik '<' ile basliyor; bir marker'a buyuyebilecekse tut, degilse yaz (orn. literal <div>)
+      if (!MARKERS.some(mk => mk.startsWith(buf))) { if (onText) onText(buf); buf = ''; }
+    },
+    end() { if (!suppressed && buf && onText) onText(buf); buf = ''; return suppressed; },
+  };
+}
+
 function sanitizeArgs(args) {
   const a = { ...args };
   if (typeof a.content === 'string' && a.content.length > 160) a.content = `[${a.content.length} chars]`;
@@ -240,4 +278,4 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
   return { records: allRecords, reply: finalReply, iterations };
 }
 
-module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, TOOL_ALIASES, DEFAULT_ALLOWED };
+module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, TOOL_ALIASES, DEFAULT_ALLOWED };
