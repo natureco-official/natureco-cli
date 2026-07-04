@@ -2,6 +2,14 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.27.0] - 2026-07-04 — "GEMINI DÜZELTMESİ + DÖNGÜ BİRLEŞTİRME (2 sağlayıcı E2E)"
+
+### 🐛 Düzeltme / ✨ İyileştirme
+- **Gemini artik calisiyor**: `supportsToolCalls()` Gemini'yi robust agentic-runner yoluna aldi. Neden: `gemini-2.5-flash` bir "thinking" modeli — plan-bazli yoldaki dusuk `max_tokens` (orn. 20) cagrilarinda tum butceyi ic dusunmede harcayip BOS donuyordu. Agentic yol (yuksek max_tokens + native tool_calls/XML parse) bunu cozer. (Kod yorumu zaten "Gemini desteklemez" diyordu ama uygulanmamisti — tutarsizlik giderildi.)
+- **Dongu birlestirme (dogrulanmis)**: `agentic-runner` artik 2 farkli saglayici ailesinde E2E dogrulandi — **MiniMax** (native XML tool-call) + **Gemini** (OpenAI-compat, gercek key ile dosya olusturma + memory recall "Gencay"). Groq/Ollama/localhost da bu yolu kullanir. OpenAI/Anthropic native `tool_calls` yolunda kalir (standart, dokunulmadi).
+
+Doğrulama: Gemini gercek key ile E2E (dosya olusturma + hafiza); **484 test yeşil**, ESLint temiz.
+
 ## [5.26.0] - 2026-07-04 — "CANLI STREAMING + KEŞFET→DÜZENLE→DOĞRULA"
 
 ### ✨ Yeni
