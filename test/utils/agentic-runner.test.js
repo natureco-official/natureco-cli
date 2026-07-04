@@ -1,0 +1,143 @@
+/**
+ * agentic-runner — MiniMax M2.x gibi "agentic-text" modellerin native tool-call
+ * formatini (<minimax:tool_call> / <invoke> / <parameter>) ve skill yuklemeyi
+ * (<skill>ad</skill>) parse edip gercek araclari calistiran bounded dongu.
+ *
+ * Regresyon kilidi: eski passthrough bu formatlari HIC islemiyordu (JSON.parse
+ * patliyor, bos catch yutuyordu) — bu yuzden "masaustunde yaris oyunu yap"
+ * gibi istekler dosya YAZMADAN sessizce basarisiz oluyordu. Bu testler o
+ * davranisin geri gelmemesini garanti eder.
+ */
+import { describe, it, expect } from 'vitest';
+import mod from '../../src/tools/agentic-runner.js';
+
+const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic } = mod;
+
+describe('parseAgenticCalls', () => {
+  it('<minimax:tool_call> icindeki write_file (path+content) cagirisini cozer', () => {
+    const content = `Hemen yaziyorum.
+<minimax:tool_call>
+<invoke name="write_file">
+<parameter name="path">C:\\Users\\x\\Desktop\\game.html</parameter>
+<parameter name="content"><!DOCTYPE html><html></html></parameter>
+</invoke>
+</minimax:tool_call>`;
+    const calls = parseAgenticCalls(content, []);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].tool).toBe('write_file');
+    expect(calls[0].args.path).toContain('game.html');
+    expect(calls[0].args.content).toContain('<!DOCTYPE html>');
+  });
+
+  it('minimax sarmalayicisi olmadan yalin <invoke> cozer', () => {
+    const calls = parseAgenticCalls('<invoke name="read_file"><parameter name="path">/tmp/a.txt</parameter></invoke>', []);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].tool).toBe('read_file');
+    expect(calls[0].args.path).toBe('/tmp/a.txt');
+  });
+
+  it('"files" JSON dizisi parametresini (bulk) korur', () => {
+    const files = JSON.stringify([{ path: '/a.txt', content: 'A' }, { path: '/b.txt', content: 'B' }]);
+    const content = `<invoke name="bulk-file-operations"><parameter name="operation">create</parameter><parameter name="files">${files}</parameter></invoke>`;
+    const calls = parseAgenticCalls(content, []);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].tool).toBe('bulk-file-operations');
+    expect(JSON.parse(calls[0].args.files)).toHaveLength(2);
+  });
+
+  it('<skill>ad</skill> kisayolunu skill_view\'e esler', () => {
+    const calls = parseAgenticCalls('\n<skill>design-taste-frontend</skill>\n', []);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].tool).toBe('skill_view');
+    expect(calls[0].args.name).toBe('design-taste-frontend');
+  });
+
+  it('native OpenAI tool_calls\'i da dikkate alir', () => {
+    const calls = parseAgenticCalls('', [{ function: { name: 'write_file', arguments: '{"path":"/x","content":"y"}' } }]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].tool).toBe('write_file');
+    expect(calls[0].args.path).toBe('/x');
+  });
+
+  it('duz sohbet yanitinda arac cagirisi bulmaz', () => {
+    expect(parseAgenticCalls('Merhaba, nasil yardimci olabilirim?', [])).toHaveLength(0);
+  });
+});
+
+describe('stripProtocolTokens', () => {
+  it('invoke/skill/minimax bloklarini temizler', () => {
+    const s = 'Ozet metni.<minimax:tool_call><invoke name="x"></invoke></minimax:tool_call><skill>y</skill>';
+    expect(stripProtocolTokens(s)).toBe('Ozet metni.');
+  });
+});
+
+describe('executeCall', () => {
+  it('bulk "files" dizisini her dosya icin write_file\'a yonlendirir', async () => {
+    const written = [];
+    const loadTool = (n) => {
+      if (n === 'write_file') return { execute: async (a) => { written.push(a); return { success: true, path: a.path, size: (a.content || '').length }; } };
+      throw new Error('beklenmeyen arac ' + n);
+    };
+    const call = { tool: 'bulk-file-operations', args: { files: [{ path: '/a', content: 'AA' }, { path: '/b', content: 'BBB' }] } };
+    const { records } = await executeCall(call, { loadTool });
+    expect(written).toHaveLength(2);
+    expect(records.every(r => r.tool === 'write_file' && r.status === 'done')).toBe(true);
+  });
+
+  it('allowlist disi araclari (orn. discord) engeller — model keyfi arac cagiramaz', async () => {
+    let loaded = false;
+    const loadTool = () => { loaded = true; return { execute: async () => ({ success: true }) }; };
+    const { records, feedback } = await executeCall({ tool: 'discord', args: { message: 'spam' } }, { loadTool });
+    expect(loaded).toBe(false);
+    expect(records[0].status).toBe('error');
+    expect(feedback).toMatch(/kullanilamaz/i);
+  });
+
+  it('bash allowlist icinde — komut icin bash.js\'e yonlendirir (guvenligi bash.js uygular)', async () => {
+    let ranCommand = null;
+    const loadTool = (n) => {
+      if (n === 'bash') return { execute: async (a) => { ranCommand = a.command; return { success: true, output: 'v20' }; } };
+      throw new Error('beklenmeyen arac ' + n);
+    };
+    const { records } = await executeCall({ tool: 'run_command', args: { command: 'node -v' } }, { loadTool, isDangerous: () => false });
+    expect(ranCommand).toBe('node -v');
+    expect(records[0].status).toBe('done');
+  });
+
+  it('yikici komutu (rm -rf) ajan modunda calistirmadan engeller', async () => {
+    let reached = false;
+    const loadTool = () => ({ execute: async () => { reached = true; return { success: true }; } });
+    const { records, feedback } = await executeCall(
+      { tool: 'bash', args: { command: 'rm -rf /' } },
+      { loadTool, isDangerous: () => true }
+    );
+    expect(reached).toBe(false); // bash.js'e hic ulasmamali
+    expect(records[0].status).toBe('error');
+    expect(feedback).toMatch(/CALISTIRILMADI|tehlikeli/i);
+  });
+
+  it('allowlist icindeki write_file\'i calistirir ve ~ genisletir', async () => {
+    const loadTool = () => ({ execute: async (a) => ({ success: true, path: a.path, size: 3 }) });
+    const { records } = await executeCall({ tool: 'write_file', args: { path: '~/t.txt', content: 'abc' } }, { loadTool });
+    expect(records[0].status).toBe('done');
+    expect(records[0].args.path).not.toContain('~');
+  });
+});
+
+describe('runAgentic dongusu', () => {
+  it('arac cagirir, sonra duz final yanitta durur', async () => {
+    const turns = [
+      '<minimax:tool_call><invoke name="write_file"><parameter name="path">/tmp/x.txt</parameter><parameter name="content">hi</parameter></invoke></minimax:tool_call>',
+      'Dosya olusturuldu.',
+    ];
+    let i = 0;
+    const written = [];
+    const callModel = async () => ({ content: turns[i++], toolCalls: [] });
+    const loadTool = () => ({ execute: async (a) => { written.push(a); return { success: true, path: a.path, size: 2 }; } });
+    const { records, reply, iterations } = await runAgentic({ callModel, systemPrompt: 's', task: 't', loadTool, maxIterations: 5 });
+    expect(written).toHaveLength(1);
+    expect(records.filter(r => r.status === 'done')).toHaveLength(1);
+    expect(reply).toBe('Dosya olusturuldu.');
+    expect(iterations).toBe(2);
+  });
+});

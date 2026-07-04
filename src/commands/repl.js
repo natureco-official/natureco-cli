@@ -145,11 +145,36 @@ function getConfig() {
 const { isMiniMax, isGemini, buildChatEndpoint } = require('../utils/provider-detect');
 
 function loadMemory(username) {
-  const file = path.join(MEMORY_DIR, `${(username || 'default').toLowerCase()}.json`);
-  try {
-    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {}
-  return { name: username || 'Kullanıcı', nickname: null, botName: 'Asistan', facts: [], preferences: [], history: [] };
+  const uname = (username || 'default').toLowerCase();
+  const base = { name: username || 'Kullanıcı', nickname: null, botName: null, facts: [], preferences: [], history: [] };
+  const readJson = (f) => { try { return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null; } catch { return null; } };
+
+  const userMem = readJson(path.join(MEMORY_DIR, `${uname}.json`));
+  const merged = userMem
+    ? { ...base, ...userMem, facts: [...(userMem.facts || [])], preferences: [...(userMem.preferences || [])], history: [...(userMem.history || [])] }
+    : { ...base };
+
+  // Legacy default.json'i birlestir (isim eslesiyorsa ya da isimsizse): eski kurulumlarda
+  // hafiza + bot personasi default.json'da kalmis olabiliyordu; <user>.json ile split-brain
+  // olusuyordu. Birlestirince recall calisir ve ilk kayitta konsolide olur.
+  if (uname !== 'default') {
+    const def = readJson(path.join(MEMORY_DIR, 'default.json'));
+    if (def && (!def.name || String(def.name).toLowerCase() === uname)) {
+      // Jenerik "Asistan" placeholder'ini gercek persona (orn. Hinata) ile ez
+      const isGeneric = (b) => !b || /^asistan$/i.test(String(b));
+      if (isGeneric(merged.botName) && def.botName && !isGeneric(def.botName)) merged.botName = def.botName;
+      if ((!merged.name || merged.name === 'Kullanıcı') && def.name) merged.name = def.name;
+      const factVal = (f) => ((f && (f.value != null ? f.value : f)) || '').toString().trim();
+      const seen = new Set(merged.facts.map(f => factVal(f).toLowerCase()));
+      for (const f of (def.facts || [])) {
+        const v = factVal(f);
+        if (v && !seen.has(v.toLowerCase())) { seen.add(v.toLowerCase()); merged.facts.push(f); }
+      }
+    }
+  }
+
+  if (!merged.botName) merged.botName = 'Asistan';
+  return merged;
 }
 
 function saveMemory(username, memory) {

@@ -24,23 +24,58 @@ function allToolNames() {
 
 function loadUserMemory(username) {
   try {
-    const file = path.join(os.homedir(), '.natureco', 'memory', `${(username || 'default').toLowerCase()}.json`);
-    if (fs.existsSync(file)) {
-      const mem = JSON.parse(fs.readFileSync(file, 'utf8'));
-      const facts = (mem.facts || []).map(f => f.value || f).filter(Boolean);
-      let name = mem.name || '';
-      // Extract name from facts if not saved as memory.name
-      if (!name) {
-        for (const f of facts) {
-          const match = f.toLowerCase().match(/(?:kullanici\s*adi?|kullanıcı\s*adı?|isim|name)\s*:?\s*(.+)/);
-          if (match && match[1].trim().length > 2) { name = match[1].trim(); break; }
-        }
+    const dir = path.join(os.homedir(), '.natureco', 'memory');
+    const uname = (username || 'default').toLowerCase();
+    // Kullanici-ozel dosya (`<user>.json`) + legacy `default.json`'i birlestir.
+    // Eski kurulumlarda hafiza default.json'a yazilmis olabilir; okuyucu sadece
+    // <user>.json'a bakinca eski kayitlar (ve bot personasi) hic yuklenmiyordu.
+    // default.json'i yalnizca ismi aktif kullaniciyla eslesiyorsa (ya da isimsizse)
+    // katariz — coklu kullanicida baska birinin hafizasini sizdirmamak icin.
+    const files = [];
+    const userFile = path.join(dir, `${uname}.json`);
+    if (fs.existsSync(userFile)) files.push(userFile);
+    if (uname !== 'default') {
+      const defFile = path.join(dir, 'default.json');
+      if (fs.existsSync(defFile)) {
+        try {
+          const dm = JSON.parse(fs.readFileSync(defFile, 'utf8'));
+          const dn = (dm.name || '').toLowerCase();
+          if (!dn || dn === uname) files.push(defFile);
+        } catch {}
       }
-      const parts = [];
-      if (name) parts.push(`Kullanici adi: ${name}`);
-      if (facts.length > 0) parts.push(`Bilinenler: ${facts.slice(0, 10).join('; ')}`);
-      return parts.join('\n');
     }
+    if (files.length === 0) return '';
+
+    const seen = new Set();
+    const facts = [];
+    let name = '', botName = '';
+    for (const file of files) {
+      let mem;
+      try { mem = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { continue; }
+      if (!name && mem.name) name = mem.name;
+      // Jenerik "Asistan" placeholder yerine gercek persona adini tercih et
+      if ((!botName || /^asistan$/i.test(botName)) && mem.botName && !/^asistan$/i.test(mem.botName)) botName = mem.botName;
+      for (const f of (mem.facts || [])) {
+        const v = (f && (f.value != null ? f.value : f));
+        if (!v || typeof v !== 'string') continue;
+        const key = v.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        facts.push(v.trim());
+      }
+    }
+    // isim memory.name'de yoksa fact'lerden cikar
+    if (!name) {
+      for (const f of facts) {
+        const match = f.toLowerCase().match(/(?:kullanici\s*adi?|kullanıcı\s*adı?|isim|name)\s*:?\s*(.+)/);
+        if (match && match[1].trim().length > 2) { name = match[1].trim(); break; }
+      }
+    }
+    const parts = [];
+    if (name) parts.push(`Kullanici adi: ${name}`);
+    if (botName) parts.push(`Bot adi: ${botName}`);
+    if (facts.length > 0) parts.push(`Bilinenler: ${facts.slice(0, 15).join('; ')}`);
+    return parts.join('\n');
   } catch {}
   return '';
 }
@@ -126,89 +161,69 @@ async function workflow(params) {
   if (action === 'run') {
     if (!task) return { success: false, error: 'task gerekli' };
 
-    // Non-tool-calling modellerde once simple/complex kontrolu yap
+    // Non-tool-calling / agentic-text modeller (MiniMax M2.x): model tool call'larini
+    // native XML olarak (<invoke> / <minimax:tool_call>) ve skill yuklemeyi <skill> ile
+    // uretir. Bounded agentic dongu ile parse edip gercek araclari calistir.
     if (!supportsToolCalls()) {
+      const { runAgentic } = require('./agentic-runner');
       const memCtx = memoryContext();
-      // Phase 0: Check if simple chat or complex task
-      const simpleCheckPrompt = {
-        role: 'system',
-        content: 'Gorevin basit bir selamlasma/sohbet mi yoksa arac gerektiren bir islem mi oldugunu belirle. Sadece "simple" veya "complex" yaz, kesinlikle baska bir sey yazma.\n\nSimple: selamlasma, nasilsin, bugun ne yaptin, havadan sudan, genel bilgi sorusu, ben kimim, adim ne, kullanici bilgisi sorgulama, hatirlatma talebi\nComplex: dosya islemleri, kod yazma, arastirma, karsilastirma, duzenleme, otomasyon'
-      };
-      let isComplex = true;
-      try {
-        const checkBody = { model, stream: false, messages: [simpleCheckPrompt, { role: 'user', content: task }], temperature: 0, max_tokens: 20 };
-        const checkResult = await apiCall(providerUrl, providerApiKey, checkBody);
-        const raw = (checkResult.choices?.[0]?.message?.content || '').trim().toLowerCase().replace(/[^a-z]/g, '');
-        isComplex = raw !== 'simple';
-      } catch {}
+      const desktop = path.join(os.homedir(), 'Desktop');
+      const sysMsg = [
+        'Sen NatureCo adli, arac kullanabilen bir yapay zeka ajanisin. Kullanicinin istegini SADECE anlatarak degil, ARACLARI cagirarak fiilen gerceklestir.',
+        memCtx ? '\nKullanici bilgisi:\n' + memCtx : '',
+        '\n\nOrtam:\n- Isletim sistemi: ' + process.platform + '\n- Kullanici home: ' + os.homedir() + '\n- Masaustu: ' + desktop + '\n- Calisma dizini: ' + process.cwd(),
+        '\n\nArac cagirmak icin TAM olarak su formati kullan:\n<minimax:tool_call>\n<invoke name="ARAC_ADI">\n<parameter name="PARAM">DEGER</parameter>\n</invoke>\n</minimax:tool_call>',
+        '\n\nKullanabilecegin araclar:',
+        '- write_file: dosya olustur/uzerine yaz. parametreler: path (TAM yol), content (dosyanin TAM icerigi). Kod/oyun/site isteniyorsa TUM icerigi content icine yaz, kisaltma.',
+        '- read_file: dosya oku. parametre: path',
+        '- edit_file: dosyada metin degistir. parametreler: path, old_string, new_string',
+        '- bash: kabuk komutu calistir (npm, git, node, python, test, ls, mkdir...). parametre: command. Guvenli komutlar dogrudan calisir; yikici/tehlikeli komutlar guvenlik politikasiyla engellenir.',
+        '- skill_view: gorevle ilgili bir skill yukle. parametre: name',
+        '\nKurallar:',
+        '- Kod yazdiktan sonra gerektiginde bash ile calistir/test et (orn. "node dosya.js", "npm test"); hata cikarsa duzelt.',
+        '- Birden fazla dosya gerekiyorsa her biri icin AYRI write_file cagir.',
+        '- Kullanici "masaustu"/"desktop" dediyse ve tam yol vermediyse dosyayi buraya yaz: ' + desktop,
+        '- Goreceli yol yerine TAM yol kullan.',
+        '- Arac sonuclari <tool_results> icinde geri gelir; gorev bitince ARAC CAGIRMADAN tek cumlelik ozet yaz.',
+        '- Basit sohbet/selamlasma ise arac cagirma, dogrudan kisa yanit ver.',
+        skillsIndexBlock ? '\n\n' + skillsIndexBlock : '',
+      ].filter(Boolean).join('\n');
 
-      if (!isComplex) {
-        // Simple chat — passthrough
-        const sysMsg = 'Sen yardimci bir asistansin. Kisa ve oz yanit ver. Konusma gecmisi varsa onceki mesajlari dikkate al.' + (memCtx ? '\n\nKullanici bilgisi:\n' + memCtx : '') + '\n\n' + skillsIndexBlock;
-        const chatBody = { model, stream: false, messages: chatMessages(sysMsg, task), temperature: 0.7, max_tokens: 1000 };
-        try {
-          const chatResult = await apiCall(providerUrl, providerApiKey, chatBody);
-          const reply = chatResult.choices?.[0]?.message?.content || '';
-          return { success: true, workflowId: 'passthrough', name: 'Direct Chat', status: 'completed', totalSteps: 0, completedSteps: 0, results: [], passthrough: true, reply };
-        } catch (e) {
-          return { success: false, error: 'Sohbet yaniti alinamadi: ' + e.message };
-        }
+      const historyMessages = [];
+      if (conversationHistory && Array.isArray(conversationHistory)) {
+        for (const hm of conversationHistory) { if (hm._internal) continue; historyMessages.push({ role: hm.role, content: hm.content || '' }); }
       }
 
-      // Complex task for non-tool-calling model: ask LLM for structured file ops
-      const execSysMsg = 'Gorevi tamamlamak icin hangi dosyalarin olusturulacagini JSON olarak belirt. SADECE JSON yaz.\n\n' +
-        'Kullanici bilgisi:\n' + (memCtx || '') +
-        '\n\nMasaustu yolu: ' + require('path').join(require('os').homedir(), 'Desktop') +
-        '\n\nKullanici home: ' + require('os').homedir() +
-        '\n\nJSON format:\n{"files": [{"path": "/tam/dosya/yolu/dosya.html", "content": "dosya icerigi buraya"}]}\n\nHer dosya icin path ve content zorunlu. path TAM yol olmali (~ veya goreceli degil). Birden fazla dosya olusturulabilir.' +
-        '\n\n' + skillsIndexBlock;
-      const execBody = { model, stream: false, messages: chatMessages(execSysMsg, task), temperature: 0.3, max_tokens: 8000 };
+      async function callModel(msgs) {
+        const body = { model, stream: false, messages: msgs, temperature: 0.3, max_tokens: 16000 };
+        const r = await apiCall(providerUrl, providerApiKey, body);
+        const msg = r.choices?.[0]?.message || {};
+        return { content: msg.content || '', toolCalls: msg.tool_calls || [] };
+      }
+
       try {
-        const execResult = await apiCall(providerUrl, providerApiKey, execBody);
-        const reply = execResult.choices?.[0]?.message?.content || '';
-
-        // Try to extract JSON with file operations
-        const jsonStart = reply.indexOf('{');
-        const jsonEnd = reply.lastIndexOf('}');
-        let stepResults = [];
-        let fileWriteSuccess = false;
-
-        if (jsonStart !== -1 && jsonEnd > jsonStart) {
-          try {
-            const plan = JSON.parse(reply.slice(jsonStart, jsonEnd + 1));
-            if (plan.files && Array.isArray(plan.files)) {
-              // Execute file writes locally
-              for (const f of plan.files) {
-                try {
-                  const wfPath = f.path ? require('path').resolve(f.path.replace(/^~/, require('os').homedir())) : '';
-                  if (!wfPath) continue;
-                  require('fs').mkdirSync(require('path').dirname(wfPath), { recursive: true });
-                  require('fs').writeFileSync(wfPath, f.content || '', 'utf-8');
-                  const stats = require('fs').statSync(wfPath);
-                  stepResults.push({ step: 1, tool: 'write_file', status: 'done', args: { path: wfPath }, result: { success: true, path: wfPath, size: stats.size } });
-                  fileWriteSuccess = true;
-                } catch (wfErr) {
-                  stepResults.push({ step: 1, tool: 'write_file', status: 'error', error: wfErr.message });
-                }
-              }
-            }
-          } catch {}
+        const { records, reply } = await runAgentic({
+          callModel, systemPrompt: sysMsg, historyMessages, task,
+          toolsDir: __dirname, maxIterations: 15,
+        });
+        const fileWrites = records.filter(r => r.tool === 'write_file' && r.status === 'done');
+        let finalReply = reply || '';
+        if (fileWrites.length > 0) {
+          const lines = fileWrites.map(r => `  ✓ ${path.basename((r.result && r.result.path) || (r.args && r.args.path) || '')} olusturuldu (${(r.result && r.result.size != null) ? r.result.size : '?'} bytes)`).join('\n');
+          finalReply = (finalReply ? finalReply + '\n\n' : '') + 'Dosya(lar):\n' + lines;
         }
-
-        if (fileWriteSuccess) {
-          const lines = stepResults.map(r => { const p = r.result?.path || ''; const s = r.result?.size || 0; const name = require('path').basename(p); return `  ✓ ${name} oluşturuldu (${s} bytes)`; }).join('\n');
-          const reply = `Dosya(lar) başarıyla oluşturuldu:\n${lines}`;
-          return {
-            success: true, workflowId: 'file_write_' + Date.now().toString(36),
-            name: 'File Operations', status: 'completed',
-            totalSteps: stepResults.length, completedSteps: stepResults.length,
-            results: stepResults,
-            passthrough: true, reply,
-          };
-        }
-
-        // If no structured file ops detected, return LLM reply as passthrough
-        return { success: true, workflowId: 'passthrough', name: 'Direct Generation', status: 'completed', totalSteps: 0, completedSteps: 0, results: [{ step: 0, tool: 'chat', status: 'done', result: { reply } }], passthrough: true, reply };
+        const done = records.filter(r => r.status === 'done').length;
+        return {
+          success: true,
+          workflowId: (records.length ? 'agentic_' : 'passthrough_') + Date.now().toString(36),
+          name: records.length ? 'Agentic Run' : 'Direct Chat',
+          status: 'completed',
+          totalSteps: records.length,
+          completedSteps: done,
+          results: records.map((r, i) => ({ step: i + 1, ...r })),
+          passthrough: true,
+          reply: finalReply || 'Tamamlandi.',
+        };
       } catch (e) {
         return { success: false, error: 'Yanit alinamadi: ' + e.message };
       }

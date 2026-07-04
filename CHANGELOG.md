@@ -2,6 +2,24 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.24.0] - 2026-07-04 — "AGENTIC SERTLEŞTİRME" (MiniMax native tool-call + komut çalıştırma)
+
+Kök neden: **MiniMax M2.5 agentic bir model** — tool call'ları OpenAI `tool_calls` JSON'u yerine metin içinde native XML olarak üretir (`<minimax:tool_call><invoke name="write_file">...`) ve skill'i `<skill>ad</skill>` ile yükler. 5.23.0'ın tek-atış JSON planı bunu yakalayamıyordu; `JSON.parse` patlayıp boş `catch{}` yutunca dosya sessizce yazılmıyordu ("masaüstünde yarış oyunu yapamadı").
+
+### ✨ Yeni
+- **`src/tools/agentic-runner.js`**: MiniMax'in native XML/skill protokolünü parse edip gerçek araçları çalıştıran bounded agentic döngü (parse→execute→sonucu geri besle→dur, max 15 iterasyon). `workflow.js`'in non-tool-calling dalı buna bağlandı. 13 yeni birim testi.
+- **Komut çalıştırma (onaylı)**: ajan artık `bash` ile npm/git/node/test çalıştırıp çıktıya göre devam edebilir — gerçek **yaz→çalıştır→test→düzelt** döngüsü.
+
+### 🐛 Düzeltme
+- **MiniMax dosya yazma**: native `<invoke>`/`<skill>` parse edilip gerçek araçlara yönlendiriliyor; büyük içerikteki JSON-kaçış sorunu ortadan kalktı.
+- **Memory recall split-brain**: hafıza `default.json`'da tutulurken okuyucular `<userName>.json` arıyordu → chat/code kullanıcıyı hiç hatırlamıyordu ("adım ne?"→"bilmiyorum"). `loadUserMemory` + `repl.loadMemory` artık `<user>.json` + legacy `default.json`'ı birleştirir (isim-eşleşme guard'ı).
+- **Bot personası**: jenerik "Asistan" placeholder'ı gerçek persona (örn. "Hinata") ile eziliyor.
+
+### 🔒 Güvenlik
+- **Ajan modunda yıkıcı komut guard'ı**: varsayılan 'full' politika `rm -rf /`'i bile geçiriyordu (insan için bilinçli olabilir, model için değil). Agentic-runner artık `isDangerousCommand`'ı politikadan bağımsız uygular — yıkıcı komutlar ajan tarafından **çalıştırılmaz**. Diğer ~85 araç allowlist dışı (yalnızca write_file/read_file/edit_file/skill_view/bash).
+
+Doğrulama: gerçek MiniMax API ile uçtan uca (yarış oyunu + "node script yaz&çalıştır"→42); **474 test yeşil**.
+
 ## [5.23.0] - 2026-07-02 — "NON-TOOL-CALLING FIX" (MiniMax dosya yazma)
 
 ### 🐛 Düzeltme
