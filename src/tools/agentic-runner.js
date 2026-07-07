@@ -278,7 +278,13 @@ function buildFeedback(norm, res) {
   let body = '';
   const first = ['content', 'output', 'stdout', 'text', 'transcript', 'body', 'reply', 'answer', 'summary', 'url', 'path'];
   const jsonish = ['results', 'items', 'matches', 'data', 'events', 'entries', 'files'];
-  for (const k of first) { if (res[k] != null && String(res[k]).trim()) { body = String(res[k]).slice(0, 2500); break; } }
+  // v5.38: body/data gibi alanlar nesne olabilir ( or. http_request JSON govdesi) —
+  // String(obj) "[object Object]" verir ve model degeri okuyamaz; nesneyse JSON'a cevir.
+  for (const k of first) {
+    if (res[k] == null) continue;
+    const v = typeof res[k] === 'object' ? JSON.stringify(res[k]) : String(res[k]);
+    if (v.trim() && v !== '[object Object]') { body = v.slice(0, 2500); break; }
+  }
   if (!body) for (const k of jsonish) { if (res[k] != null) { body = JSON.stringify(res[k]).slice(0, 2000); break; } }
   if (!body) {
     // hicbir bilinen alan yok → sonucu oldugu gibi ver (success/error disi anlamli alanlar)
@@ -436,4 +442,4 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
   return { records: allRecords, reply: finalReply, iterations };
 }
 
-module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, makeSanitizeStream, agentExecAllowed, TOOL_ALIASES, DEFAULT_ALLOWED };
+module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback, TOOL_ALIASES, DEFAULT_ALLOWED };

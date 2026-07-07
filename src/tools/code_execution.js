@@ -33,38 +33,50 @@ async function runCode({ code, language = 'auto', timeoutMs = 30000, cwd = null 
     }
   }
 
-  if (language === 'python') { cmd = 'python3'; args = ['-c', code]; }
-  else if (language === 'node') { cmd = 'node'; args = ['-e', code]; }
-  else if (language === 'bash' || language === 'shell') { cmd = 'bash'; args = ['-c', code]; }
+  // v5.38: Yorumlayici adaylari — platformlar arasi saglam.
+  // node icin process.execPath her zaman mevcut; python icin Windows'ta py/python
+  // (python3 App-execution-alias tuzagina duser), *nix'te python3/python.
+  const isWin = process.platform === 'win32';
+  let candidates;
+  if (language === 'python') { candidates = isWin ? ['py', 'python', 'python3'] : ['python3', 'python']; args = ['-c', code]; }
+  else if (language === 'node') { candidates = [process.execPath]; args = ['-e', code]; }
+  else if (language === 'bash' || language === 'shell') { candidates = isWin ? ['bash'] : ['bash', 'sh']; args = ['-c', code]; }
   else return { success: false, error: `Desteklenmeyen dil: ${language}` };
 
-  return new Promise((resolve) => {
-    const proc = spawn(cmd, args, {
-      cwd: cwd || os.homedir(),
-      timeout: timeoutMs,
-      env: { ...process.env, FORCE_COLOR: '0' },
-    });
+  const truncated = (s) => s.length > 8000 ? s.slice(0, 8000) + '\n... (kesildi, ' + (s.length - 8000) + ' karakter daha)' : s;
 
-    let stdout = '';
-    let stderr = '';
+  const spawnOnce = (bin) => new Promise((resolve) => {
+    let stdout = '', stderr = '', proc;
+    try {
+      proc = spawn(bin, args, { cwd: cwd || os.homedir(), timeout: timeoutMs, env: { ...process.env, FORCE_COLOR: '0' } });
+    } catch (e) { return resolve({ notFound: true, err: e.message }); }
     proc.stdout.on('data', d => stdout += d.toString());
     proc.stderr.on('data', d => stderr += d.toString());
-
-    proc.on('close', (code) => {
-      const truncated = (s) => s.length > 8000 ? s.slice(0, 8000) + '\n... (kesildi, ' + (s.length - 8000) + ' karakter daha)' : s;
-      resolve({
-        success: code === 0,
-        language,
-        exitCode: code,
-        stdout: truncated(stdout).trim(),
-        stderr: truncated(stderr).trim(),
-        output: truncated(stdout + (stderr ? '\n[STDERR]: ' + stderr : '')).trim(),
-      });
-    });
-    proc.on('error', (e) => {
-      resolve({ success: false, error: e.message, language });
-    });
+    proc.on('error', (e) => resolve({ notFound: /ENOENT/i.test(e.message), err: e.message }));
+    proc.on('close', (exitCode) => resolve({
+      // 9009 (win) / 127 (*nix) veya alias mesaji = yorumlayici yok → sonraki adaya gec
+      notFound: exitCode === 9009 || exitCode === 127 || /not found|not recognized|install from the Microsoft Store/i.test(stderr),
+      exitCode, stdout, stderr,
+    }));
   });
+
+  let r = { notFound: true };
+  for (const bin of candidates) {
+    r = await spawnOnce(bin);
+    if (!r.notFound) break; // yorumlayici bulundu (basarili ya da kod hatasi) — bunu kullan
+  }
+  if (r.notFound) {
+    const nice = language === 'python' ? 'Python bu sistemde kurulu degil.' : `${language} yorumlayicisi bulunamadi.`;
+    return { success: false, language, error: `${nice} (denenen: ${candidates.join(', ')})` };
+  }
+  return {
+    success: r.exitCode === 0,
+    language,
+    exitCode: r.exitCode,
+    stdout: truncated(r.stdout).trim(),
+    stderr: truncated(r.stderr).trim(),
+    output: truncated(r.stdout + (r.stderr ? '\n[STDERR]: ' + r.stderr : '')).trim(),
+  };
 }
 
 module.exports = {

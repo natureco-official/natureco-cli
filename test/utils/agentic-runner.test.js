@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import mod from '../../src/tools/agentic-runner.js';
 
-const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter, makeSanitizeStream, agentExecAllowed } = mod;
+const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback } = mod;
 
 describe('parseAgenticCalls', () => {
   it('<minimax:tool_call> icindeki write_file (path+content) cagirisini cozer', () => {
@@ -292,6 +292,22 @@ describe('executeCall', () => {
     const { feedback } = await executeCall({ tool: 'http_request', args: { url: 'https://x', method: 'GET' } }, { loadTool });
     expect(feedback).toContain('112233');
     expect(feedback).toContain('HTTP 200');
+  });
+
+  it('http_request NESNE body\'yi JSON\'a cevirir (v5.38: [object Object] bug\'i)', async () => {
+    // Gercek http_request araci JSON govdeyi PARSED NESNE olarak dondurur — String(obj)
+    // "[object Object]" verirdi ve model degeri goremezdi.
+    const loadTool = () => ({ execute: async () => ({ success: true, status: 200, body: { stargazers_count: 112233, name: 'node' } }) });
+    const { feedback } = await executeCall({ tool: 'http_request', args: { url: 'https://x', method: 'GET' } }, { loadTool });
+    expect(feedback).toContain('112233');
+    expect(feedback).not.toContain('[object Object]');
+  });
+
+  it('buildFeedback: nesne body -> JSON, string body -> aynen', () => {
+    const objFb = buildFeedback('http_request', { success: true, status: 200, body: { a: 1 } });
+    expect(objFb).toContain('{"a":1}');
+    const strFb = buildFeedback('read_file', { success: true, content: 'merhaba dunya' });
+    expect(strFb).toContain('merhaba dunya');
   });
 
   it('allowlist icindeki write_file\'i calistirir ve ~ genisletir', async () => {

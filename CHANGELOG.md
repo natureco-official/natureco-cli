@@ -2,6 +2,20 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.38.0] - 2026-07-08 — "FİNAL DOĞRULAMA: git/code_execution/http_request düzeltmeleri + git enjeksiyon açığı kapatıldı"
+
+Final doğrulama re-run'inde (agent yolu E2E) 3 fonksiyonel sorun + 1 güvenlik açığı bulundu ve düzeltildi.
+
+### 🔒 Güvenlik açığı (kapatıldı)
+- **git args komut enjeksiyonu + remote-yazma bypass (KRİTİK)**: `git` özel aracı `execSync('git log ' + args)` ile STRING komut kuruyordu → `args` içindeki `;`, `&&`, `$()`, backtick shell'de çalışıyordu (ör. `args: "-n1; rm -rf /"`). Ayrıca bu araç, agentic-runner'daki `git remote add`/`git push` bloklarını GÖRMÜYORDU (özel araç, bash guard'ından geçmez) → remote-yazma bypass. Artık `execFileSync` (shell:false) + tırnak-farkındalıklı tokenizer → metakarakterler işlem görmez; `remote add/set-url/remove/rename` engelli (salt-okunur remote serbest). POC: `-n1; echo PWNED` → git argüman sanıp reddetti, echo hiç çalışmadı.
+
+### 🐛 Düzeltmeler
+- **git "Unknown operation"**: araç yalnızca `operation` param'i kabul ediyordu; ajanlar `args:"log -n2"` gibi gönderince tanımıyor, bash'e sapıyordu. Artık esnek giriş (operation/args/command'dan parse), `cwd` param'i onurlandırma, env-tabanlı repo bulma (`NATURECO_PROJECT_DIR`/`INIT_CWD`/`PWD` — makineden bağımsız), +5 salt-okunur operasyon (show/remote/tag/describe/rev-parse). E2E: tek çağrıda `git:done`.
+- **code_execution Python bulamıyor**: sabit `python3` Windows'ta App-execution-alias tuzağına düşüyordu. Artık aday-deneme (`py`/`python`/`python3` — *nix'te `python3`/`python`), node için garantili `process.execPath`; yorumlayıcı yoksa net "Python kurulu değil" mesajı. E2E: `12! = 479001600` doğru.
+- **http_request `[object Object]`**: araç JSON gövdeyi PARSED NESNE döndürüyor, `buildFeedback` `String(obj)` yapınca `[object Object]` oluyordu → model değeri okuyamıyordu. Artık nesne alanlar JSON'a serileştirilir. E2E: nodejs/node stargazers_count doğru okundu.
+
+Doğrulama: grep/git/http/code_execution ajan üzerinden E2E (hepsi `done`); gerçek PTY 9/9; komut denetimi 23/23; güvenlik 20/20 yıkıcı + 7/7 hassas-dosya + git enjeksiyonu POC kapalı. **521 test yeşil** (12 yeni regresyon: git-tool + buildFeedback nesne-body), ESLint temiz.
+
 ## [5.37.0] - 2026-07-05 — "GÜVENLİK: 2 açık kapatıldı (inline-eval bypass + hassas dosya erişimi)"
 
 Sistematik guvenlik taramasi (POC'larla). 20 yikici komuttan 19'u zaten engelliydi; 2 gercek acik bulundu ve kapatildi.
