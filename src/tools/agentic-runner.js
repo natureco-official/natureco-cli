@@ -21,7 +21,15 @@ const os = require('os');
 // icinde approvals politikasini uyguluyor (isSafeCommand → direkt; tehlikeli → red;
 // digerleri → allowlist/full moda gore). Yani keyfi/yikici komut calismaz.
 // Diger ~85 arac (discord, telegram, cron, browser...) bilerek DISARIDA.
-const DEFAULT_ALLOWED = ['write_file', 'read_file', 'edit_file', 'skill_view', 'bash', 'file_search', 'list_dir', 'memory_write', 'memory_tree', 'cron_create', 'duckduckgo', 'web_search', 'todo_write'];
+const DEFAULT_ALLOWED = [
+  'write_file', 'read_file', 'edit_file', 'skill_view', 'bash', 'file_search', 'list_dir', 'grep_search',
+  'memory_write', 'memory_tree', 'cron_create', 'duckduckgo', 'web_search', 'todo_write',
+  'git', 'http_request', 'notebook_edit', 'clarify', 'code_execution',
+  // macOS asistan yetenekleri (Windows'ta zarafetle "sadece macOS" der; kullanıcının Mac'inde çalışır)
+  'calendar_add', 'reminder_add', 'notes_add', 'mac_notify',
+  // medya (kullanıcının kendi provider/API'siyle)
+  'image_generation', 'text_to_speech', 'speech_to_text',
+];
 
 const TOOL_ALIASES = {
   write_file: 'write_file', create_file: 'write_file', writefile: 'write_file', write: 'write_file', create: 'write_file', save_file: 'write_file', new_file: 'write_file',
@@ -36,6 +44,13 @@ const TOOL_ALIASES = {
   cron_create: 'cron_create', cron: 'cron_create', schedule_task: 'cron_create', create_cron: 'cron_create',
   duckduckgo_search: 'duckduckgo', duckduckgo: 'duckduckgo', web_search: 'web_search', search_web: 'web_search', internet_search: 'duckduckgo',
   todo_write: 'todo_write', todo: 'todo_write', task_write: 'todo_write', todos: 'todo_write',
+  grep_search: 'grep_search', grep: 'grep_search', ripgrep: 'grep_search', content_search: 'grep_search', search_code: 'grep_search',
+  git: 'git', http_request: 'http_request', http: 'http_request', fetch: 'http_request', curl: 'http_request',
+  notebook_edit: 'notebook_edit', clarify: 'clarify', ask_user: 'clarify', code_execution: 'code_execution', run_code: 'code_execution', code_exec: 'code_execution',
+  calendar_add: 'calendar_add', add_event: 'calendar_add', reminder_add: 'reminder_add', add_reminder: 'reminder_add',
+  notes_add: 'notes_add', add_note: 'notes_add', mac_notify: 'mac_notify', notify: 'mac_notify', notification: 'mac_notify',
+  image_generation: 'image_generation', generate_image: 'image_generation', text_to_speech: 'text_to_speech', tts: 'text_to_speech',
+  speech_to_text: 'speech_to_text', stt: 'speech_to_text', transcribe: 'speech_to_text',
 };
 
 function expandHome(p) {
@@ -229,13 +244,21 @@ function buildFeedback(norm, res) {
   const ok = res && res.success !== false;
   if (!ok) return `${norm} HATA: ${(res && res.error) || 'bilinmeyen hata'}`;
   if (norm === 'write_file') return `write_file OK: ${res.path || ''} (${res.size != null ? res.size : '?'} bytes)`;
+  // Modelin GORMESI gereken cikti — genis alan seti (arac cesitliligi icin):
+  // content(read), output/stdout(bash), body(http), text(tts/transcribe), results/items/matches(search),
+  // reply/answer/data/summary/transcript(cesitli). Yoksa tum sonucu (kucuk meta) JSON'la.
   let body = '';
-  if (res.content != null) body = String(res.content).slice(0, 2500);
-  else if (res.output != null) body = String(res.output).slice(0, 2000);
-  else if (res.stdout != null) body = String(res.stdout).slice(0, 2000);
-  else if (res.results != null) body = JSON.stringify(res.results).slice(0, 2000);
-  else if (res.items != null) body = JSON.stringify(res.items).slice(0, 2000);
-  const head = `${norm} OK` + (res.path ? ` (${res.path})` : '');
+  const first = ['content', 'output', 'stdout', 'text', 'transcript', 'body', 'reply', 'answer', 'summary', 'url', 'path'];
+  const jsonish = ['results', 'items', 'matches', 'data', 'events', 'entries', 'files'];
+  for (const k of first) { if (res[k] != null && String(res[k]).trim()) { body = String(res[k]).slice(0, 2500); break; } }
+  if (!body) for (const k of jsonish) { if (res[k] != null) { body = JSON.stringify(res[k]).slice(0, 2000); break; } }
+  if (!body) {
+    // hicbir bilinen alan yok → sonucu oldugu gibi ver (success/error disi anlamli alanlar)
+    const meta = {};
+    for (const k of Object.keys(res)) if (!['success', 'error'].includes(k)) meta[k] = res[k];
+    if (Object.keys(meta).length) body = JSON.stringify(meta).slice(0, 1500);
+  }
+  const head = `${norm} OK` + (res.path ? ` (${res.path})` : (res.status ? ` (HTTP ${res.status})` : ''));
   return body ? `${head}:\n${body}` : head;
 }
 

@@ -260,6 +260,13 @@ describe('executeCall', () => {
     expect(feedback).toContain('merhaba dunya');
   });
 
+  it('http_request body\'sini feedback\'e koyar (arac calisiyor ama sonuc donmuyordu bug\'i)', async () => {
+    const loadTool = () => ({ execute: async () => ({ success: true, status: 200, body: '{"stargazers_count":112233}' }) });
+    const { feedback } = await executeCall({ tool: 'http_request', args: { url: 'https://x', method: 'GET' } }, { loadTool });
+    expect(feedback).toContain('112233');
+    expect(feedback).toContain('HTTP 200');
+  });
+
   it('allowlist icindeki write_file\'i calistirir ve ~ genisletir', async () => {
     const loadTool = () => ({ execute: async (a) => ({ success: true, path: a.path, size: 3 }) });
     const { records } = await executeCall({ tool: 'write_file', args: { path: '~/t.txt', content: 'abc' } }, { loadTool });

@@ -2,6 +2,20 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.36.0] - 2026-07-05 — "13 PHANTOM ARAÇ TANITILDI + feedback body genisletmesi"
+
+Sistematik denetim: 90 aracin agentic prompt/allowlist ile karsilastirmasi → **70 arac ajana HIC tanitilmamisti (phantom)**. Yuksek-degerli + guvenli + key gerektirmeyenler tanitildi (kullanicinin "bende olup uygulamada olmayan tool'lari ekle" hedefi).
+
+### ✨ Eklenen (mevcuttu ama ajana kapali/gorunmezdi)
+- **grep_search** (kod tabaninda icerik arama), **git** (ozel arac, operation-bazli), **http_request** (API/webhook), **code_execution** (python/node/bash sandbox), **notebook_edit** (Jupyter), **clarify** (netlestirme sorusu).
+- **macOS asistan**: `calendar_add`, `reminder_add`, `notes_add`, `mac_notify` (Takvim/Hatirlatici/Notlar/bildirim — Windows'ta zarafetle "sadece macOS" der, kullanicinin Mac'inde calisir).
+- **Medya**: `image_generation`, `text_to_speech`, `speech_to_text`.
+
+### 🐛 Düzeltme
+- **`buildFeedback` genisletildi**: http_request gibi araclar `done` donuyor ama sonucu (body) modele GERI DONMUYORDU → ajan "arac calismiyor" sanip 9 araca sapiyordu. Artik body/text/transcript/data/matches vb. genis alan seti + bilinmeyen alanlar JSON'la geri verilir. (E2E: http_request tek cagirida yaniti dogru dondurdu.)
+
+Doğrulama: grep_search/git/http_request/code_execution ajan uzerinden E2E; **506 test yeşil**, ESLint temiz.
+
 ## [5.35.0] - 2026-07-05 — "WEB ARAMA + TODO + GIT-ZINCIRI DUZELTMELERI (sistematik denetim devam)"
 
 Kullanicinin "tum ozellikleri tek tek test et" talebiyle sistematik denetime devam edildi; ayni kok-neden deseni (arac var ama agentic promptta hic tanitilmamis/yanlis dosya adi) 3 yerde daha bulundu.
