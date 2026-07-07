@@ -128,6 +128,16 @@ describe('DEFAULT_ALLOWED (regresyon kilidi)', () => {
   it('cron_create safe modda ERISILEBILIR olmali (agent "her gun X yap" isteginde bash/schtasks hack\'ine dusmemeli)', () => {
     expect(mod.DEFAULT_ALLOWED).toContain('cron_create');
   });
+  it('duckduckgo + todo_write safe modda erisilebilir olmali (agent "internet erisimim yok" yalanini soylememeli)', () => {
+    expect(mod.DEFAULT_ALLOWED).toContain('duckduckgo');
+    expect(mod.DEFAULT_ALLOWED).toContain('todo_write');
+  });
+  it('duckduckgo_search alias\'i dogru dosyaya (duckduckgo.js) esler — isim/dosya uyumsuzlugu regresyonu', () => {
+    expect(mod.TOOL_ALIASES['duckduckgo_search']).toBe('duckduckgo');
+  });
+  it('cd/pushd/popd exec politikasinda izinli ("cd X && git ..." zinciri bloklanmamali)', () => {
+    expect(agentExecAllowed('cd C:/Projects/foo && git status --short')).toBe(true);
+  });
   it('temel dosya+hafiza araclari safe modda erisilebilir kalir', () => {
     for (const t of ['write_file', 'read_file', 'edit_file', 'memory_write', 'memory_tree']) {
       expect(mod.DEFAULT_ALLOWED).toContain(t);

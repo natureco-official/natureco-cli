@@ -21,7 +21,7 @@ const os = require('os');
 // icinde approvals politikasini uyguluyor (isSafeCommand → direkt; tehlikeli → red;
 // digerleri → allowlist/full moda gore). Yani keyfi/yikici komut calismaz.
 // Diger ~85 arac (discord, telegram, cron, browser...) bilerek DISARIDA.
-const DEFAULT_ALLOWED = ['write_file', 'read_file', 'edit_file', 'skill_view', 'bash', 'file_search', 'list_dir', 'memory_write', 'memory_tree', 'cron_create'];
+const DEFAULT_ALLOWED = ['write_file', 'read_file', 'edit_file', 'skill_view', 'bash', 'file_search', 'list_dir', 'memory_write', 'memory_tree', 'cron_create', 'duckduckgo', 'web_search', 'todo_write'];
 
 const TOOL_ALIASES = {
   write_file: 'write_file', create_file: 'write_file', writefile: 'write_file', write: 'write_file', create: 'write_file', save_file: 'write_file', new_file: 'write_file',
@@ -34,6 +34,8 @@ const TOOL_ALIASES = {
   memory_write: 'memory_write', remember: 'memory_write', save_memory: 'memory_write', memorize: 'memory_write', memory_save: 'memory_write', save_fact: 'memory_write',
   memory_tree: 'memory_tree', tree_memory: 'memory_tree', memory: 'memory_tree', hafiza: 'memory_tree',
   cron_create: 'cron_create', cron: 'cron_create', schedule_task: 'cron_create', create_cron: 'cron_create',
+  duckduckgo_search: 'duckduckgo', duckduckgo: 'duckduckgo', web_search: 'web_search', search_web: 'web_search', internet_search: 'duckduckgo',
+  todo_write: 'todo_write', todo: 'todo_write', task_write: 'todo_write', todos: 'todo_write',
 };
 
 function expandHome(p) {
@@ -66,6 +68,7 @@ const AGENT_EXEC_ALLOW = new Set([
   'find', 'wc', 'which', 'where', 'whereis', 'tree', 'stat', 'file', 'sort', 'uniq', 'diff',
   'mkdir', 'touch', 'cp', 'copy', 'mv', 'move', 'git', 'jq', 'sed', 'awk', 'date', 'env', 'whoami',
   'open', 'start', 'xdg-open', 'explorer', // uygulama/URL/dosya ac (dusuk risk, asistan icin gerekli)
+  'cd', 'pushd', 'popd', // dizin degistirme (kabuk builtin, zincirli komutlarda sik kullanilir: "cd X && npm test")
 ]);
 const AGENT_EXEC_BLOCK_PATTERNS = [
   /\bnpm\s+publish\b/i, /\byarn\s+publish\b/i, /\bpnpm\s+publish\b/i,

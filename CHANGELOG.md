@@ -2,6 +2,17 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.35.0] - 2026-07-05 — "WEB ARAMA + TODO + GIT-ZINCIRI DUZELTMELERI (sistematik denetim devam)"
+
+Kullanicinin "tum ozellikleri tek tek test et" talebiyle sistematik denetime devam edildi; ayni kok-neden deseni (arac var ama agentic promptta hic tanitilmamis/yanlis dosya adi) 3 yerde daha bulundu.
+
+### 🐛 Düzeltme
+- **Web arama "internet erisimim yok" YALANI**: `duckduckgo_search`/`web_search` allowlist'te yoktu; ajan "internet erisimim kisitli" diyip halusinasyon yapiyordu. Ayrica alias eslemesi YANLIS dosyaya (`duckduckgo_search.js` — mevcut degil) gidiyordu, dogrusu `duckduckgo.js`. Artik duckduckgo (key gerektirmez, HER ZAMAN calisir) + web_search (Tavily varsa) tanimli ve dogru dosyaya esleniyor.
+- **Todo sistemi gorunmuyordu**: `todo_write` allowlist'te yoktu; ajan "gorev ekle" istegini yanlislikla memory_tree'ye yaziyordu (kalici hafiza ile aktif is takibini karistiriyordu). Artik todo_write tanimli ve doğru kullaniliyor.
+- **`cd` kabuk builtin'i exec allowlist'inde yoktu**: ajan "cd <proje> && git status" gibi zincir kurdugunda TUM komut politika-disi sayilip reddediliyordu; ajan da bunu yanlislikla "guvenlik politikasi" diye kullaniciya bildirip gercek git durumunu hic gostermiyordu. `cd`/`pushd`/`popd` artik izinli (dizin degistirme, dusuk risk).
+
+Doğrulama: 4 senaryo E2E (web arama, todo, git) — hepsi dogru calisti; git ozellikle GERCEK repo durumuyla birebir eslesen doğru cevap verdi. **505 test yeşil**, ESLint temiz.
+
 ## [5.34.0] - 2026-07-05 — "CRON DÜZELTMESİ (sahte-başarı önlendi + daemon dürüstlüğü)"
 
 ### 🐛 Düzeltme (kullanıcının "cron gorevleri olusturup uygulayabiliyor mu" sorusu üzerine bulundu)
