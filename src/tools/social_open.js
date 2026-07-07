@@ -124,9 +124,14 @@ function detectPlatform(input) {
   };
 }
 
-async function socialOpen(params) {
-  if (!IS_MAC) return { success: false, error: "Henüz sadece macOS destekleniyor" };
+// v5.39: platformlar arası URL açma — macOS `open`, Windows `start`, Linux `xdg-open`.
+function openUrlProc(url, browserApp) {
+  if (IS_MAC) return spawn("open", browserApp ? ["-a", browserApp, url] : [url]);
+  if (process.platform === "win32") return spawn("cmd", ["/c", "start", "", url], { windowsHide: true });
+  return spawn("xdg-open", [url]); // linux + diğer *nix
+}
 
+async function socialOpen(params) {
   const { query, platform, username } = params;
 
   if (!query && !platform && !username) {
@@ -146,20 +151,19 @@ async function socialOpen(params) {
     note = detected.note;
   }
 
-  const browser = getOpenBrowser();
+  const browser = IS_MAC ? getOpenBrowser() : null; // pgrep sadece macOS
   return new Promise((resolve) => {
-    const args = browser ? ["-a", browser, url] : [url];
-    const proc = spawn("open", args);
+    const proc = openUrlProc(url, browser);
     proc.on("close", (code) => {
       if (code === 0) {
         resolve({
           success: true,
           message: browser
             ? `${browser}'da yeni sekmede açıldı`
-            : "Yeni tarayıcı penceresinde açıldı",
+            : "Varsayılan tarayıcıda açıldı",
           platform: platformName,
           url,
-          browser: browser || "new",
+          browser: browser || "default",
           ...(note ? { note } : {}),
         });
       } else {

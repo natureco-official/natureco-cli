@@ -36,21 +36,73 @@ async function grepSearch({ pattern, path: searchPath = null, caseSensitive = fa
       }
     }
   }
-  // ripgrep varsa onu kullan, yoksa fallback grep
+  // ripgrep varsa onu kullan (hizli), yoksa SAF NODE fallback.
+  // v5.39: eski fallback `grep` komutuydu → Windows'ta yok (Git Bash gerekir).
+  // Artik hicbir Unix komutuna bagimli degil: rg opsiyonel hizlandirma.
   const useRipgrep = await checkCommand('rg');
 
   if (useRipgrep) {
     return await grepWithRipgrep(pattern, cwd, caseSensitive, includePattern, maxResults);
   }
-  return await grepWithFallback(pattern, cwd, caseSensitive, maxResults);
+  return grepWithNode(pattern, cwd, caseSensitive, includePattern, maxResults);
 }
 
 async function checkCommand(cmd) {
+  // v5.39: `which`/`where` platform-farkini bypass et — komutu dogrudan --version ile
+  // dene. PATH'te varsa 0 doner. (which Windows'ta yok, where *nix'te yok.)
   return new Promise((resolve) => {
-    const proc = spawn('which', [cmd]);
-    proc.on('close', code => resolve(code === 0));
-    proc.on('error', () => resolve(false));
+    let done = false;
+    const fin = (v) => { if (!done) { done = true; resolve(v); } };
+    try {
+      const proc = spawn(cmd, ['--version'], { stdio: 'ignore' });
+      proc.on('close', code => fin(code === 0));
+      proc.on('error', () => fin(false));
+    } catch { fin(false); }
   });
+}
+
+// v5.39: SAF NODE icerik aramasi — platformdan ve harici komuttan bagimsiz.
+function grepWithNode(pattern, cwd, caseSensitive, includePattern, maxResults) {
+  const results = [];
+  let re;
+  const flags = caseSensitive ? 'g' : 'gi';
+  try { re = new RegExp(pattern, flags); }
+  catch { re = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), flags); }
+  let globRe = null;
+  if (includePattern) {
+    const esc = includePattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+    globRe = new RegExp('^' + esc + '$', 'i');
+  }
+  const IGNORE = new Set(['node_modules', '.git', 'dist', 'build', '.next', 'coverage', '.cache', '.turbo']);
+  const walk = (dir) => {
+    if (results.length >= maxResults) return;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (results.length >= maxResults) break;
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) { if (!IGNORE.has(e.name)) walk(full); continue; }
+      if (!e.isFile()) continue;
+      if (globRe && !globRe.test(e.name)) continue;
+      let content;
+      try {
+        if (fs.statSync(full).size > 2 * 1024 * 1024) continue; // 2MB üstü atla
+        content = fs.readFileSync(full, 'utf8');
+      } catch { continue; }
+      if (content.includes('\x00')) continue; // ikili dosya (null byte)
+      const lines = content.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        re.lastIndex = 0;
+        if (re.test(lines[i])) {
+          results.push({ file: full, line: i + 1, text: lines[i].trim().slice(0, 300) });
+          if (results.length >= maxResults) break;
+        }
+      }
+    }
+  };
+  const start = (fs.existsSync(cwd) && fs.statSync(cwd).isFile()) ? path.dirname(cwd) : cwd;
+  walk(start);
+  return { success: true, pattern, tool: 'node', count: results.length, results };
 }
 
 async function grepWithRipgrep(pattern, cwd, caseSensitive, includePattern, maxResults) {
@@ -125,49 +177,6 @@ async function grepWithRipgrep(pattern, cwd, caseSensitive, includePattern, maxR
   });
 }
 
-async function grepWithFallback(pattern, cwd, caseSensitive, maxResults) {
-  return new Promise((resolve) => {
-    const args = ['-r', '-n', caseSensitive ? '' : '-i'];
-    if (process.platform === 'darwin') args.push('-E');
-    else args.push('-E');
-    args.push(pattern);
-    args.push(cwd);
-
-    const proc = spawn('grep', args);
-    let stdout = '';
-    let stderr = '';
-    // v5.6.32: Memory taşmasını önle - max 5MB output
-    let stdoutBytes = 0;
-    const MAX_OUTPUT = 5 * 1024 * 1024; // 5MB
-    let truncated = false;
-    const addStdout = (d) => {
-      if (truncated) return;
-      stdoutBytes += d.length;
-      if (stdoutBytes > MAX_OUTPUT) {
-        truncated = true;
-        stdout += '\n[OUTPUT TRUNCATED - exceeded 5MB limit]';
-        return;
-      }
-      stdout += d.toString();
-    };
-    proc.stdout.on('data', addStdout);
-
-    proc.on('close', (code) => {
-      const results = [];
-      const lines = stdout.split('\n').filter(Boolean);
-      for (const line of lines) {
-        if (results.length >= maxResults) break;
-        const match = line.match(/^(.+?):(\d+):(.*)$/);
-        if (match) {
-          results.push({ file: match[1], line: parseInt(match[2]), text: match[3] });
-        }
-      }
-      resolve({ success: true, pattern, tool: 'grep', count: results.length, results });
-    });
-    proc.on('error', (e) => resolve({ success: false, error: e.message }));
-  });
-}
-
 module.exports = {
   name: 'grep_search',
   description: 'Dosya içeriklerinde pattern ara (ripgrep veya grep). Örn: pattern="TODO", path="~/projects".',
@@ -185,4 +194,7 @@ module.exports = {
   async execute(params) {
     return await grepSearch(params);
   },
+
+  // v5.39: test icin — saf Node fallback'i rg'den bagimsiz dogrulamak icin
+  _grepWithNode: grepWithNode,
 };

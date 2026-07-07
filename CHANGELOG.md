@@ -2,6 +2,21 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.39.0] - 2026-07-08 — "CROSS-PLATFORM: grep_search + social_open Windows'ta kırıktı, düzeltildi"
+
+Platform-uyumluluk denetimi: 90 aracın 18'i platform-özel. Çekirdek chat/code araçlarının Windows VE macOS'ta çalışması hedeflendi. 2 çekirdek/computer-use aracı saf Windows'ta kırıktı.
+
+### 🐛 Cross-platform düzeltmeler
+- **grep_search saf Windows'ta tamamen kırıktı (ÇEKİRDEK araç)**: komut tespiti `spawn('which', ...)` + fallback `spawn('grep', ...)` kullanıyordu — `which` ve `grep` Windows'ta YOK (Git Bash olmadan). Ripgrep kurulu değilse arama hiç çalışmıyordu (bu makinede E2E'de çalışması yalnızca Git Bash kurulu olduğu içindi). Artık: (a) komut tespiti `rg --version` ile (which/where farkını bypass eder), (b) fallback **saf Node.js** dizin-tarama + regex (hiçbir Unix komutu gerekmez, node_modules/.git atlar, glob filtre, ikili-dosya atlama, 2MB sınırı). ripgrep varsa yine hız için kullanılır.
+- **social_open Windows/Linux'ta hard-red**: `if (!IS_MAC) return {error:"sadece macOS"}` → tamamen reddediyordu. Artık platformlar arası URL açma: macOS `open`, Windows `cmd /c start`, Linux `xdg-open`.
+
+### ✓ Doğrulanan cross-platform durum (denetim)
+- **Zaten cross-platform**: list_dir/read_file/write_file/edit_file (saf Node fs), http_request (Node http), git (v5.38 execFileSync, git PATH'te standart), code_execution (v5.38 py/python/node fallback), web_search/duckduckgo (Node http).
+- **bash**: `shell:true` = platform-native shell (Windows cmd.exe, *nix sh) — doğru; agent OS'u sysMsg'den bilir (`İşletim sistemi: <platform>`) → platform-uygun komut seçer.
+- **Tasarım gereği macOS-only (8 araç)**: mac_app_open/quit, mac_notify, macos_screenshot, notes/reminder/calendar_add, mac_alarm — osascript tabanlı; Windows'ta net "sadece macOS" mesajı (kullanıcının Mac'inde çalışır).
+
+Doğrulama: grep_search Node fallback E2E (tool:node, rg'siz çalıştı); 527 test yeşil (6 yeni: grep-search Node fallback — dizin atlama, glob, maxResults, case-insensitive, geçersiz-regex), ESLint temiz.
+
 ## [5.38.0] - 2026-07-08 — "FİNAL DOĞRULAMA: git/code_execution/http_request düzeltmeleri + git enjeksiyon açığı kapatıldı"
 
 Final doğrulama re-run'inde (agent yolu E2E) 3 fonksiyonel sorun + 1 güvenlik açığı bulundu ve düzeltildi.
