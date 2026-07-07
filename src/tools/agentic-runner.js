@@ -59,6 +59,26 @@ function expandHome(p) {
   return p;
 }
 
+// Hassas dosya yolu koruması (safe modda). Coding-agent proje dosyalarina serbest erisir
+// ama kimlik/secret yollari prompt-injection ile suistimal edilebilir (SSH backdoor,
+// credential sizintisi). Full modda (sahibin opt-in'i) bypass edilir.
+const SENSITIVE_READ = [
+  /(^|[\\/])\.ssh[\\/]/i, /id_rsa|id_ed25519|id_ecdsa|id_dsa/i, /\.pem$|\.ppk$|\.key$/i,
+  /(^|[\\/])\.aws[\\/]/i, /gcloud[\\/].*(credential|token)/i, /(^|[\\/])\.npmrc$/i,
+  /(^|[\\/])\.git-credentials$/i, /\.natureco[\\/]config\.json$/i, /(^|[\\/])\.netrc$/i,
+];
+const SENSITIVE_WRITE = [
+  /(^|[\\/])\.ssh[\\/]/i,                 // authorized_keys/config yazma = backdoor
+  /^\/(etc|usr|bin|sbin|boot|sys)[\\/]/i, // mutlak sistem yollari
+  /(^|[\\/])etc[\\/](passwd|shadow|sudoers|hosts|crontab|ssh)/i, // goreceli traversal dahil (../../etc/shadow)
+  /System32[\\/]drivers[\\/]etc/i, /\.aws[\\/]credentials/i,
+];
+function sensitivePathBlocked(p, mode) {
+  const s = String(p || '');
+  const pats = mode === 'write' ? SENSITIVE_WRITE : SENSITIVE_READ;
+  return pats.some((re) => re.test(s));
+}
+
 // Ajanin urettigi komutlar icin ekstra koruma. bash.js kendi politikasini uygular
 // ama varsayilan 'full' mod yikici komutlari (rm -rf gibi) bile gecirir — bu insan
 // icin bilincli olabilir, ama MODELIN urettigi komut icin degil. Bu yuzden agentic
@@ -89,6 +109,14 @@ const AGENT_EXEC_BLOCK_PATTERNS = [
   /\bnpm\s+publish\b/i, /\byarn\s+publish\b/i, /\bpnpm\s+publish\b/i,
   /\bgit\s+push\b/i, /\bgit\s+remote\s+(add|set-url)\b/i,
   /\bnpm\s+(un)?deprecate\b/i, /\bnpm\s+owner\b/i,
+  // INLINE KOD ÇALIŞTIRMA — allowlist bypass'i (node/python izinli ama -e/-c ile keyfi kod
+  // dangerous-guard'i da atlar: "node -e require('fs').rmSync(...)"). Dosya calistirma
+  // ("node script.js") izinli kalir; inline kod icin code_execution araci var.
+  /\b(node|deno|bun)\s+.*(-e|--eval|-p\b|--print)/i,
+  /\b(python3?|py|ruby|perl)\s+.*(-c|-e)\b/i,
+  /\b(bash|sh|zsh|dash|ksh)\s+.*-c\b/i,
+  /\bphp\s+.*-r\b/i,
+  /\beval\b/i,
 ];
 // Full modda ("agentExec: full") acilan computer-use araclari: tarayici otomasyonu,
 // uygulama ac/kapat, GUI (tikla/yaz/ekran goruntusu). Safe modda (varsayilan) KAPALI.
@@ -307,6 +335,17 @@ async function executeCall(call, opts = {}) {
     if (typeof args[k] === 'string') args[k] = args[k].trim();
   }
   if (args.path) args.path = expandHome(args.path);
+
+  // Hassas dosya yolu guard'i (safe modda; full modda sahibin sorumlulugunda). SSH anahtari,
+  // cloud credential, config secret gibi yollara yazma/okumayi engeller (backdoor/sizinti).
+  if (!opts.execFull && args.path) {
+    const wantsWrite = (norm === 'write_file' || norm === 'edit_file');
+    const wantsRead = (norm === 'read_file');
+    if ((wantsWrite && sensitivePathBlocked(args.path, 'write')) || (wantsRead && sensitivePathBlocked(args.path, 'read'))) {
+      records.push({ tool: norm, status: 'error', args: { path: args.path }, error: 'Hassas dosya yolu (guvenli modda engellendi)' });
+      return { records, feedback: `${norm}: "${args.path}" hassas bir yol (SSH anahtari/credential/secret) — guvenli modda ERISILEMEZ. Gerekirse kullanici manuel yapabilir ya da tam mod: NATURECO_AGENT_EXEC=full.` };
+    }
+  }
 
   // Ajan modu guvenlik guard'i: yikici/tehlikeli kabuk komutlarini calistirmadan engelle
   if (norm === 'bash') {
