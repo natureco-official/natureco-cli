@@ -124,6 +124,17 @@ describe('makeSanitizeStream (model adi temizleme)', () => {
   });
 });
 
+describe('DEFAULT_ALLOWED (regresyon kilidi)', () => {
+  it('cron_create safe modda ERISILEBILIR olmali (agent "her gun X yap" isteginde bash/schtasks hack\'ine dusmemeli)', () => {
+    expect(mod.DEFAULT_ALLOWED).toContain('cron_create');
+  });
+  it('temel dosya+hafiza araclari safe modda erisilebilir kalir', () => {
+    for (const t of ['write_file', 'read_file', 'edit_file', 'memory_write', 'memory_tree']) {
+      expect(mod.DEFAULT_ALLOWED).toContain(t);
+    }
+  });
+});
+
 describe('agentExecAllowed (ajan exec politikasi)', () => {
   it('guvenli kodlama komutlarina izin verir', () => {
     for (const c of ['node app.js', 'npm install', 'npm test', 'git status', 'python x.py', 'ls -la', 'mkdir dist', 'npx vitest run']) {

@@ -2,6 +2,18 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.34.0] - 2026-07-05 — "CRON DÜZELTMESİ (sahte-başarı önlendi + daemon dürüstlüğü)"
+
+### 🐛 Düzeltme (kullanıcının "cron gorevleri olusturup uygulayabiliyor mu" sorusu üzerine bulundu)
+- **`cron_create` agentic allowlist'te HİÇ YOKTU** — modele hic tanitilmamisti. Ajan "her gun X yap" gibi istekte zorunlu olarak `bash` ile native OS scheduling'e (Windows: schtasks/Register-ScheduledTask, macOS: crontab) yoneliyordu — tutarsiz (natureco cron list'te gorunmez) ve bazen basarisiz komuttan sonra SAHTE BASARI iddia ediyordu. Artik `cron_create` allowlist'te + sistem promptunda taniml.
+- **Daemon gerekliligi dürüstçe soyleniyor**: cron_create sonrasi olusan gorevin FIILEN tetiklenmesi icin arka plan servisinin (`natureco daemon start/install`) calisiyor olmasi gerekir — bu adim atlanirsa gorev sadece database'e (crons.json) kaydedilir, calismaz. Ajan artik bunu acikca soyluyor, kesin basari iddia etmiyor.
+- Regresyon kilidi: DEFAULT_ALLOWED icinde cron_create + temel arac testleri (2 yeni test).
+
+### 🔍 Sistematik denetim (kullanicinin "tüm özellikleri tek tek test et" talebiyle)
+90 arac dosyasi yuklendi (89/90 execute'a sahip, 1 yardimci modul); 11 yerel arac fiilen calistirildi (10/11 basarili, macos_screenshot dogru sekilde "sadece macOS" dedi); 23 CLI komutu calistirildi (22/23 basarili, 1 yanlis alt-komut adi = false positive).
+
+Doğrulama: cron_create E2E (crons.json'a doğru yazıldı, schedule doğru, daemon uyarısı görüldü); **500+ test yeşil**, ESLint temiz.
+
 ## [5.33.0] - 2026-07-04 — "OTURUM-BAŞI BEKLEYEN-İŞ HATIRLATMASI (Theseus deseni)"
 
 ### ✨ Yeni (Hafıza)
