@@ -271,6 +271,8 @@ async function workflow(params) {
         '- git: git islemi. parametreler: operation (status/diff/log/branches/add/commit), args, message (commit icin). (Basit git icin bunu kullan.)',
         '- http_request: HTTP istegi at (API cagrisi, webhook, veri cekme). parametreler: url, method, headers, body.',
         '- code_execution: kod parcasi calistir (sandboxli). parametreler: code, language (python/node/bash).',
+        '- sub_agent: bir ALT-GOREVI bagimsiz bir alt-agent\'a devret (kendi LLM cagrisini yapar, sonucu doner). parametreler: task (zorunlu), context (ops.), maxTokens (ops.). Paralel arastirma, odakli alt-problem, ya da ana gorevi bolup parcalari delege etmek icin. Birden fazla cagirarak orchestrate edebilirsin.',
+        '- plan: karmasik/cok-adimli bir gorev icin ONCE plan cikar (SADECE plan metni uretir, HICBIR islem yapmaz; ~/.natureco/plans/ altina kaydeder). parametreler: action ("create" veya "list"), task (create icin), depth ("minimal"/"detailed"). Kullanici "plan yap / once planla / adimlari cikar / yol haritasi" derse bunu kullan.',
         '- notebook_edit: Jupyter (.ipynb) hucre duzenle. parametreler: filePath, ...',
         '- clarify: kullaniciya netlestirme sorusu sor (belirsizlik varsa). parametreler: question, options.',
         '- calendar_add / reminder_add / notes_add / mac_notify: macOS Takvim/Hatirlatici/Notlar/bildirim (kullanici macOS ise; degilse arac "sadece macOS" der).',

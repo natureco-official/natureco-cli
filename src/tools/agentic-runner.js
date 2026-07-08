@@ -25,6 +25,8 @@ const DEFAULT_ALLOWED = [
   'write_file', 'read_file', 'edit_file', 'skill_view', 'bash', 'file_search', 'list_dir', 'grep_search',
   'memory_write', 'memory_tree', 'cron_create', 'duckduckgo', 'web_search', 'todo_write',
   'git', 'http_request', 'notebook_edit', 'clarify', 'code_execution',
+  // orchestration + planlama (guvenli: sub_agent = alt-LLM cagrisi, plan = metin+.md; shell/sistem yok)
+  'sub_agent', 'plan',
   // macOS asistan yetenekleri (Windows'ta zarafetle "sadece macOS" der; kullanıcının Mac'inde çalışır)
   'calendar_add', 'reminder_add', 'notes_add', 'mac_notify',
   // medya (kullanıcının kendi provider/API'siyle)

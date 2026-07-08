@@ -2,6 +2,21 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.41.0] - 2026-07-08 — "sub-agent orchestration + plan modu PHANTOM idi, açıldı"
+
+Kullanıcının "sub-agent orchestration ve plan modunda açık kalmasın" talebiyle: ikisi de mevcut+çalışır kod (`sub_agent.js`, `plan.js`) AMA agentic-runner `DEFAULT_ALLOWED`'da ve workflow sysMsg'inde YOKTU → agent bunları çağıramıyordu (klasik phantom-tool deseni).
+
+### ✨ Açılan yetenekler (kod vardı, agent erişemiyordu)
+- **sub_agent** (orchestration): agent bir alt-görevi bağımsız bir alt-agent'a devreder (kendi LLM çağrısı, sonucu döner). Birden fazla çağırarak paralel/çok-parçalı orchestration yapar. Güvenli (sadece LLM çağrısı, shell/dosya yok) → safe-mode allowlist'e eklendi.
+- **plan** (plan modu): karmaşık görev için önce plan çıkarır (SADECE metin + `~/.natureco/plans/*.md`, hiçbir işlem yapmaz). safe-mode allowlist'e eklendi.
+- Her ikisi de workflow sysMsg'de tanıtıldı (agent ne zaman/nasıl kullanacağını bilir). Provider-bağımsız (MiniMax/Gemini/OpenAI endpoint routing içeriyor).
+
+### ✓ Doğrulama (agent yolu E2E, MiniMax)
+- plan: agent `plan` aracıyla 10-adımlık detaylı React todo planı çıkardı.
+- sub_agent: agent alt-agent spawn edip "list comprehension nedir" sordurup yanıtı iletti.
+- **çoklu orchestration**: agent İKİ ayrı alt-agent'a iki görev delege etti (5!=120, HTTP 404) ve ikisini özetledi.
+- 533 test yeşil (sub_agent+plan phantom regresyon kilidi), ESLint temiz.
+
 ## [5.40.0] - 2026-07-08 — "CROSS-SESSION HAFIZA bozulması düzeltildi (gerçek macOS SSH testinde bulundu)"
 
 Gerçek MacBook'a SSH ile bağlanıp canlı test yapılırken bulundu: kullanıcı "projemin gizli kod adı ONYX-7'yi hatırla" dediğinde, yeni oturumda HATIRLANMIYORDU. Kök neden zincirleme çözüldü.

@@ -132,6 +132,11 @@ describe('DEFAULT_ALLOWED (regresyon kilidi)', () => {
     expect(mod.DEFAULT_ALLOWED).toContain('duckduckgo');
     expect(mod.DEFAULT_ALLOWED).toContain('todo_write');
   });
+  it('sub_agent + plan safe modda erisilebilir olmali (orchestration + plan-modu phantom degil)', () => {
+    // Kod mevcut+calisir ama allowlist'te olmayinca agent KULLANAMIYORDU (phantom tool).
+    expect(mod.DEFAULT_ALLOWED).toContain('sub_agent');
+    expect(mod.DEFAULT_ALLOWED).toContain('plan');
+  });
   it('duckduckgo_search alias\'i dogru dosyaya (duckduckgo.js) esler — isim/dosya uyumsuzlugu regresyonu', () => {
     expect(mod.TOOL_ALIASES['duckduckgo_search']).toBe('duckduckgo');
   });
