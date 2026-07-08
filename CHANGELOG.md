@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.43.2] - 2026-07-08 — "FIX: `doctor --fix` artık gerçekten çalışıyor"
+
+### Fixed
+- **`natureco doctor --fix` çalışmıyordu**: `doctor()` fonksiyonu `--fix`'i hiç işlemiyordu → `Unknown doctor action: --fix` hatası veriyordu (README'de `--fix Auto-fix` olarak belgeli olmasına rağmen). Artık `--fix` (ve `fix` alt-komutu) düzeltilebilir sorunları otomatik onarır: eksik veri dizinlerini oluşturur (`memory`, `sessions`, `backups`, `audit`, …) ve hassas dosya izinlerini sıkılaştırır (`~/.natureco` → 0700, `config.json` → 0600, POSIX). Düzeltmelerden sonra normal sağlık kontrolleri çalışır. 3 regresyon testi eklendi. 571 test yeşil.
+
 ## [5.43.1] - 2026-07-08 — "SECURITY: config restore artık 0600 izniyle yazıyor"
 
 ### Security

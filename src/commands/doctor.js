@@ -25,17 +25,49 @@ const CHECKS = [
 
 function doctor(params) {
   try {
-    const [action, checkName] = params || [];
+    const args = params || [];
+    const fix = args.includes('--fix') || args[0] === 'fix';
+    // --fix bir flag; action'lardan ayıkla (ör. "doctor --fix" → run+fix).
+    const positional = args.filter(a => a !== '--fix');
+    const [action, checkName] = positional;
 
-    if (!action || action === 'run') return cmdRun();
+    if (fix || !action || action === 'run') return cmdRun({ fix });
     if (action === 'list') return cmdList();
     if (action === 'check') return cmdCheck(checkName);
 
     console.log(chalk.red(`\n  Unknown doctor action: ${action}\n`));
-    console.log(chalk.gray('  Usage: natureco doctor [run|list|check <name>]\n'));
+    console.log(chalk.gray('  Usage: natureco doctor [run|list|check <name>|--fix]\n'));
   } catch (err) {
     console.log(chalk.red(`\n  Doctor error: ${err.message}\n`));
   }
+}
+
+// v5.43.2: --fix — düzeltilebilir sorunları otomatik onar. Eskiden --fix hiç
+// işlenmiyordu ("Unknown doctor action: --fix"), README'de belgeli olmasına rağmen.
+function applyFixes() {
+  const applied = [];
+  const failed = [];
+  // 1. Eksik veri dizinlerini oluştur
+  const REQUIRED = ['sources', 'concepts', 'cache', 'skills', 'memory', 'sessions', 'backups', 'hooks', 'audit'];
+  try { if (!fs.existsSync(BASE_DIR)) fs.mkdirSync(BASE_DIR, { recursive: true, mode: 0o700 }); } catch (e) { failed.push('~/.natureco: ' + e.message); }
+  for (const d of REQUIRED) {
+    const dir = path.join(BASE_DIR, d);
+    if (!fs.existsSync(dir)) {
+      try { fs.mkdirSync(dir, { recursive: true }); applied.push('created dir: ' + d); }
+      catch (e) { failed.push(d + ': ' + e.message); }
+    }
+  }
+  // 2. Hassas dosya/dizin izinlerini sıkılaştır (POSIX) — API key'li config gizli kalmalı
+  if (process.platform !== 'win32') {
+    try { fs.chmodSync(BASE_DIR, 0o700); applied.push('~/.natureco → 0700'); } catch {}
+    if (fs.existsSync(CONFIG_FILE)) {
+      try {
+        const cur = fs.statSync(CONFIG_FILE).mode & 0o777;
+        if (cur !== 0o600) { fs.chmodSync(CONFIG_FILE, 0o600); applied.push('config.json → 0600'); }
+      } catch {}
+    }
+  }
+  return { applied, failed };
 }
 
 function cmdList() {
@@ -65,8 +97,24 @@ function cmdCheck(name) {
   }
 }
 
-function cmdRun() {
-  F.header('System Doctor · Tüm Sistem Kontrolleri', { icon: '🩺' });
+function cmdRun(opts = {}) {
+  F.header(opts.fix ? 'System Doctor · Otomatik Düzeltme (--fix)' : 'System Doctor · Tüm Sistem Kontrolleri', { icon: opts.fix ? '🔧' : '🩺' });
+
+  // v5.43.2: --fix modunda önce düzeltilebilir sorunları onar, sonra kontrolleri çalıştır.
+  if (opts.fix) {
+    const { applied, failed } = applyFixes();
+    if (applied.length) {
+      console.log('\n' + tui.C.green('  🔧 Düzeltildi:'));
+      applied.forEach(a => console.log('     ' + tui.C.text('• ' + a)));
+    } else {
+      console.log('\n' + tui.C.muted('  🔧 Düzeltilecek bir şey yok — sistem zaten düzgün.'));
+    }
+    if (failed.length) {
+      console.log('\n' + tui.C.amber('  ⚠️  Otomatik düzeltilemedi:'));
+      failed.forEach(f => console.log('     ' + tui.C.muted('• ' + f)));
+    }
+    console.log('');
+  }
 
   const rows = [];
   let passed = 0;
@@ -277,3 +325,5 @@ function runCheck(name) {
 }
 
 module.exports = doctor;
+// v5.43.2: test için — --fix otomatik düzeltme regresyonu
+module.exports.applyFixes = applyFixes;
