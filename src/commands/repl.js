@@ -20,6 +20,32 @@ const path = require('path');
 const os = require('os');
 const https = require('https');
 const { spawn } = require('child_process');
+
+/**
+ * v5.40: Oturum-sonu pattern-tabanli isim/tercih cikarimi — SAF fonksiyon (test
+ * edilebilir; regresyon kilidi). Eskiden persistSessionToMemory icinde gomuluydu
+ * ve "ad[ıi]m?" (m OPSIYONEL) pattern'i "kod adı", "proje adı", "dosya adı" gibi
+ * MASUM tamlamalari "kullanici adi" saniyor + degeri lowercase/\w ile bozuyordu
+ * ("gizli kod adı ZEPHYR-9" → "Kullanici ad: zephyr"). Bu, agent memory_write ile
+ * DOGRU kaydetse bile uzerine YANLIS fact yazip cross-session recall'i bozuyordu.
+ * @param {string} content  Kullanici mesaji (orijinal case)
+ * @returns {Array<{key:string, category:string, value:string}>}
+ */
+function extractPreferenceFacts(content) {
+  const patterns = [
+    // ad: "benim adım X" / "adım X" / "ismim X" — m ZORUNLU; "kod adı" (adı) YAKALANMAZ.
+    { match: /(?:benim\s+ad[ıi]m|(?:^|\s)ad[ıi]m|[iı]smim)\s+([A-Za-zÇĞİÖŞÜçğıöşü][\wÇĞİÖŞÜçğıöşü.-]*)/i, category: 'personal', key: 'ad' },
+    // tercih/konum: nesne fiilden ONCE gelir (TR) — deger orijinal case korunur.
+    { match: /([A-Za-zÇĞİÖŞÜçğıöşü][\wÇĞİÖŞÜçğıöşü.-]*)['’]?[ıi]?\s*(?:seviyorum|hoşlan[ıi]yorum|beğeniyorum)/i, category: 'preference', key: 'sevilen' },
+    { match: /([A-Za-zÇĞİÖŞÜçğıöşü][\wÇĞİÖŞÜçğıöşü.-]*)['’]?[dt][ae]\s+(?:yaşıyorum|oturuyorum|kalıyorum)/i, category: 'location', key: 'yer' },
+  ];
+  const out = [];
+  for (const p of patterns) {
+    const m = (content || '').match(p.match);
+    if (m) out.push({ key: p.key, category: p.category, value: `Kullanici ${p.key}: ${m[1].trim()}` });
+  }
+  return out;
+}
 const chalk = require('chalk');
 const tui = require('../utils/tui');
 const { loadToolDefinitions, toOpenAIFormat, executeTool } = require('../utils/tools');
@@ -1252,20 +1278,12 @@ async function startRepl(args) {
           // Bot adı sorgulanmış olabilir, mevcut adı koru
         }
 
-        // Kisilik tercihleri (genel pattern'ler)
-        const prefPatterns = [
-          { match: /(?:benim ad[ıi]m?|bana\s+.*de|ad[ıi]m?)\s+(\w+)/i, category: 'personal', key: 'ad' },
-          { match: /(?:seviyorum|hoşlan[ıi]yorum|beğeniyorum)\s+(\w+)/i, category: 'preference', key: 'sevilen' },
-          { match: /(?:yaşıyorum|oturuyorum|kalıyorum)\s+(\w+)/i, category: 'location', key: 'yer' },
-        ];
-        for (const p of prefPatterns) {
-          const m2 = msg.content.match(p.match);
-          if (m2) {
-            const val = m2[1].toLowerCase();
-            const fact = `Kullanici ${p.key}: ${val}`;
-            if (!(memory.facts || []).some(f => f.value === fact)) {
-              newFacts.push({ value: fact, score: 6, category: p.category, createdAt: new Date().toISOString() });
-            }
+        // v5.40: Kisilik/isim cikarimi module-level SAF extractPreferenceFacts'e
+        // tasindi (test edilebilir + regresyon kilidi). "kod adı"/"proje adı" gibi
+        // masum tamlamalari artik yanlis yakalamiyor; deger orijinal case'de kalir.
+        for (const pf of extractPreferenceFacts(msg.content)) {
+          if (!(memory.facts || []).some(f => (f.value || '').toLowerCase() === pf.value.toLowerCase())) {
+            newFacts.push({ value: pf.value, score: 6, category: pf.category, createdAt: new Date().toISOString() });
           }
         }
       }
@@ -1285,11 +1303,13 @@ async function startRepl(args) {
         factsAdded = uniqueFacts.length;
       }
 
-      // Decay (eski fact'leri dusuk skora dusur)
-      if (memory.facts && memory.facts.length > 15) {
-        // Max 15 fact tut, en dusuk skorlu olanlari sil
-        memory.facts.sort((a, b) => (b.score || 5) - (a.score || 5));
-        memory.facts = memory.facts.slice(0, 15);
+      // Decay: soft-cap. v5.40: memory_write ile UYUMLU (eski 15 sert limiti yeni
+      // fact'leri sessizce kesiyordu — recall kaybina yol aciyordu). 50 = MAX_FACTS.
+      const CAP = (() => { const r = parseInt(process.env.NATURECO_MAX_FACTS || '', 10); return Number.isFinite(r) && r > 0 ? r : 50; })();
+      if (memory.facts && memory.facts.length > CAP) {
+        // En yuksek skor + en yeni once; dusukleri sil.
+        memory.facts.sort((a, b) => ((b.score || 5) - (a.score || 5)) || String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+        memory.facts = memory.facts.slice(0, CAP);
       }
     } catch (e) {
       // Sessizce devam et, kritik degil
@@ -1643,3 +1663,5 @@ async function startRepl(args) {
 }
 
 module.exports = startRepl;
+// v5.40: test icin — cross-session hafiza bozulma regresyonu (kod adı ≠ kullanici adi)
+module.exports.extractPreferenceFacts = extractPreferenceFacts;

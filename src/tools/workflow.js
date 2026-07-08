@@ -61,12 +61,18 @@ function loadUserMemory(username) {
         const key = v.trim().toLowerCase();
         if (!key || seen.has(key)) continue;
         seen.add(key);
-        facts.push(v.trim());
+        // v5.40: skor + tarih koru — sysMsg'e EN GUNCEL/ONEMLI fact'ler girsin.
+        // Eski hali dosya sirasiyla ilk 15'i aliyordu → cok fact olunca en YENI
+        // kayit (or. yeni ogrenilen kod adi) kesiliyor, recall basarisiz oluyordu.
+        facts.push({ v: v.trim(), score: (f && typeof f.score === 'number') ? f.score : 0, t: (f && (f.updatedAt || f.createdAt)) || '' });
       }
     }
+    // v5.40: yuksek skor + en yeni once
+    facts.sort((a, b) => (b.score - a.score) || String(b.t).localeCompare(String(a.t)));
+    const factVals = facts.map(f => f.v);
     // isim memory.name'de yoksa fact'lerden cikar
     if (!name) {
-      for (const f of facts) {
+      for (const f of factVals) {
         const match = f.toLowerCase().match(/(?:kullanici\s*adi?|kullanıcı\s*adı?|isim|name)\s*:?\s*(.+)/);
         if (match && match[1].trim().length > 2) { name = match[1].trim(); break; }
       }
@@ -74,7 +80,7 @@ function loadUserMemory(username) {
     const parts = [];
     if (name) parts.push(`Kullanici adi: ${name}`);
     if (botName) parts.push(`Bot adi: ${botName}`);
-    if (facts.length > 0) parts.push(`Bilinenler: ${facts.slice(0, 15).join('; ')}`);
+    if (factVals.length > 0) parts.push(`Bilinenler: ${factVals.slice(0, 25).join('; ')}`);
     return parts.join('\n');
   } catch {}
   return '';
@@ -273,6 +279,7 @@ async function workflow(params) {
         '- memory_tree: AGAC-HAFIZA — zengin/kategorize kalici bilgi (proje, karar, teknik not, kisisel detay). action: index|read|search|append; username="' + memUser + '"; append icin: root (1-kisisel|2-teknik|3-kararlar) + branch (dal basligi) + content (yaprak). YENI oturumda hatirlanir.',
         '\nKurallar:',
         '- Kullanici kalici bilgi paylasirsa (isim, tercih, parola, proje, karar, onemli detay) ya da "hatirla / not al / kaydet" derse HEMEN KAYDET (username="' + memUser + '"): kisa tek bilgi → memory_write; zengin/kategorize bilgi → memory_tree(append, dogru root/branch). Trivial/gecici seyleri kaydetme.',
+        '- KAYIT KALITESI (onemli): fact\'i kullanicinin SOYLEDIGI ANLAMI ve SPESIFIK DEGERLERI koruyarak yaz. Kod/isim/sayi/tarih/parola gibi degerleri AYNEN gecir (or. "gizli kod adi ONYX-7" → fact: "Projenin gizli kod adi ONYX-7" — "ONYX-7"yi "onyx" yapma, kisaltma). Neyin ne oldugunu DOGRU etiketle: proje kod adi ≠ kullanici adi, sifre ≠ isim. Yanlis ozetleme yeni oturumda yanlis hatirlamaya yol acar.',
         '- Kullaniciya ozel bir sey sorulunca (gecmis, proje, tercih, karar) once memory_tree(search/read) ile ilgili kok/dali OKU (hedefli, tum hafizayi degil). Tek primary: bilgi tek yerde yasar; digerine sadece "bkz:". Credential/secret ASLA duz metin.',
         '- Bir is YARIM kalirsa ya da kullanici "sonra / yarin / daha sonra yapalim" derse memory_tree(action:append, root:"3-kararlar", branch:"Bekleyen İşler", content:"...") ile kaydet — yeni oturum basinda otomatik hatirlatilir. Bir bekleyen is TAMAMLANINCA memory_tree(action:remove, root:"3-kararlar", query:"<anahtar kelime>") ile kaldir.',
         '- Guncel/internet bilgisi gerektiren bir soru gelirse ONCE duckduckgo_search ile ara ("internet erisimim yok" DEME — bu arac her zaman calisir, API key gerekmez).',

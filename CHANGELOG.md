@@ -2,6 +2,19 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.40.0] - 2026-07-08 — "CROSS-SESSION HAFIZA bozulması düzeltildi (gerçek macOS SSH testinde bulundu)"
+
+Gerçek MacBook'a SSH ile bağlanıp canlı test yapılırken bulundu: kullanıcı "projemin gizli kod adı ONYX-7'yi hatırla" dediğinde, yeni oturumda HATIRLANMIYORDU. Kök neden zincirleme çözüldü.
+
+### 🐛 Cross-session hafıza (KRİTİK — kullanıcının en önemli özelliği)
+- **Otomatik fact-extraction masum ifadeleri bozuyordu (asıl kök neden)**: `repl.js` her oturum sonunda regex ile fact çıkarıyordu; pattern `ad[ıi]m?` — **`m` OPSİYONEL** — "kod **adı**", "proje **adı**", "dosya **adı**" gibi tamlamaları "kullanıcı adı" sanıyor, değeri de `toLowerCase()`+`\w+` ile bozuyordu: **"gizli kod adı ZEPHYR-9" → "Kullanici ad: zephyr"**. Agent `memory_write` ile DOĞRU kaydetse bile üzerine bu YANLIŞ fact yazılıyor, recall bozuluyordu. Artık: `m` zorunlu ("benim adım/adım/ismim X" yakalanır, "kod adı" YAKALANMAZ), değer orijinal case'de korunur (ZEPHYR-9 bozulmaz), aşırı geniş `bana .* de` kaldırıldı. Ayrıca konum eki `[dt]e`→`[dt][ae]` (da/de/ta/te), tercih/konum nesnesi fiilden ÖNCE (Türkçe dil bilgisi). Fonksiyon module-level `extractPreferenceFacts`'e taşındı + 5 regresyon testi.
+- **loadUserMemory sıralama**: flat fact'ler dosya sırasıyla ilk 15'i alınıyordu → çok fact olunca EN YENİ kayıt (yeni öğrenilen kod adı) sysMsg'e girmeden kesiliyordu. Artık skor + tarihe göre sıralanıp ilk 25 alınır (en güncel/önemli garanti).
+- **Limit tutarsızlığı**: `repl.js` fact'leri 15'e, `memory_write` 50'ye (MAX_FACTS) kesiyordu — repl'in 15 sert limiti yeni fact'leri sessizce siliyordu. İkisi 50'de (NATURECO_MAX_FACTS) birleştirildi.
+- **memory kaydetme kuralı** (agentic sysMsg): "spesifik değerleri (kod/isim/sayı/tarih) AYNEN koru, doğru etiketle (proje kod adı ≠ kullanıcı adı)" kuralı eklendi.
+
+### ✓ Gerçek macOS (Darwin 25.5.0, arm64) SSH doğrulaması
+node v26.4.0 + natureco kurulu. Doğrulanan: grep_search (ripgrep yolu), code_execution (python3+node), git (log+enjeksiyon+remote-guard), cron_create (oluştur+`cron list`'te görünür+remove), http_request/duckduckgo/memory_tree, agentic chat + write_file, **ve düzeltme sonrası**: "kod adı FALCON-3" → doğru kaydedildi + yeni oturumda hatırlandı. 532 test yeşil (repl-memory regresyon +5), ESLint temiz.
+
 ## [5.39.0] - 2026-07-08 — "CROSS-PLATFORM: grep_search + social_open Windows'ta kırıktı, düzeltildi"
 
 Platform-uyumluluk denetimi: 90 aracın 18'i platform-özel. Çekirdek chat/code araçlarının Windows VE macOS'ta çalışması hedeflendi. 2 çekirdek/computer-use aracı saf Windows'ta kırıktı.
