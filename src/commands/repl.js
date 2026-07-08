@@ -1265,7 +1265,22 @@ async function startRepl(args) {
     let preferencesAdded = 0;
 
     try {
-      // Pattern-based extraction (zaten extractFacts var)
+      // v5.44 KRİTİK KARAR: "yanlış hatırlamak, hiç hatırlamamaktan kötüdür."
+      // Otomatik regex-extraction, agent'ın BİLİNÇLİ memory_write/memory_tree kaydının
+      // üzerine yanlış fact yazabiliyordu (ör. "kod adı ONYX-7" → "Kullanici ad: onyx").
+      // Bu yüzden: agent bu oturumda memory'ye YAZDIYSA (disk'teki fact sayısı oturum
+      // başındakinden fazlaysa), regex-extraction'ı TAMAMEN ATLA — bilinçli kayıt kazanır.
+      // Modern modeller memory_write'ı güvenilir çağırır → regex hiç devreye girmez, sıfır
+      // yanlış-pozitif. Agent hiç kaydetmediyse (nadir) regex bir güvenlik ağı olarak kalır.
+      try {
+        const memFile = path.join(MEMORY_DIR, (cfg.userName || 'default').toLowerCase() + '.json');
+        const diskFacts = JSON.parse(fs.readFileSync(memFile, 'utf8')).facts || [];
+        if (diskFacts.length > (memory.facts || []).length) {
+          return { factsAdded: 0, preferencesAdded: 0, skippedAutoExtract: true };
+        }
+      } catch { /* dosya yok/okunamadı → aşağıdaki güvenlik ağı çalışsın */ }
+
+      // Pattern-based extraction (agent hiç bilinçli kayıt yapmadıysa güvenlik ağı)
       const newFacts = extractFacts(messages, memory.facts || []);
 
       // Bazi user message'lari da tara — genel kalıplarla fact çıkar

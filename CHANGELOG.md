@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.44.0] - 2026-07-08 — "MEMORY: otomatik regex-extraction artık agent'ın bilinçli kaydını ezmiyor"
+
+### Changed
+- **"Yanlış hatırlamak, hiç hatırlamamaktan kötüdür."** Oturum sonu otomatik regex-extraction (`persistSessionToMemory`), agent'ın bilinçli `memory_write`/`memory_tree` kaydının ÜZERİNE yanlış fact yazabiliyordu (ör. "projemin kod adı ONYX-7" → agent doğru kaydeder ama regex ayrıca "Kullanici ad: onyx" ekler). Artık: agent bu oturumda memory'ye YAZDIYSA (disk'teki fact sayısı oturum başındakinden fazlaysa), otomatik regex-extraction **tamamen atlanır** — bilinçli kayıt her zaman kazanır. Modern modeller `memory_write`'ı güvenilir çağırdığından regex çoğu oturumda hiç devreye girmez (sıfır yanlış-pozitif); agent hiç kaydetmediyse (nadir) regex yalnızca çok-net kimlik kalıplarıyla bir güvenlik ağı olarak kalır. 571 test yeşil.
+
 ## [5.43.2] - 2026-07-08 — "FIX: `doctor --fix` artık gerçekten çalışıyor"
 
 ### Fixed
