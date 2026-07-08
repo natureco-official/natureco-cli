@@ -2,6 +2,17 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.42.0] - 2026-07-08 — "TOKEN OPTIMİZASYONU: her istekte ~18K token israfı → ~4.5K (%76 azalma)"
+
+Kullanıcı token maliyetini sordu; ölçüm yapıldı ve ciddi bir israf bulundu: basit bir "merhaba" bile **18,763 token** prompt gönderiyordu. Kök neden: `skill-index.js` her sysMsg'e YÜZLERCE skill'in TAM `description`'ını gömüyordu (satır 75 `- name: description`), her istekte tekrar.
+
+### ⚡ Token verimliliği (doğrudan maliyet + kullanıcı tercihi)
+- **skill index kompaktlaştırıldı**: eskiden ~200 skill × ~350 char (tam açıklama) = ~75K char = ~18K token HER istekte. Bu progressive-disclosure'a da aykırıydı (skill_view zaten tam açıklama+içerik veriyor). Artık: çok skill (>60) → **kompakt isim-listesi** (kategorili, virgüllü); az skill → isim + kısa açıklama (88 char, kelime sınırı). Uzun "mandatory scan" yönergesi sadeleştirildi.
+- **Yeni env kontrolü** `NATURECO_SKILL_INDEX`: `off` (index hiç gönderilmez, en düşük token) / `names` (sadece isimler) / `full` (kısa açıklamalı, çok skill'de bile).
+- **Ölçülen etki** (gerçek MiniMax usage, monkeypatch ile): basit selam **18,763 → 4,456 token** (%76↓); tek-araç görevi 38,601 → 9,987 token. Çok-iterasyonlu görevlerde tasarruf katlanır (sysMsg her iterasyonda gider).
+
+538 test yeşil (skill-index token regresyonu +5: `_shorten`, off-mode, skill-başına-char sınırı), ESLint temiz. Provider-bağımsız (tüm sysMsg'ler `buildSkillIndex` kullanır).
+
 ## [5.41.0] - 2026-07-08 — "sub-agent orchestration + plan modu PHANTOM idi, açıldı"
 
 Kullanıcının "sub-agent orchestration ve plan modunda açık kalmasın" talebiyle: ikisi de mevcut+çalışır kod (`sub_agent.js`, `plan.js`) AMA agentic-runner `DEFAULT_ALLOWED`'da ve workflow sysMsg'inde YOKTU → agent bunları çağıramıyordu (klasik phantom-tool deseni).

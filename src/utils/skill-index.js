@@ -58,25 +58,46 @@ function _discoverSkills() {
   return skills;
 }
 
+/**
+ * v5.42 TOKEN OPTIMIZASYONU: eskiden her skill'in TAM `description`'i (frontmatter,
+ * ~200-500 char) sysMsg'e gomuluyordu → yuzlerce skill'de ~18K token HER istekte
+ * (basit "merhaba" bile). Progressive-disclosure'a da aykiri: skill_view zaten tam
+ * aciklama+icerik veriyor. Artik index'te KISA aciklama (cok skill varsa daha da kisa);
+ * ajan ismi+ozeti gorur, ilgiliyse skill_view(name) ile tam detayi ceker.
+ * NATURECO_SKILL_INDEX=names → sadece isimler (en dusuk token); =off → index yok.
+ */
+function _shorten(d, max) {
+  if (!d) return '';
+  const clean = d.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  return clean.slice(0, max).replace(/\s+\S*$/, '') + '…';
+}
+
 function buildSkillIndex() {
+  const mode = String(process.env.NATURECO_SKILL_INDEX || '').toLowerCase();
+  if (mode === 'off') return '';
   const skills = _discoverSkills();
   if (skills.length === 0) return '';
+  // Cok skill (>60) → KOMPAKT isim-listesi (kategorili, virgullu): en dusuk token.
+  // Az skill → isim + kisa aciklama. Kullanici 'full'/'names' ile ezebilir.
+  const many = skills.length > 60;
+  const compact = mode === 'names' || (many && mode !== 'full');
   const byCategory = {};
   for (const s of skills) {
     if (!byCategory[s.category]) byCategory[s.category] = [];
     byCategory[s.category].push(s);
   }
-  const lines = ['## Skills (mandatory)'];
-  lines.push('Before replying, scan the skills below. If a skill matches or is even partially relevant to your task, you MUST load it with skill_view(name) and follow its instructions. Err on the side of loading — it is always better to have context you do not need than to miss critical steps, pitfalls, or established workflows.');
+  const lines = ['## Skills (görevinle ilgiliyse skill_view(name) ile yükle — tam açıklama/içerik oradadır)'];
   lines.push('<available_skills>');
   for (const [cat, catSkills] of Object.entries(byCategory)) {
-    lines.push(`  ${cat}:`);
-    for (const s of catSkills) {
-      lines.push(`    - ${s.name}: ${s.description}`);
+    if (compact) {
+      lines.push(`  ${cat}: ${catSkills.map(s => s.name).join(', ')}`);
+    } else {
+      lines.push(`  ${cat}:`);
+      for (const s of catSkills) lines.push(`    - ${s.name}: ${_shorten(s.description, 88)}`);
     }
   }
   lines.push('</available_skills>');
-  lines.push('Only proceed without loading a skill if genuinely none are relevant.');
   return lines.join('\n');
 }
 
@@ -124,4 +145,4 @@ function skillsList(category) {
   });
 }
 
-module.exports = { buildSkillIndex, skillLookup, skillView, skillsList };
+module.exports = { buildSkillIndex, skillLookup, skillView, skillsList, _shorten, _discoverSkills };
