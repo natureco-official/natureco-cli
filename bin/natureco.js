@@ -130,7 +130,7 @@ ${chalk.yellow('💻 Geliştirici Araçları')}
 
 ${chalk.yellow('📊 Yönetim & Sistem')}
   ${chalk.cyan('dashboard')}     Web kontrol paneli (open|status|url)
-  ${chalk.cyan('memory')}        Hafıza yönetimi (status|list|search|show|clear|index|export|import|semantic|wiki)
+  ${chalk.cyan('memory')}        Hafıza yönetimi (status|list|search|lint|show|clear|index|export|import|semantic|wiki)
   ${chalk.cyan('logs')}          Log yönetimi (tail|show|search|clear|path)
   ${chalk.cyan('status')}        Sistem durumu (run|simple|usage)
   ${chalk.cyan('plugins')}       Plugin yönetimi (list|install|uninstall|enable|disable|info|update|search|doctor|registry|marketplace)

@@ -19,6 +19,7 @@ async function memoryCmd(args) {
   if (action === 'index') return indexMemory();
   if (action === 'export') return exportMemoryCmd(params[0], params[1]);
   if (action === 'import') return importMemoryCmd(params[0], params[1]);
+  if (action === 'lint') return lintMemoryCmd(params[0]);
   if (action === 'semantic') return semanticSearchCmd(params.join(' '));
   // Wiki pages
   if (action === 'wiki') return wikiCmd(params[0], params.slice(1));
@@ -141,14 +142,24 @@ function searchMemory(query) {
     });
   });
 
-  console.log(chalk.cyan.bold(`\n  "${query}" için ${results.length} sonuç\n`));
-  if (results.length === 0) {
-    console.log(chalk.gray('  Sonuç bulunamadı.\n'));
-    return;
-  }
+  console.log(chalk.cyan.bold(`\n  "${query}" için ${results.length} sonuç (düz hafıza)\n`));
   results.forEach(r => {
     console.log(chalk.white(`  [${r.bot}] `) + chalk.gray(`${r.field}: `) + chalk.white(r.value));
   });
+
+  // v5.45: ağaç hafızada branch-aware FALLBACK (Urðr) — düz hafızada bulunamasa bile
+  // bilgi "erişilemez" kalmasın (yanlış-kök tahmini kurtarma ağı). LLM'siz.
+  try {
+    const { searchTree } = require('../utils/memory-lint');
+    let u; try { u = require('../utils/config').getConfig().userName; } catch {}
+    const treeHits = searchTree(u || 'default', query);
+    if (treeHits.length) {
+      console.log(chalk.cyan(`\n  Ağaç hafızada ${treeHits.length} sonuç:`));
+      treeHits.slice(0, 15).forEach(h => console.log(chalk.gray(`  ${h.file} › ## ${h.branch} › `) + chalk.white(h.text)));
+    } else if (results.length === 0) {
+      console.log(chalk.gray('  Sonuç bulunamadı (düz + ağaç hafıza).'));
+    }
+  } catch { if (results.length === 0) console.log(chalk.gray('  Sonuç bulunamadı.')); }
   console.log('');
 }
 
@@ -402,6 +413,43 @@ function semanticSearchMemory(query, botId) {
     }
   });
   return results;
+}
+
+// v5.45: memory lint — Urðr-derived duplicate/conflict audit (flat + tree).
+// Catches "same fact stored twice" and "same subject, different value" (the drift that
+// makes recall return the wrong remembered value, e.g. two different project code names).
+function lintMemoryCmd(user) {
+  const { lintUser } = require('../utils/memory-lint');
+  let u = user;
+  if (!u) { try { u = require('../utils/config').getConfig().userName; } catch {} }
+  const { flatFile, flatCount, flatFindings, treeFindings } = lintUser(u || 'default');
+
+  console.log(chalk.cyan(`\n  🧠 Memory Lint · ${u || 'default'}\n`) + chalk.gray('  ' + '─'.repeat(52)));
+  console.log(chalk.gray(`  flat: ${flatCount} fact · ${path.basename(flatFile)}`));
+
+  const all = [...flatFindings, ...treeFindings];
+  const dups = all.filter((f) => f.level === 'duplicate');
+  const conflicts = all.filter((f) => f.level === 'conflict');
+
+  if (all.length === 0) {
+    console.log(chalk.green('\n  ✓ Temiz — yinelenen veya çelişen kayıt yok.\n'));
+    return;
+  }
+  if (dups.length) {
+    console.log(chalk.yellow(`\n  ⚠ ${dups.length} olası YİNELENEN (aynı bilgi iki kez):`));
+    for (const f of dups.slice(0, 10)) {
+      console.log(`     ${chalk.gray(`(%${Math.round(f.sim * 100)})`)} ${f.a}`);
+      console.log(`     ${chalk.gray('           ≈')} ${f.b}${f.file ? chalk.gray(' [' + f.file + ']') : ''}`);
+    }
+  }
+  if (conflicts.length) {
+    console.log(chalk.red(`\n  ⚠ ${conflicts.length} olası ÇELİŞKİ (aynı konu, farklı değer):`));
+    for (const f of conflicts.slice(0, 10)) {
+      console.log(`     ${chalk.gray(`(%${Math.round(f.sim * 100)})`)} ${f.a}`);
+      console.log(`     ${chalk.gray('           ↔')} ${f.b}${f.file ? chalk.gray(' [' + f.file + ']') : ''}`);
+    }
+  }
+  console.log(chalk.gray(`\n  Öneri: eskiyen/yanlış kaydı düzeltin — "natureco memory clear" veya elle. Tek doğru kalsın.\n`));
 }
 
 module.exports = memoryCmd;

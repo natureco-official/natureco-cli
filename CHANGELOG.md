@@ -2,6 +2,15 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.45.0] - 2026-07-08 — "MEMORY: Urðr lint + fallback search entegre edildi"
+
+### Added
+- **`natureco memory lint`** — Urðr standardından (natureco-official/urdr) türetilen, LLM'siz sağlık denetimi. Düz hafızada (`<user>.json`) ve ağaç hafızada (`tree/<user>/`) **YİNELENEN** (aynı bilgi iki kez) ve **ÇELİŞEN** (aynı konu, farklı değer — ör. iki farklı favori renk ya da iki farklı proje kod adı) kayıtları Jaccard benzerliğiyle yakalar. Bu, recall'ın "yanlış hatırlanan değeri" döndürmesinin kök nedeni. Gerçek kullanıcı hafızasında test edildi (çelişki yakalandı).
+- **`natureco memory search`'e ağaç fallback'i** — düz hafızada bulunamazsa, ağaç hafızada branch-aware tam tarama yapar (Urðr `search.mjs` portu). Yanlış-kök tahmini yüzünden bilgi "erişilemez" kalmaz. LLM'siz, cross-platform. Sonuçlar `dosya › ## dal › yaprak` biçiminde.
+- `src/utils/memory-lint.js` — `lintFacts`/`lintUser`/`searchTree` (5 regresyon testi). 576 test yeşil.
+
+Bu, Urðr'nin kanıtlanmış hafıza-güvenilirlik araçlarını NatureCo'nun gerçek memory-tree'sine bağlar; native root isimleri (`0-index.md`, `1-kisisel.md` …) zaten tanınıyor.
+
 ## [5.44.1] - 2026-07-08 — "MEMORY: açık 'hatırla' komutu HAM kaydedilir (kayıp önlenir)"
 
 ### Added
