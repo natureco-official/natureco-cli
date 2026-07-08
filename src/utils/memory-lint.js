@@ -109,7 +109,7 @@ function searchTree(user, query, opts = {}) {
   let re;
   try { re = new RegExp(query, 'i'); }
   catch { re = new RegExp(String(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'); }
-  let files = [];
+  let files;
   try { files = fs.readdirSync(treeDir).filter((f) => /^(?:(?:root|kök|kok)-)?\d[-_].*\.md$/i.test(f)); }
   catch { return []; }
   const out = [];
