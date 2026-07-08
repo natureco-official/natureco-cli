@@ -47,78 +47,327 @@ natureco code
 
 ---
 
-## ✨ Features
+## 🆕 What's New
 
-### 🤖 AI & Chat
-- **Persistent REPL** — cross-session memory; your bot remembers you across restarts.
-- **Multi-provider** — 12 providers, 200+ models. Bring your own API key.
-- **Slash commands** — `/memory`, `/help`, `/skills`, `/model`, `/clear`.
-- **Streaming output** with live tool-call visibility and a thinking indicator.
+| Version | Highlights |
+|---------|-----------|
+| **v5.43.0** | **Security:** 9 vulnerabilities fixed in a 3-round audit (RCE chain, admin-rpc auth, cron persistence, channel access control). See [`SECURITY_AUDIT_SUMMARY.md`](SECURITY_AUDIT_SUMMARY.md). |
+| **v5.42.0** | **Token optimization** — prompts trimmed by ~76% (skill index made compact; big cost savings on multi-step tasks). |
+| **v5.41.0** | **Multi-agent orchestration** — the agent can spawn focused sub-agents (`sub_agent`) and produce step-by-step plans (`plan`) before acting. |
+| **v5.40.0** | **Cross-session memory** correctness fix — facts are saved and recalled reliably across sessions. |
+| **v5.39.0** | **Cross-platform** — first-class Windows/macOS/Linux support (pure-Node search fallback, platform-aware helpers). |
+| **v5.38.0** | git command-injection fix + `code_execution`/`http_request` improvements. |
 
-### 💻 Coding Agent (Claude Code alternative)
-- **Agentic tool loop** — reads, edits, searches, runs, and verifies your code.
-- **57+ tools** — file ops, glob/grep search, shell, git, HTTP, code execution, notebooks, and more.
-- **Multi-agent orchestration** — the agent can spawn focused sub-agents (`sub_agent`) and produce step-by-step plans (`plan`) before acting.
-- **Skills** — progressive-disclosure skill system; load domain expertise on demand with `skill_view`.
+### Slash-Prefix Command System
 
-### 🧠 Memory & Sessions
-- **Cross-session memory** — facts, preferences, and project context persist between sessions.
-- **Tree memory** — structured, categorized long-term knowledge (`memory_tree`).
-- **Sessions** — resume any past conversation; full session history on disk.
+On **iMessage and WhatsApp**, only messages starting with `/` are processed as commands:
 
-### 📡 10 Messaging Channels
-Connect your agent to **Telegram, Discord, Slack, WhatsApp, iMessage, Mattermost, IRC, Signal, SMS (Twilio), and Webhooks** — run them all through a single gateway.
+```
+You  > /hello how are you?
+AI   Hey! 🙌 Doing great — how about you?
 
-### 🛡️ Security & Safety
-- **Dangerous-command approval** — risky shell commands are gated by a two-tier policy (`deny` / `allowlist` / `full`).
-- **Sandboxed execution** — tools enforce their own guards; no path bypasses the approval flow.
-- **Command-injection safe** — structured process spawning (`execFileSync`), no shell string interpolation.
-- **Sender allow-lists** — per-channel access control; personal memory is never injected for unauthorized senders.
-- **Local-only admin RPC** — bound to `127.0.0.1`, mandatory bearer token, secrets masked by default.
-- **Secure at rest** — config and session files stored with `0600`/`0700` permissions.
-- **Audited** — see [`SECURITY_AUDIT_SUMMARY.md`](SECURITY_AUDIT_SUMMARY.md).
+You  > /tell me a joke
+AI   Sure! A classic programmer joke...
+```
 
-### ⚙️ Automation & Scheduling
-- **Cron jobs** — schedule recurring tasks (`natureco cron`). App-managed by default; system crontab is opt-in and approval-gated.
-- **Webhooks** — inbound/outbound HTTP callbacks.
-- **Cost tracking** — per-day token/cost reporting (`natureco cost`).
+Regular messages are **skipped** (loop prevention), so:
+- ✅ The bot never replies to its own messages
+- ✅ No echo loops
+- ✅ Only `/`-prefixed messages reach the AI
+
+### Dangerous-Command Approval
+
+A smart approval system that prompts **only for risky operations**:
+
+```bash
+# Auto-approved (safe)
+natureco memory write "favorite color is red"
+✓ Memory added
+
+# Approval required (risky)
+rm -rf node_modules
+🔴 HIGH RISK: file-deletion command
+Continue? (Y/n)
+```
+
+**Risk detection:**
+- `rm -rf`, `sudo`, `dd if=` → 🔴 HIGH
+- `chmod 777`, `mv` → 🟡 MEDIUM
+- `mv .env` → 🔴 (sensitive file)
+
+Two-tier policy (`deny` / `allowlist` / `full`) applies to **every** shell path — no tool bypasses it.
 
 ---
 
-## 📋 Commands
+## ✨ Features
 
-A quick tour — run `natureco help` for the full list (120+ commands).
+### 🤖 AI & Chat
+- **57+ tools** — file ops, web search, image generation, code execution, memory, and more
+- **Interactive REPL** — read_file, edit_file, bash, multi-turn conversation
+- **Slash commands** — `/memory`, `/help`, `/skills`, `/model`, `/clear`
+- **Streaming output** with live tool-call visibility and a thinking indicator
+- **Persistent memory** — fact-based, cross-session
+
+### 💻 Coding Agent (Claude Code alternative)
+- **Read / Write / Edit** multi-file operations
+- **Sandboxed shell execution** with the approval flow
+- **Multi-agent orchestration** — spawn focused sub-agents and plan before acting
+- **Skills** — progressive-disclosure expertise loaded on demand via `skill_view`
+- **Verify loop** — the agent runs and tests the code it writes
+
+### 📡 10 Messaging Channels
+
+| Platform | Connect | Notes |
+|----------|---------|-------|
+| **Telegram** | `natureco telegram connect` | ✅ |
+| **WhatsApp** | `natureco whatsapp connect` | ✅ (Baileys) |
+| **iMessage** | `natureco imessage connect` | ✅ (imsg CLI) |
+| **Discord** | `natureco discord connect` | Token |
+| **Slack** | `natureco slack connect` | Token |
+| **Mattermost** | `natureco mattermost connect` | URL |
+| **IRC** | `natureco irc connect` | Server |
+| **Signal** | `natureco signal connect` | signal-cli |
+| **SMS** | `natureco sms connect` | Twilio |
+| **Webhooks** | `natureco webhooks list` | ✅ |
+
+**Gateway:** `natureco gateway start` — run all channels in a single process. Per-channel sender allow-lists keep unauthorized users out, and personal memory is never leaked to them.
+
+### 🌿 NatureCo Native
+- **NatureHub** sharing (social feed)
+- **Medium** article drafting/publishing
+- **SEO** analysis (score 0–100)
+- **XP & levels** (gamification)
+
+### 🛡️ Security & Observability
+- **Dangerous-command approval** — risk detection on every shell path
+- **Command-injection safe** — structured process spawning (`execFileSync`), no shell string interpolation
+- **Local-only admin RPC** — bound to `127.0.0.1`, mandatory bearer token, secrets masked by default
+- **Secure at rest** — config, backups, and session files stored `0600`/`0700`
+- **Audit logs** — every operation recorded
+- **Cost tracking** — AI spend by today/week/month/budget
+- **Security audit** — `natureco security audit`
+
+### ⚙️ Automation & Scheduling
+- **Cron jobs** — `natureco cron add` (app-managed by default; system crontab is opt-in and approval-gated)
+- **Hooks** — event-driven automation
+- **Webhooks** — HTTP callbacks
+- **Tasks (Kanban)** — `natureco tasks`
+
+---
+
+## 📋 Commands (A–Z, 120+ commands)
+
+### 🤖 AI & Chat
 
 | Command | Description |
 |---------|-------------|
-| `natureco setup` | Interactive first-run wizard |
-| `natureco chat` | Start the persistent chat REPL |
-| `natureco code [file]` | Launch the coding agent |
+| `natureco chat` | Interactive REPL chat (57+ tools active) |
+| `natureco chat --resume` | Resume the previous session |
+| `natureco code` | Coding agent (write apps/scripts) |
+| `natureco code <file>` | Coding agent on a specific file |
 | `natureco run <script>` | Run a Markdown workflow script |
-| `natureco gateway start` | Start all configured messaging channels |
-| `natureco memory <list\|status>` | Inspect cross-session memory |
-| `natureco sessions` | List / resume past sessions |
-| `natureco skills list` | List available skills |
-| `natureco cron <add\|list\|remove>` | Manage scheduled tasks |
-| `natureco cost` | Token & cost report |
-| `natureco security [audit]` | Run a local security audit |
-| `natureco config list` | Show configuration |
-| `natureco doctor` | Full system health check |
+| `natureco ask "<question>"` | One-shot question to the AI |
+| `natureco bots` | List available bots |
+| `natureco models` | Manage provider models |
+| `natureco ultrareview <file>` | Deep code review |
 
-**In-REPL slash commands:** `/help`, `/memory`, `/model`, `/bot`, `/skills`, `/sessions`, `/clear`, `/exit`.
+**In-REPL slash commands:**
+```
+/clear         Clear the screen
+/bot           Switch bot
+/skills        Show active skills
+/memory        Memory status
+/memory clear  Clear memory
+/commands      List all commands
+/help          Help
+exit / quit    Exit
+```
+
+### ⚙️ Setup & Config
+
+```bash
+natureco setup         # First-run setup wizard
+natureco login         # Enter API key
+natureco logout        # Log out
+natureco init          # Initialize a project (create SOUL.md)
+natureco doctor        # System health check
+natureco doctor --fix  # Auto-fix
+natureco config list   # Show configuration
+natureco config set <key> <value>
+natureco configure     # Interactive config
+natureco update        # Update the CLI
+natureco completion bash|powershell
+```
+
+### 📡 Channels (10 messaging platforms)
+
+```bash
+# All channels
+natureco channels              # List connected channels
+natureco channels add <type>   # Add a channel
+natureco channels remove <type>
+
+# Telegram
+natureco telegram connect      # Save token
+natureco telegram chatid       # Auto-detect chat ID
+natureco telegram allow <id>   # Allow a chat
+natureco telegram status
+
+# WhatsApp (Baileys)
+natureco whatsapp connect
+natureco whatsapp status
+
+# iMessage (imsg CLI)
+natureco imessage connect
+natureco imessage status
+natureco imessage allow <number>
+natureco imessage send <number> <message>
+
+# Discord, Slack, Mattermost, IRC, Signal, SMS, Webhooks
+natureco discord connect
+natureco slack connect
+natureco mattermost connect
+natureco irc connect
+natureco signal connect
+natureco sms connect
+natureco webhooks list
+
+# Gateway — start all channels
+natureco gateway start
+natureco gateway stop
+natureco gateway status
+```
+
+### 🧠 Memory & Sessions
+
+```bash
+natureco memory write "favorite color is red"
+natureco memory write "user_name=patron"
+natureco memory search "color"
+natureco memory status
+natureco memory list
+natureco memory clear
+natureco memory export
+natureco memory import <file>
+
+natureco sessions list         # All sessions
+natureco sessions show <id>    # Session details
+```
+
+### 🔌 Skills, MCP, Plugins
+
+```bash
+natureco skills list           # Active skills
+natureco skills install <name>
+natureco skills remove <name>
+
+natureco mcp list              # MCP servers
+natureco mcp add <name> <url>
+
+natureco plugins list
+natureco plugins install <name>
+```
+
+### ⏰ Automation
+
+```bash
+natureco cron add              # Scheduled task
+natureco cron list
+natureco cron remove --name <name>
+
+natureco hooks list            # Event hooks
+natureco hooks create
+
+natureco tasks list            # Kanban (todo)
+natureco tasks add
+natureco tasks done <id>
+
+natureco webhooks list         # Webhook URLs
+natureco webhooks add <url>
+
+natureco dashboard             # Web dashboard (localhost)
+```
+
+### 🔍 Developer Tools
+
+```bash
+natureco git status            # Git status
+natureco git diff              # Diff
+natureco git log               # Commit log
+natureco git branches          # Branch list
+
+natureco audit today           # Today's operations
+natureco audit stats           # Statistics
+natureco audit files           # File changes
+
+natureco cost today            # Today's AI cost
+natureco cost week
+natureco cost month
+natureco cost budget 50        # $50 limit
+
+natureco security audit        # Sensitive-file / config scan
+
+natureco logs                  # Log files
+```
+
+### 🌿 NatureCo Native
+
+```bash
+natureco naturehub post <text> # Share to NatureHub
+natureco naturehub feed        # View the feed
+
+natureco seo audit natureco.me # SEO analysis (score)
+
+natureco medium draft          # Medium article draft
+natureco medium publish <file> # Publish
+
+natureco xp rewards            # XP & levels
+natureco xp leaderboard
+```
+
+### 🛡️ Management
+
+```bash
+natureco reset --scope config  # Reset
+natureco reset --scope memory
+natureco reset --scope sessions
+natureco reset --scope all --yes
+
+natureco uninstall
+
+natureco approvals             # Approval management
+natureco approvals allow <cmd>
+
+natureco admin-rpc start       # Local admin RPC (127.0.0.1, bearer-token auth)
+```
 
 ---
 
 ## 🌐 Provider Support (12 providers, 200+ models)
 
-Anthropic (Claude), OpenAI (GPT), Google (Gemini), MiniMax, Groq, Ollama (local), and more — all selectable in the setup wizard.
+| Provider | Models | API Key |
+|----------|--------|---------|
+| **OpenAI** | GPT-5, GPT-4.1, o3, GPT-4o | OpenAI |
+| **Anthropic** | Claude Opus 4, Sonnet 4, Haiku | Anthropic |
+| **Gemini** | 2.5 Pro, 2.0 Flash, Gemma | Google |
+| **Groq** | Llama 3.3, Mixtral | Groq |
+| **DeepSeek** | R1, Chat V3 | DeepSeek |
+| **Ollama** | Llama, Qwen (local) | — |
+| **MiniMax** | M2.5, M2 | MiniMax |
+| **OpenRouter** | 15+ models (multi-provider) | OpenRouter |
+| **Mistral** | Large, Small, Codestral | Mistral |
+| **Cohere** | Command R+, Embed | Cohere |
+| **xAI** | Grok 2, Grok Beta | xAI |
+| **Together** | Llama, Mixtral, Qwen | Together |
 
 ```bash
-# Re-run provider selection any time
+# Provider selection lives in the wizard
 natureco setup
+# Wizard: Provider → API Key → Model → Bot name
 
-# Wizard flow: Provider → API Key → Model → Bot name
-natureco models        # list available models for your provider
+# List models
+natureco models list --provider openai
+natureco models list --provider anthropic
 ```
 
 > The agent adapts to each provider's native tool-calling style automatically (OpenAI-style `tool_calls` JSON or agentic-text XML), so the same tools and memory work everywhere.
@@ -127,85 +376,203 @@ natureco models        # list available models for your provider
 
 ## 🔄 vs. Other CLIs
 
-| | NatureCo CLI | Claude Code | OpenClaw |
-|---|---|---|---|
-| Multi-provider (12+) | ✅ | ❌ (Anthropic only) | ⚠️ limited |
-| Messaging channels | ✅ 10 | ❌ | ❌ |
-| Cross-session memory | ✅ | ⚠️ | ⚠️ |
-| Multi-agent orchestration | ✅ | ✅ | ⚠️ |
-| Dangerous-command approval | ✅ | ✅ | ⚠️ |
-| Cost tracking | ✅ | ⚠️ | ❌ |
-| Cron / automation | ✅ | ❌ | ❌ |
+| Feature | NatureCo | Claude Code | Hermes | OpenClaw |
+|---------|----------|-------------|--------|----------|
+| Multi-provider | ✅ 12 | ❌ Anthropic | ✅ 8 | ❌ |
+| 200+ models | ✅ | ❌ | ✅ | ❌ |
+| Multi-agent orchestration | ✅ | ✅ | ⚠️ | ⚠️ |
+| Dangerous-command approval | ✅ | ✅ | ✅ | ⚠️ |
+| Multi-channel (10 platforms) | ✅ | ❌ | ✅ (Python) | ❌ |
+| Persistent memory | ✅ | ✅ | ✅ | ❌ |
+| Tool-output path anonymization | ✅ | ❌ | ❌ | ❌ |
+| XP / gamification | ✅ | ❌ | ❌ | ❌ |
+| SEO / Medium / NatureHub native | ✅ | ❌ | ❌ | ❌ |
+| Cross-platform (macOS/Win/Linux) | ✅ | ✅ | ⚠️ | ⚠️ |
+| MIT licensed | ✅ | ✅ | ❌ | ❌ |
+| npm package | ✅ | ❌ | ❌ | ❌ |
+| Tools | ✅ 57+ | ✅ ~30 | ✅ ~25 | ✅ ~40 |
+| Cron + Hooks + Webhooks | ✅ | ❌ | ✅ | ❌ |
 
 ---
 
-## 🛠️ Requirements
+## 🛠️ System Requirements
 
-- **Node.js ≥ 18**
-- An API key from at least one supported provider (or a local Ollama install)
-- macOS, Windows, or Linux
+| Requirement | Minimum | Recommended |
+|-------------|---------|-------------|
+| **Node.js** | 18.x | 20.x (LTS) |
+| **RAM** | 256 MB | 512 MB |
+| **Disk** | 100 MB | 500 MB (with cache) |
+| **OS** | macOS 12, Win 10, Ubuntu 20 | macOS 14+, Win 11, Ubuntu 22 |
+| **Internet** | Required | — |
 
-Optional, for richer functionality: `ripgrep` (faster search — falls back to a pure-Node scanner), `python3` (for `code_execution`), `git`.
+**Optional** for richer functionality: `ripgrep` (faster search — falls back to a pure-Node scanner), `python3` (for `code_execution`), `git`.
 
 ---
 
-## 🚀 Examples
+## 🚀 Real Examples
 
-**Simple chat**
-```bash
-natureco chat
-  💬 You ▸ create a file racing-game.html on my Desktop with a small canvas racing game
-  AI     🔧 write_file ✓
-  Done — racing-game.html created on your Desktop.
+### 1. Simple chat
+```
+$ natureco chat
+Provider: api.minimax.io
+Model: MiniMax-M2.5
+Bot: naruto
+
+👋 Hi! I'm naruto, boss.
+
+You  > who are you?
+AI   I'm naruto, your NatureCo CLI assistant. 57+ tools active,
+     memory persisted, channels ready.
+
+You  > create racing-game.html on my Desktop with a small canvas racing game
+AI   🔧 write_file ✓
+     Done — racing-game.html created on your Desktop.
 ```
 
-**Connect a Telegram bot**
-```bash
-natureco channel telegram --token <BOT_TOKEN>
-natureco gateway start
+### 2. Connect a Telegram bot
+```
+$ natureco telegram connect
+? Telegram bot token: *** (from BotFather)
+✓ Token saved
+Bot ID: telegram_1782204289029
+
+$ natureco telegram chatid
+⏳ Bot running, waiting for the first message...
+[send /start from Telegram]
+✓ Chat ID detected: 6139455189
+
+$ natureco gateway start
+[gateway] Gateway running (PID 77765)
+[telegram] watching for inbound
+[telegram] Inbound from +90****44: "hello"
+[telegram] Reply sent (117 chars)
 ```
 
-**Schedule a recurring task**
-```bash
-natureco cron add --name daily-brief --schedule "0 9 * * *" --command "..."
+### 3. iMessage slash command
+```
+$ natureco imessage connect
+? imsg CLI path: /opt/homebrew/bin/imsg
+✓ Connected
+
+$ natureco imessage allow +90****4449
+✓ Allowed: +90****4449
+
+$ natureco gateway start
+[imessage] watching for new messages (streaming)
+[imessage] Inbound from +90****4449: "/who are you"
+[imessage] Slash command: /who are you
+[imessage] Reply sent (178 chars)
 ```
 
-**Pipe a one-shot request**
-```bash
-echo "summarize package.json" | natureco chat
+### 4. Coding agent — a small app
+```
+$ natureco code
+NatureCo Code Agent v5
+
+You  > create notes.py — add/list/delete notes, stored as JSON
+
+Tool: write_file (2303 bytes)
+Tool: bash (python3 notes.py)
+✅ Note added: Groceries
+✅ Note added: Meeting
+✅ Total: 3 notes
+✅ Deleted: ID 2
+
+📂 notes.py (2303 bytes)
 ```
 
 ---
 
 ## 🔌 Integrations
 
-- **Webhooks** — inbound/outbound HTTP callbacks.
-- **Cron** — recurring or one-off scheduled tasks.
-- **MCP (Model Context Protocol)** — connect external MCP servers.
+### Webhook
+```bash
+# HTTP callback URLs
+natureco webhooks add https://example.com/hook
+
+# Incoming webhook (POST)
+POST /webhook/<id>
+Content-Type: application/json
+{"event": "...", "data": {...}}
+```
+
+### Cron (scheduled tasks)
+```bash
+# Every 5 minutes
+natureco cron add \
+  --name "hello-task" \
+  --schedule "*/5 * * * *" \
+  --command "echo 'Hello!'"
+
+# One-off
+natureco cron add --at "2026-12-31T23:59"
+```
+
+### MCP (Model Context Protocol)
+```bash
+natureco mcp add filesystem npx -y @modelcontextprotocol/server-filesystem
+natureco mcp add github npx -y @modelcontextprotocol/server-github
+```
+
+---
+
+## 📚 Documentation
+
+- 🌐 **Homepage:** [natureco.me/cli](https://natureco.me/cli)
+- 📖 **Command reference:** [natureco.me/cli/commands](https://natureco.me/cli/commands)
+- 🎓 **Tutorial:** [natureco.me/cli/getting-started](https://natureco.me/cli/getting-started)
+- 🔧 **API:** [natureco.me/cli/api](https://natureco.me/cli/api)
+- 🔒 **Security:** [`SECURITY_AUDIT_SUMMARY.md`](SECURITY_AUDIT_SUMMARY.md)
+- 📝 **Changelog:** [`CHANGELOG.md`](CHANGELOG.md)
 
 ---
 
 ## 🤝 Contributing
 
-```bash
-git clone https://github.com/natureco-official/natureco-cli
-cd natureco-cli
-npm install
-npm test        # run the test suite (vitest)
-npm run lint    # eslint
-npm run smoke   # sanity check
-```
+PRs and issues are welcome!
 
-Contributions are welcome — please open an issue or PR.
+```bash
+# Clone the repo
+git clone https://github.com/natureco-official/natureco-cli.git
+cd natureco-cli
+
+# Install
+npm install
+
+# Test (vitest)
+npm test
+
+# Lint
+npm run lint
+
+# Smoke check
+npm run smoke
+```
 
 ---
 
 ## 📄 License
 
-MIT © NatureCo — see [LICENSE](LICENSE).
+MIT © [NatureCo](https://github.com/natureco-official)
 
 ---
 
 ## 🙏 Acknowledgements
 
-Built for developers who want the power of an AI agent without leaving the terminal. Inspired by Claude Code and the open agent ecosystem.
+- [OpenAI](https://openai.com) — GPT API
+- [Anthropic](https://anthropic.com) — Claude API
+- [MiniMax](https://api.minimax.io) — AI provider
+- [Baileys](https://github.com/WhiskeySockets/Baileys) — WhatsApp Web
+- [imsg](https://github.com/steipete/imsg) — iMessage CLI
+- [ripgrep](https://github.com/BurntSushi/ripgrep) — fast search
+
+---
+
+<p align="center">
+  <b>The power of AI, now at your fingertips.</b><br>
+  <i>Discover the speed of the terminal with NatureCo.</i>
+</p>
+
+<p align="center">
+  Made with 🌿 for developers who live in the terminal.
+</p>
