@@ -301,6 +301,15 @@ async function runGatewayWorker() {
 
 async function startWhatsAppProvider(sessionDir, config) {
   try {
+    // v5.43 GÜVENLİK: session dizini Baileys kimlik/oturum dosyalarını tutar; çalınırsa
+    // WhatsApp hesabı ele geçirilebilir → ssh anahtarları gibi 0700 (parent dahil).
+    try {
+      const parent = path.dirname(sessionDir);
+      if (!fs.existsSync(parent)) fs.mkdirSync(parent, { recursive: true, mode: 0o700 });
+      else fs.chmodSync(parent, 0o700);
+      if (!fs.existsSync(sessionDir)) fs.mkdirSync(sessionDir, { recursive: true, mode: 0o700 });
+      else fs.chmodSync(sessionDir, 0o700);
+    } catch { /* best-effort */ }
     const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, Browsers } = loadBaileys();
     
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -541,6 +550,20 @@ async function startDiscordProvider(config) {
   } catch (e) {
     log('discord', `failed: ${e.message}`, 'red');
   }
+}
+
+// v5.43 GÜVENLİK: Slack/Signal/IRC/Mattermost'ta gönderen doğrulaması YOKTU + tüm
+// kanallar paylaşımlı 'universal-provider' hafızasını system prompt'a ekliyordu →
+// yetkisiz/yabancı gönderene kişisel hafıza sızabiliyordu. channelGate: (1) allow-list
+// kuruluysa yetkisiz göndereni ENGELLE; (2) allow-list kurulu DEĞİLSE yanıt ver ama
+// kişisel hafızayı ENJEKTE ETME (trusted=false) — böylece anonim kanaldan hafıza sızmaz.
+function channelGate(config, channel, senderId) {
+  const allow = config[`${channel}AllowedChats`] || config[`${channel}AllowedNumbers`] || config[`${channel}AllowedUsers`] || [];
+  if (!Array.isArray(allow) || allow.length === 0) {
+    return { allowed: true, trusted: false };
+  }
+  const ok = allow.map(String).includes(String(senderId));
+  return { allowed: ok, trusted: ok };
 }
 
 async function startSlackProvider(config) {
@@ -929,6 +952,10 @@ async function processSignalEnvelope(envelope, config) {
     const dmPolicy = config.signalDmPolicy || 'pairing';
     if (dmPolicy === 'disabled') return;
 
+    // v5.43 GÜVENLİK: gönderen doğrulaması + hafıza sızıntısı önleme
+    const gate = channelGate(config, 'signal', sender);
+    if (!gate.allowed) { log('signal', `Blocked (allow-list): ${sender}`, 'yellow'); return; }
+
     // Get AI response
     try {
       const { sendMessage } = require('../utils/api');
@@ -938,7 +965,7 @@ async function processSignalEnvelope(envelope, config) {
 
       const conversationId = `signal_${sender}`;
       const botId = 'universal-provider';
-      const memoryPrompt = getMemoryPrompt(botId);
+      const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
 
       let systemPrompt = `You are a helpful Signal assistant. Keep responses concise.`;
       if (memoryPrompt) {
@@ -1184,6 +1211,9 @@ function parseIrcLine(line) {
 }
 
 async function processIrcMessage(config, sender, target, text, socket) {
+  // v5.43 GÜVENLİK: gönderen doğrulaması + hafıza sızıntısı önleme
+  const gate = channelGate(config, 'irc', sender);
+  if (!gate.allowed) { log('irc', `Blocked (allow-list): ${sender}`, 'yellow'); return; }
   try {
     const { sendMessage } = require('../utils/api');
     const { getMemoryPrompt } = require('../utils/memory');
@@ -1192,7 +1222,7 @@ async function processIrcMessage(config, sender, target, text, socket) {
 
     const conversationId = `irc_${sender}_${target}`;
     const botId = 'universal-provider';
-    const memoryPrompt = getMemoryPrompt(botId);
+    const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
 
     let systemPrompt = `You are a helpful IRC assistant. Keep responses concise. Use IRC-friendly formatting.`;
     if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
@@ -1370,6 +1400,10 @@ async function handleMattermostPost(data, broadcast, config) {
     // Skip system messages
     if (post.props?.from_webhook) return;
 
+    // v5.43 GÜVENLİK: gönderen doğrulaması + hafıza sızıntısı önleme
+    const gate = channelGate(config, 'mattermost', senderId);
+    if (!gate.allowed) { log('mattermost', `Blocked (allow-list): ${senderId}`, 'yellow'); return; }
+
     // Get AI response
     const { sendMessage } = require('../utils/api');
     const { getMemoryPrompt } = require('../utils/memory');
@@ -1378,7 +1412,7 @@ async function handleMattermostPost(data, broadcast, config) {
 
     const conversationId = `mattermost_${channelId}`;
     const botId = 'universal-provider';
-    const memoryPrompt = getMemoryPrompt(botId);
+    const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
 
     let systemPrompt = `You are a helpful Mattermost assistant. Keep responses concise.`;
     if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
@@ -1578,9 +1612,12 @@ async function processImessageMessage(msg, config) {
     const { getConfig, saveConfig } = require('../utils/config');
     const cfg = getConfig();
 
+    // v5.43 GÜVENLİK: gönderen doğrulaması + hafıza sızıntısı önleme
+    const gate = channelGate(cfg, 'imessage', sender);
+    if (!gate.allowed) { log('imessage', `Blocked (allow-list): ${sender}`, 'yellow'); return; }
     const conversationId = `imessage_${sender}`;
     const botId = 'universal-provider';
-    const memoryPrompt = getMemoryPrompt(botId);
+    const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
 
     let systemPrompt = `You are a helpful iMessage assistant. Keep responses concise.`;
     if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
@@ -1753,9 +1790,12 @@ async function handleSmsWebhook(config, body, req) {
     const { getConfig, saveConfig } = require('../utils/config');
     const cfg = getConfig();
 
+    // v5.43 GÜVENLİK: gönderen doğrulaması + hafıza sızıntısı önleme
+    const gate = channelGate(config, 'sms', from);
+    if (!gate.allowed) return { status: 200, body: { ok: true, blocked: true } };
     const conversationId = `sms_${from}`;
     const botId = 'universal-provider';
-    const memoryPrompt = getMemoryPrompt(botId);
+    const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
 
     let systemPrompt = `You are a helpful SMS assistant. Keep responses concise (SMS format).`;
     if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
@@ -2252,3 +2292,5 @@ if (require.main === module || process.argv.includes('--gateway-worker')) {
 }
 
 module.exports = gatewayServer;
+// v5.43: test için — kanal gönderen doğrulaması + hafıza izolasyonu (Madde 7)
+module.exports.channelGate = channelGate;

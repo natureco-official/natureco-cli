@@ -118,16 +118,27 @@ function requiresApproval({ command, agentId, security, ask }) {
   return { required: true, reason: 'unknown' };
 }
 
-// Built-in safe commands that never need approval
+// Built-in safe commands that never need approval.
+// v5.43 GÜVENLİK: 'node -e' KALDIRILDI — inline eval (`node -e "require('fs').rmSync..."`)
+// keyfi kod çalıştırır, asla "safe" olamaz. Sadece salt-okunur/versiyon komutları kalır.
 const SAFE_COMMANDS = new Set([
   'ls', 'cat', 'head', 'tail', 'echo', 'pwd', 'date', 'whoami',
-  'node -e', 'node -v', 'npm -v', 'git status', 'git diff', 'git log',
+  'node -v', 'npm -v', 'git status', 'git diff', 'git log',
 ]);
 
+// Shell metakarakterleri: komut zincirleme / substitution / yönlendirme.
+// Bunlardan biri varsa komut ASLA "safe" sayılmaz (ör. "echo hi; rm -rf ~").
+const SHELL_METACHARS = /[;&|`$(){}<>\n\r]|\|\||&&/;
+
 function isSafeCommand(command) {
-  if (SAFE_COMMANDS.has(command.trim())) return true;
+  const trimmed = (command || '').trim();
+  if (!trimmed) return false;
+  // v5.43 GÜVENLİK: metakarakter içeren hiçbir komut safe değil — prefix bypass'ı kapatır.
+  if (SHELL_METACHARS.test(trimmed)) return false;
+  if (SAFE_COMMANDS.has(trimmed)) return true;
+  // Prefix eşleşmesi ama SADECE kelime sınırında: "echo" → "echo hi" evet, "echoevil" hayır.
   for (const safe of SAFE_COMMANDS) {
-    if (command.trim().startsWith(safe)) return true;
+    if (trimmed === safe || trimmed.startsWith(safe + ' ')) return true;
   }
   return false;
 }

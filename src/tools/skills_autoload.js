@@ -86,12 +86,18 @@ module.exports = {
     required: ["message"],
   },
   async execute(params) {
+    // v5.43 GÜVENLİK: eskiden tespit edilen skill'lerin HAM içeriği doğrulama olmadan
+    // system prompt'a enjekte ediliyordu (skillContext) → prompt injection yüzeyi.
+    // Artık sadece İSİMLERİ tespit edip döndürür; ajan gerçekten gerekiyorsa
+    // skill_view(name) ile KONTROLLÜ yükler (skill-index/skill_view zaten var).
     const loaded = autoLoad(params.message);
     return {
       success: true,
       message: params.message,
       detectedSkills: loaded.map(s => s.name),
-      skillContext: loaded.map(s => s.content).join("\n\n"),
+      hint: loaded.length
+        ? `İlgili olabilecek skill(ler): ${loaded.map(s => s.name).join(', ')}. Gerekliyse skill_view(name) ile yükle.`
+        : 'İlgili skill bulunamadı.',
     };
   },
 };

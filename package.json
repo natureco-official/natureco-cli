@@ -1,6 +1,6 @@
 {
   "name": "natureco-cli",
-  "version": "5.42.0",
+  "version": "5.43.0",
   "description": "OpenClaw'dan daha güvenli, daha hızlı, daha ucuz AI agent CLI. Multi-agent, self-evolving skills, audit log, maliyet optimizasyonu ve NatureCo platform-native.",
   "bin": {
     "natureco": "bin/natureco.js"
@@ -13,6 +13,7 @@
     "README.md",
     "CHANGELOG.md",
     "AUDIT.md",
+    "SECURITY_AUDIT_SUMMARY.md",
     "DEPLOY_v2.0.0.md"
   ],
   "scripts": {

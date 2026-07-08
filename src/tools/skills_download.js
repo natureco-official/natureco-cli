@@ -36,6 +36,34 @@ const KNOWN_REPOS = [
   { owner: 'obra', repo: 'superpowers', topic: 'workflow' },
 ];
 
+// v5.43 GÜVENLİK: source doğrudan modelden gelip HERHANGİ bir repo indirilebiliyordu
+// (KNOWN_REPOS hiç kullanılmıyordu). İndirilen SKILL.md içeriği skills_autoload ile
+// system prompt'a enjekte edildiğinden → prompt injection → (shell_command bypass'ıyla)
+// RCE zinciri. Artık yalnızca KNOWN_REPOS + kullanıcı onaylı allowlist indirilebilir.
+const SKILLS_ALLOWLIST_FILE = path.join(os.homedir(), '.natureco', 'skills-allowlist.json');
+
+function _userAllowlistedRepos() {
+  try {
+    if (!fs.existsSync(SKILLS_ALLOWLIST_FILE)) return [];
+    const arr = JSON.parse(fs.readFileSync(SKILLS_ALLOWLIST_FILE, 'utf8'));
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+function isKnownRepo(owner, repo) {
+  const o = (owner || '').toLowerCase(), r = (repo || '').toLowerCase();
+  if (!o || !r) return false;
+  if (KNOWN_REPOS.some(k => k.owner.toLowerCase() === o && k.repo.toLowerCase() === r)) return true;
+  // Kullanıcının açıkça onayladığı ek repolar ("owner/repo" formatında)
+  return _userAllowlistedRepos().some(e => String(e).toLowerCase() === `${o}/${r}`);
+}
+
+// path-traversal savunması: hedef, base dizininin İÇİNDE mi?
+function _isInside(base, target) {
+  const rel = path.relative(base, target);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
 function httpsGet(url) {
   return new Promise((resolve, reject) => {
     https.get(url, { timeout: 15000 }, (res) => {
@@ -115,7 +143,16 @@ async function fetchGithubRepo(owner, repo) {
 }
 
 async function downloadSkill(skill, targetDir) {
-  const skillDir = path.join(targetDir, skill.name);
+  // v5.43 GÜVENLİK: skill.name repo'dan gelir; "../../.bashrc" gibi traversal olabilir.
+  // Sadece dosya adı bileşenini kullan.
+  const safeName = path.basename(String(skill.name || '').trim());
+  if (!safeName || safeName === '.' || safeName === '..' || safeName.includes('/') || safeName.includes('\\')) {
+    return { success: false, error: 'Geçersiz skill adı' };
+  }
+  const skillDir = path.join(targetDir, safeName);
+  if (!_isInside(targetDir, skillDir)) {
+    return { success: false, error: 'Güvenlik: skill dizini hedef dışına çıkıyor' };
+  }
   if (fs.existsSync(skillDir)) {
     return { success: false, error: 'Already exists', path: skillDir };
   }
@@ -139,14 +176,16 @@ async function downloadSkill(skill, targetDir) {
   // Download additional files
   for (const af of (skill.additionalFiles || [])) {
     try {
+      // v5.43 GÜVENLİK: af.path traversal ("../../../../etc/x") → skillDir DIŞINA yazma.
+      const dest = path.resolve(skillDir, af.path);
+      if (!_isInside(skillDir, dest)) continue; // traversal → atla
       const data = await httpsGet(af.url);
-      const afDir = path.dirname(path.join(skillDir, af.path));
-      fs.mkdirSync(afDir, { recursive: true });
-      fs.writeFileSync(path.join(skillDir, af.path), data, 'utf8');
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.writeFileSync(dest, data, 'utf8');
     } catch {}
   }
 
-  return { success: true, path: skillDir, name: skill.name };
+  return { success: true, path: skillDir, name: safeName };
 }
 
 async function execute(params) {
@@ -161,6 +200,9 @@ async function execute(params) {
   if (action === 'list_skills') {
     const [owner, repo] = (source || '').split('/');
     if (!owner || !repo) return JSON.stringify({ success: false, error: 'source must be owner/repo (e.g. anthropics/skills)' });
+    if (!isKnownRepo(owner, repo)) {
+      return JSON.stringify({ success: false, error: `Güvenlik: "${owner}/${repo}" bilinen/onaylı kaynaklar arasında değil. "natureco security skills-allowlist add ${owner}/${repo}" ile ekleyin veya "list_sources" ile bilinen kaynakları görün.` });
+    }
     const skills = await fetchGithubRepo(owner, repo);
     return JSON.stringify({ success: true, source, count: skills.length, skills: skills.map(s => ({ name: s.name, description: s.description })) });
   }
@@ -168,6 +210,9 @@ async function execute(params) {
   if (action === 'download') {
     const [owner, repo] = (source || '').split('/');
     if (!owner || !repo) return JSON.stringify({ success: false, error: 'source must be owner/repo' });
+    if (!isKnownRepo(owner, repo)) {
+      return JSON.stringify({ success: false, error: `Güvenlik: "${owner}/${repo}" bilinen/onaylı kaynaklar arasında değil. Model kendi kendine keyfi repo indiremez; kullanıcı "natureco security skills-allowlist add ${owner}/${repo}" ile açıkça onaylamalı.` });
+    }
     const skills = await fetchGithubRepo(owner, repo);
     const targetSkill = name ? skills.find(s => s.name === name) : null;
     const toDownload = targetSkill ? [targetSkill] : skills;
@@ -214,4 +259,4 @@ const parameters = {
   required: ['action'],
 };
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, parameters, execute, isKnownRepo, downloadSkill, _isInside, KNOWN_REPOS };

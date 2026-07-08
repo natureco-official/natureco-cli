@@ -7,6 +7,7 @@
 
 const { spawn } = require('child_process');
 const os = require('os');
+const { isSafeCommand, checkCommand, isDangerousCommand } = require('../utils/approvals');
 
 async function runShell({ command, cwd = null, timeoutMs = 10000 }) {
   if (!command) return { success: false, error: 'command gerekli' };
@@ -50,6 +51,24 @@ module.exports = {
     required: ['command'],
   },
   async execute(params) {
+    // v5.43 GÜVENLİK: shell_command da (bash.js gibi) onay/güvenlik akışından geçer.
+    // Eski hali doğrudan spawn('bash',...) yapıp checkCommand/isDangerousCommand'ı
+    // ATLIYORDU → model/prompt-injection bash yerine bunu çağırıp onaysız sınırsız
+    // shell erişimi kazanabiliyordu ("Dangerous Command Approval" tamamen bypass).
+    const command = params && params.command;
+    if (!command || !command.trim()) return { success: false, error: 'command gerekli' };
+    if (!isSafeCommand(command)) {
+      const approval = await checkCommand(command, { agentId: (params && params.agentId) || 'default' });
+      if (!approval.allowed) {
+        return { success: false, error: `Komut güvenlik politikasıyla reddedildi (${approval.reason}). "natureco security" ile politikayı görüntüle.` };
+      }
+      if (isDangerousCommand(command)) {
+        return { success: false, error: 'Tehlikeli komut engellendi. Gözden geçirip manuel çalıştırın.' };
+      }
+      if (approval.editedCommand && approval.editedCommand !== command) {
+        return await runShell({ ...params, command: approval.editedCommand });
+      }
+    }
     return await runShell(params);
   },
 };

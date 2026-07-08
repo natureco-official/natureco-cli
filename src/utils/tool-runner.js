@@ -99,9 +99,11 @@ async function executeTool(toolName, params, opts = {}) {
 
   // ── Onay mekanizması (write_file ve tehlikeli bash) ───────────────────────
   if (agentMode) {
+    // v5.43 GÜVENLİK: shell_command da bash gibi onay tetikler (aksi halde onay/güvenlik
+    // akışını atlayan ikinci bir arbitrary-shell yolu olurdu).
     const needsConfirm =
       toolName === 'write_file' ||
-      (toolName === 'bash' && /\b(rm|mv|cp|chmod|chown|dd|mkfs|truncate)\b/.test(safeParams.command || ''));
+      ((toolName === 'bash' || toolName === 'shell_command') && /\b(rm|mv|cp|chmod|chown|dd|mkfs|truncate)\b/.test(safeParams.command || ''));
 
     if (needsConfirm) {
       if (toolName === 'write_file') {

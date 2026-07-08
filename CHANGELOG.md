@@ -2,6 +2,23 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.43.0] - 2026-07-08 — "SECURITY: 9 açık kapatıldı (3 turluk güvenlik incelemesi)"
+
+### Security
+3 turluk güvenlik incelemesinde bulunan **9 gerçek, kanıtlanmış açık** kapatıldı. Her biri için kırmızı→yeşil regresyon testi eklendi (+29 test → 567 yeşil). Maddeler ve düzeltmeler:
+
+1. **shell_command onay/güvenlik bypass'ı (KRİTİK/RCE)**: `shell_command.js` `checkCommand`/`isDangerousCommand` akışını atlayıp doğrudan `spawn('bash','-c',...)` yapıyordu → model/prompt-injection `bash` yerine bunu çağırıp onaysız sınırsız shell kazanabiliyordu. Artık bash.js ile aynı güvenlik akışından geçer; `tool-runner.js` needsConfirm'e de eklendi.
+2. **isSafeCommand prefix bypass (YÜKSEK)**: `startsWith` ile `echo hi; rm -rf ~` gibi zincirler "safe" sayılıyordu. Artık shell metakarakteri içeren komut asla safe değil + kelime-sınırı prefix; `node -e` (inline eval) safe listesinden çıkarıldı.
+3. **config.json zayıf izinler (ORTA)**: API anahtarları `0644` (dünya-okunabilir) yazılıyordu → `0600` dosya + `0700` dizin/yedek + chmod fallback.
+4. **WhatsApp session dizini zayıf izinler (ORTA)**: Baileys kimlik dosyaları → `0700` (parent dahil) + chmod fallback.
+5. **document_extract shell injection (DÜŞÜK)**: `execSync(\`pdftotext "${filePath}" -\`)` → `execFileSync` (shell yok). Aynı desen `social_open`/`youtube_ac` (pgrep) ve `phone_control_enhanced` (adb) araçlarında da temizlendi.
+6. **Skill indirme → prompt injection → RCE zinciri (KRİTİK)**: `skills_download` `KNOWN_REPOS`'u kullanmıyor, herhangi bir GitHub reposu indiriliyordu (SKILL.md → system prompt enjeksiyonu → madde 1'le RCE). Artık yalnızca `KNOWN_REPOS` + kullanıcı onaylı `skills-allowlist.json`; `additionalFiles`/skill-adı path-traversal koruması; `skills_autoload` ham içerik enjeksiyonunu bırakıp kontrollü `skill_view`'e yönlendiriyor.
+7. **Kanal gönderen doğrulaması yok + hafıza sızıntısı (YÜKSEK)**: Slack/Signal/IRC/Mattermost'ta allow-list kontrolü yoktu ve tüm kanallar paylaşımlı hafızayı system prompt'a ekliyordu. Ortak `channelGate`: allow-list kuruluysa yetkisizi engeller, kurulu değilse yanıt verir ama **kişisel hafızayı enjekte etmez** (Signal/IRC/Mattermost + bonus iMessage/SMS; Slack stub).
+8. **admin-rpc kimlik doğrulamasız + 0.0.0.0 (KRİTİK)**: RPC sunucusu tüm arayüzlerde, auth'suz dinliyordu → `config.get` ile tüm API key'ler okunabiliyordu. Artık `127.0.0.1` bind (opsiyonel `--expose`) + zorunlu bearer token (`~/.natureco/admin-token`, 0600) + `config.get` secret maskeleme (`reveal:true` gerektirir). dashboard varsayılanı zaten localhost (doğrulandı).
+9. **cron_create komut onayı atlıyor (KRİTİK/persistence)**: `command` kontrolsüz gerçek sistem crontab'ına yazılıyordu (oturum kapansa bile çalışan persistence). Artık tehlikeli komut reddedilir; sistem crontab'ına yazma varsayılan KAPALI (agent tetikleyemez), yalnızca uygulama-içi `crons.json`'a yazılır.
+
+Doğrulama: 567 test yeşil (29 yeni güvenlik regresyonu), ESLint temiz, `npm run smoke` geçti. Ayrıntılı belge: `SECURITY_AUDIT_SUMMARY.md`.
+
 ## [5.42.0] - 2026-07-08 — "TOKEN OPTIMİZASYONU: her istekte ~18K token israfı → ~4.5K (%76 azalma)"
 
 Kullanıcı token maliyetini sordu; ölçüm yapıldı ve ciddi bir israf bulundu: basit bir "merhaba" bile **18,763 token** prompt gönderiyordu. Kök neden: `skill-index.js` her sysMsg'e YÜZLERCE skill'in TAM `description`'ını gömüyordu (satır 75 `- name: description`), her istekte tekrar.

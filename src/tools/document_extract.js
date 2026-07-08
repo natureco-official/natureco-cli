@@ -1,7 +1,7 @@
 const fs = require('fs');
 const { expandPath } = require('../utils/paths');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 module.exports = {
   name: 'document_extract',
@@ -36,7 +36,9 @@ module.exports = {
         text = fs.readFileSync(filePath, 'utf-8');
       } else if (ext === '.pdf') {
         try {
-          text = execSync(`pdftotext "${filePath}" -`, { encoding: 'utf-8', timeout: 30000, stdio: ['pipe', 'pipe', 'ignore'] });
+          // v5.43 GÜVENLİK: execSync string-interp yerine execFileSync (shell yok) —
+          // filePath tırnak/backtick/`;` içerse bile komut enjeksiyonu imkansız.
+          text = execFileSync('pdftotext', [filePath, '-'], { encoding: 'utf-8', timeout: 30000, stdio: ['pipe', 'pipe', 'ignore'] });
         } catch {
           // Fallback: read raw PDF extract
           const raw = fs.readFileSync(filePath, 'utf-8');

@@ -1,4 +1,4 @@
-const { spawn, execSync } = require("child_process");
+const { spawn, execFileSync } = require("child_process");
 const os = require("os");
 
 const IS_MAC = os.platform() === "darwin";
@@ -63,7 +63,7 @@ function getOpenBrowser() {
   ];
   for (const browser of browsers) {
     try {
-      const result = execSync(`pgrep -x "${browser.name}"`, { encoding: "utf8" });
+      const result = execFileSync("pgrep", ["-x", browser.name], { encoding: "utf8" }); // v5.43: shell yok
       if (result.trim()) return browser.cmd;
     } catch (e) {}
   }

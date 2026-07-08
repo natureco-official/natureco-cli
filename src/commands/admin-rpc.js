@@ -15,11 +15,60 @@ const ALLOWED_METHODS = [
 
 let serverInstance = null;
 
+// v5.43 GÜVENLİK: RPC sunucusu kimlik doğrulamasız ve 0.0.0.0'da dinliyordu → config.get
+// ile tüm API key'ler ağdan okunabilir, config.set ile providerUrl kaçırılabilirdi.
+// Zorunlu bearer token + localhost bind + secret maskeleme.
+const SENSITIVE_KEY_RE = /(api[-_]?key|token|secret|password|passwd|credential|authorization|bearer|access[-_]?key|private[-_]?key)/i;
+
+function maskSecrets(obj, reveal) {
+  if (reveal) return obj;
+  const walk = (o) => {
+    if (o === null || typeof o !== 'object') return o;
+    if (Array.isArray(o)) return o.map(walk);
+    const out = {};
+    for (const [k, v] of Object.entries(o)) {
+      if (SENSITIVE_KEY_RE.test(k) && typeof v === 'string' && v) {
+        out[k] = v.length > 8 ? `${v.slice(0, 3)}****${v.slice(-3)}` : '****';
+      } else {
+        out[k] = walk(v);
+      }
+    }
+    return out;
+  };
+  return walk(obj);
+}
+
+function getOrCreateAdminToken() {
+  const fs = require('fs');
+  const path = require('path');
+  const os = require('os');
+  const crypto = require('crypto');
+  const dir = path.join(os.homedir(), '.natureco');
+  const tokenFile = path.join(dir, 'admin-token');
+  try {
+    if (fs.existsSync(tokenFile)) {
+      const t = fs.readFileSync(tokenFile, 'utf8').trim();
+      if (t) { try { fs.chmodSync(tokenFile, 0o600); } catch {} return t; }
+    }
+  } catch {}
+  const token = crypto.randomBytes(32).toString('hex');
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(tokenFile, token, { mode: 0o600 });
+    fs.chmodSync(tokenFile, 0o600);
+  } catch {}
+  return token;
+}
+
 function adminRpc(args) {
   const [action, ...params] = args || [];
 
   if (!action || action === 'status') return statusAdmin();
-  if (action === 'start') return startAdmin(params[0]);
+  if (action === 'start') {
+    const expose = params.includes('--expose');
+    const portArg = params.find(p => /^\d+$/.test(p));
+    return startAdmin(portArg, { expose });
+  }
   if (action === 'stop') return stopAdmin();
   if (action === 'call') return callMethod(params[0], params.slice(1).join(' '));
   if (action === 'methods') return listMethods();
@@ -103,11 +152,13 @@ async function callMethod(method, jsonParams) {
   if (method === 'config.get') {
     const config = getConfig();
     const key = params.key;
+    const reveal = params.reveal === true;
     if (key) {
       const value = key.split('.').reduce((o, k) => o?.[k], config);
-      console.log(chalk.white(`  ${key}: `) + chalk.cyan(JSON.stringify(value)));
+      const masked = maskSecrets({ [key]: value }, reveal);
+      console.log(chalk.white(`  ${key}: `) + chalk.cyan(JSON.stringify(masked[key])));
     } else {
-      console.log(chalk.cyan(JSON.stringify(config, null, 2)));
+      console.log(chalk.cyan(JSON.stringify(maskSecrets(config, reveal), null, 2)));
     }
     console.log();
     return;
@@ -198,18 +249,30 @@ async function callMethod(method, jsonParams) {
   console.log(chalk.yellow(`  ⚠️  Method "${method}" henüz implemente edilmedi\n`));
 }
 
-function startAdmin(portStr) {
+function startAdmin(portStr, opts = {}) {
   if (serverInstance) {
     console.log(chalk.yellow('\n  ⚠️  Server zaten çalışıyor\n'));
     return;
   }
 
   const port = parseInt(portStr, 10) || 3847;
+  // Varsayılan: yalnızca localhost. --expose ile 0.0.0.0 (token yine ZORUNLU).
+  const expose = opts.expose === true;
+  const host = expose ? '0.0.0.0' : '127.0.0.1';
+  const adminToken = getOrCreateAdminToken();
 
   const server = http.createServer((req, res) => {
     if (req.method !== 'POST') {
       res.writeHead(405, { 'Allow': 'POST', 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: false, error: 'Method not allowed' }));
+      return;
+    }
+
+    // v5.43 GÜVENLİK: zorunlu bearer token — eşleşmezse 401 (body okumadan reddet).
+    const auth = req.headers['authorization'] || '';
+    if (auth !== `Bearer ${adminToken}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'Unauthorized: Authorization: Bearer <token> gerekli (~/.natureco/admin-token)' }));
       return;
     }
 
@@ -239,7 +302,9 @@ function startAdmin(portStr) {
           payload = { gateway: config.gatewayUrl, provider: config.provider, model: config.model };
         } else if (rpc.method === 'config.get') {
           const key = rpc.params?.key;
-          payload = key ? { [key]: key.split('.').reduce((o, k) => o?.[k], config) } : config;
+          const raw = key ? { [key]: key.split('.').reduce((o, k) => o?.[k], config) } : config;
+          // v5.43 GÜVENLİK: hassas alanları maskele; tam değer için params.reveal:true gerekir.
+          payload = maskSecrets(raw, rpc.params?.reveal === true);
         } else if (rpc.method === 'plugins.list') {
           const { loadTools } = require('../utils/tool-runner');
           payload = { tools: Object.keys(loadTools()) };
@@ -273,11 +338,15 @@ function startAdmin(portStr) {
   serverInstance = server;
   serverInstance.port = port;
 
-  server.listen(port, () => {
-    console.log(chalk.green(`\n  ✅ Admin RPC server started on http://localhost:${port}\n`));
-    console.log(chalk.gray('  POST requests with JSON body:'));
-    console.log(chalk.white('    { "method": "health", "id": "req-1" }'));
-    console.log(chalk.white('    { "method": "config.get", "params": { "key": "provider" } }'));
+  server.listen(port, host, () => {
+    console.log(chalk.green(`\n  ✅ Admin RPC server started on http://${host}:${port}\n`));
+    if (expose) {
+      console.log(chalk.red('  ⚠️  --expose ile TÜM ağ arayüzlerinde (0.0.0.0) dinliyor. Bearer token ZORUNLU; yine de yalnızca güvendiğin ağda kullan.'));
+    }
+    console.log(chalk.gray('  Bearer token (~/.natureco/admin-token):'));
+    console.log(chalk.white(`    ${adminToken}`));
+    console.log(chalk.gray('  Örnek istek:'));
+    console.log(chalk.white(`    curl -H "Authorization: Bearer ${adminToken.slice(0, 8)}..." -d '{"method":"health"}' http://127.0.0.1:${port}`));
     console.log(chalk.gray('\n  Press Ctrl+C to stop\n'));
   });
 
@@ -300,3 +369,8 @@ function stopAdmin() {
 }
 
 module.exports = adminRpc;
+// v5.43: test için — auth/bind/maskeleme regresyonu
+module.exports.maskSecrets = maskSecrets;
+module.exports.getOrCreateAdminToken = getOrCreateAdminToken;
+module.exports.startAdmin = startAdmin;
+module.exports.stopAdmin = stopAdmin;

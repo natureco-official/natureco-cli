@@ -1,17 +1,27 @@
 const { getConfig, saveConfig } = require('../utils/config');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 function checkAdb() {
   try {
-    execSync('adb version', { stdio: 'pipe', encoding: 'utf8' });
+    execFileSync('adb', ['version'], { stdio: 'pipe', encoding: 'utf8' });
     return true;
   } catch {
     return false;
   }
 }
 
+// v5.43 GÜVENLİK: `execSync('adb '+args)` shell enjeksiyonuna açıktı. execFileSync +
+// tırnak-farkındalıklı tokenize → shell yok, metakarakter işlem görmez.
+function _tok(s) {
+  const out = [];
+  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
+  let m;
+  while ((m = re.exec(String(s || ''))) !== null) out.push(m[1] ?? m[2] ?? m[3]);
+  return out;
+}
+
 function adbCommand(args) {
-  return execSync(`adb ${args}`, { stdio: 'pipe', encoding: 'utf8', maxBuffer: 1024 * 1024 }).trim();
+  return execFileSync('adb', _tok(args), { stdio: 'pipe', encoding: 'utf8', maxBuffer: 1024 * 1024 }).trim();
 }
 
 module.exports = {
