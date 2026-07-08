@@ -1293,6 +1293,21 @@ async function startRepl(args) {
           // Bot adı sorgulanmış olabilir, mevcut adı koru
         }
 
+        // v5.44: Kullanici AÇIKÇA "hatirla/kaydet/not al" dediyse ve agent bunu bilinçli
+        // kaydetmediyse (buraya kadar geldiysek agent yazmamıştır), mesaji HAM olarak
+        // sakla — regex ile parse edip bozma. "Sadakat > kategorizasyon": kullanicinin
+        // soyledigi bilgiyi AYNEN korumak, yanlis etiketleyip bozmaktan iyidir. Boylece
+        // "kod adi VORTEX-8 hatirla" → tam metin kaydedilir, ne kaybolur ne bozulur.
+        if (/\b(hat[ıi]rla|kaydet|not\s*al|not\s*et|unutma|akl[ıi]nda\s*(tut|bulunsun)|remember|save\s*this|note\s*this)\b/i.test(text)) {
+          const raw = (msg.content || '').trim()
+            .replace(/[,.\s]*(bunu|sunu|şunu)?\s*(kal[ıi]c[ıi]\s*olarak\s*)?(hat[ıi]rla|kaydet|not\s*al|not\s*et|unutma|akl[ıi]nda\s*(tut|bulunsun))\b[.!]*\s*$/i, '')
+            .trim();
+          const fact = raw.length >= 3 ? raw : (msg.content || '').trim();
+          if (fact && !(memory.facts || []).some(f => (f.value || '').toLowerCase() === fact.toLowerCase())) {
+            newFacts.push({ value: fact, score: 8, category: 'explicit', createdAt: new Date().toISOString() });
+          }
+        }
+
         // v5.40: Kisilik/isim cikarimi module-level SAF extractPreferenceFacts'e
         // tasindi (test edilebilir + regresyon kilidi). "kod adı"/"proje adı" gibi
         // masum tamlamalari artik yanlis yakalamiyor; deger orijinal case'de kalir.

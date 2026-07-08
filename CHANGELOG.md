@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.44.1] - 2026-07-08 — "MEMORY: açık 'hatırla' komutu HAM kaydedilir (kayıp önlenir)"
+
+### Added
+- **"Hatırla" dedin ama hiçbir şey kaydedilmedi** sorunu kapatıldı. v5.44.0 yanlış-kaydı önledi ama bir boşluk kaldı: agent `memory_write`'ı çağırmazsa (model tutarsızlığı) VE sıkılaştırılmış regex bilgiyi yakalamazsa (ör. "kod adı VORTEX-8") bilgi HİÇ kaydedilmiyordu. Artık: kullanıcı açıkça **"hatırla / kaydet / not al / unutma / aklında tut"** dediyse ve agent bilinçli kaydetmediyse, mesaj **HAM olarak** saklanır — regex ile parse edip bozmadan. "Sadakat > kategorizasyon": "projemin gizli kod adı VORTEX-8, hatırla" → tam metin (`Projemin gizli kod adı VORTEX-8`) korunur, ne kaybolur ne bozulur. Kayıt komutu içermeyen mesajlar etkilenmez. 571 test yeşil.
+
 ## [5.44.0] - 2026-07-08 — "MEMORY: otomatik regex-extraction artık agent'ın bilinçli kaydını ezmiyor"
 
 ### Changed
