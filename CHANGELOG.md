@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.43.1] - 2026-07-08 — "SECURITY: config restore artık 0600 izniyle yazıyor"
+
+### Security
+- **`restoreConfig()` config.json'ı zayıf izinle yeniden yazıyordu**: v5.43.0'da `saveConfig()` ve `createBackup()` `0600`/chmod ile korunmuştu ama `restoreConfig()` atlanmıştı — bir yedekten geri yükleme (`config restore`) API anahtarları içeren aktif `config.json`'ı yeniden dünya-okunabilir (`0644`) hale getiriyordu. Artık `saveConfig()` ile aynı şekilde `{ mode: 0o600 }` + `chmodSync` fallback ile yazılır. Regresyon testi eklendi (POSIX). 568 test yeşil, ESLint temiz.
+
 ## [5.43.0] - 2026-07-08 — "SECURITY: 9 açık kapatıldı (3 turluk güvenlik incelemesi)"
 
 ### Security

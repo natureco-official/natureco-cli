@@ -22,6 +22,24 @@ describe('config.js dosya izinleri (Madde 3)', () => {
     expect(fs.statSync(cfgFile).mode & 0o777).toBe(0o600);
     expect(fs.statSync(path.join(TEST_HOME, '.natureco')).mode & 0o777).toBe(0o700);
   });
+
+  it('restoreConfig sonrası config.json 0o600 (POSIX) — v5.43.1 regresyonu', async () => {
+    if (process.platform === 'win32') return; // Windows ACL farklı — atla
+    vi.spyOn(os, 'homedir').mockReturnValue(TEST_HOME);
+    fs.mkdirSync(TEST_HOME, { recursive: true });
+    vi.resetModules();
+    const config = await import('../../src/utils/config.js');
+    // Bir yedek dosyası oluştur (API key içeren geçerli config)
+    fs.mkdirSync(config.CONFIG_BACKUP_DIR, { recursive: true });
+    fs.writeFileSync(path.join(config.CONFIG_BACKUP_DIR, 'config-restoretest.json'),
+      JSON.stringify({ providerUrl: 'https://x', providerModel: 'm', providerApiKey: 'secret-key', userName: 't' }));
+    // Aktif config.json'ı KASITLI olarak dünya-okunabilir bırak (eski/bozuk izin)
+    fs.writeFileSync(config.CONFIG_FILE, '{}');
+    fs.chmodSync(config.CONFIG_FILE, 0o644);
+    // Restore, izni 0600'e sıkılaştırmalı (eskiden 0644 bırakıyordu)
+    config.restoreConfig('config-restoretest.json');
+    expect(fs.statSync(config.CONFIG_FILE).mode & 0o777).toBe(0o600);
+  });
 });
 
 describe('shell injection temizliği (Madde 5)', () => {

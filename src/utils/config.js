@@ -213,7 +213,10 @@ function restoreConfig(backupFile) {
   const data = parseConfigContent(content);
   validateConfig(data);
   createBackup();
-  fs.writeFileSync(ACTIVE_CONFIG_FILE, JSON.stringify(data, null, 2), 'utf8');
+  // v5.43.1 GÜVENLİK: saveConfig gibi 0600 — restore, API key'li config.json'ı
+  // dünya-okunabilir hale getirmemeli. mode yalnızca yeni dosyaya uygulanır; chmod şart.
+  fs.writeFileSync(ACTIVE_CONFIG_FILE, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600 });
+  try { fs.chmodSync(ACTIVE_CONFIG_FILE, 0o600); } catch { /* best-effort */ }
   _configCache = data;
   _configHash = computeHash(data);
   return { path: backupPath, timestamp: path.basename(backupPath).replace(/^config-|\.json$/g, '') };
