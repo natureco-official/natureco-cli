@@ -435,46 +435,35 @@ async function startWhatsAppProvider(sessionDir, config) {
         log('whatsapp', `Inbound message +${sender} -> +${ownNumber} (${cleanCommand.length} chars)`, 'cyan');
         
         try {
-          const { sendMessage } = require('../utils/api');
-          const { getMemoryPrompt, extractMemoryFromMessage, addMemoryEntry } = require('../utils/memory');
-          const { getConfig, saveConfig } = require('../utils/config');
-          const cfg = getConfig();
-          
-          log('whatsapp', 'Sending to AI provider...', 'cyan');
-          
-          // Use WhatsApp-specific conversation ID for persistent history
-          const conversationId = `whatsapp_${sender.replace(/\D/g, '')}`;
-          
-          // Use same botId as terminal for shared memory
-          const botId = 'universal-provider';
-          const memoryPrompt = getMemoryPrompt(botId);
-          
-          // WhatsApp system prompt with memory
-          let systemPrompt = `You are a helpful WhatsApp assistant. Keep responses concise and friendly. Use emojis when appropriate. If users ask for file operations or system commands, politely explain that those features are available in the terminal version.`;
-          
-          if (memoryPrompt) {
-            systemPrompt += '\n\n' + memoryPrompt;
+          // v5.47 TEK BEYIN: allow-list'teki gonderen (veya sahibin kendi cihazi) =
+          // guvenilir → terminaldekiyle ayni ajan. Aksi halde hafizasiz hafif yol.
+          const trusted = (msg.key.fromMe && isLID) ||
+            (allowedNumbers.length > 0 && allowedNumbers.some(n => numberMatches(n, sender)));
+          let reply = '';
+
+          if (trusted) {
+            log('whatsapp', 'Trusted sender → unified agent brain', 'cyan');
+            const { runBrain } = require('../utils/channel-brain');
+            reply = await runBrain({ channel: 'whatsapp', chatKey: sender.replace(/\D/g, ''), text: cleanCommand });
+          } else {
+            log('whatsapp', 'Untrusted sender → memory-less lightweight path', 'gray');
+            const { sendMessage } = require('../utils/api');
+            const { getConfig } = require('../utils/config');
+            const cfg = getConfig();
+            const systemPrompt = `You are a helpful WhatsApp assistant. Keep responses concise and friendly. Use emojis when appropriate.`;
+            const response = await sendMessage(cfg.providerApiKey || cfg.apiKey || '', 'universal-provider', cleanCommand, `whatsapp_${sender.replace(/\D/g, '')}`, systemPrompt, { noTools: true });
+            reply = response?.reply || response?.message || '';
           }
-          
-          const response = await sendMessage(cfg.providerApiKey || cfg.apiKey || '', botId, cleanCommand, conversationId, systemPrompt);
-          const reply = response?.reply || response?.message || '';
-          
+
           if (reply) {
             log('whatsapp', 'Sending reply...', 'cyan');
-            
+
             await sock.sendMessage(msg.key.remoteJid, { text: reply });
-            
+
             // Store last bot reply to prevent loop
             lastBotReply = reply;
-            
+
             log('whatsapp', `Reply sent (${reply.length} chars)`, 'green');
-            
-            // Extract and save memory from user message
-            const memoryEntries = extractMemoryFromMessage(messageText);
-            for (const entry of memoryEntries) {
-              addMemoryEntry(botId, entry.key, entry.value);
-              log('whatsapp', `Memory saved: ${entry.key} = ${entry.value}`, 'gray');
-            }
           } else {
             log('whatsapp', 'No reply from provider', 'yellow');
           }
@@ -672,54 +661,46 @@ async function startTelegramProvider(config) {
         return;
       }
       
-      // Access control - check allowed chats
-      const allowedChats = config.telegramAllowedChats || [];
-      if (allowedChats.length > 0 && !allowedChats.includes(String(chatId))) {
+      // v5.47 TEK BEYIN: gonderen dogrulamasi channelGate ile (ayni semantik: allow-list
+      // doluysa disindakiler engellenir; bos ise herkes yanit alir ama guvenilmez sayilir).
+      const gate = channelGate(config, 'telegram', String(chatId));
+      if (!gate.allowed) {
         log('telegram', `Blocked message from chat ${chatId} (not in allowed list)`, 'yellow');
         return;
       }
-      
+
       log('telegram', `Inbound message from chat ${chatId} (${messageText.length} chars)`, 'cyan');
-      
+
       try {
-        const { sendMessage } = require('../utils/api');
-        const { getMemoryPrompt, extractMemoryFromMessage, addMemoryEntry } = require('../utils/memory');
-        const { getConfig, saveConfig } = require('../utils/config');
-        const cfg = getConfig();
-        
-        log('telegram', 'Sending to AI provider...', 'cyan');
-        
-        // Use Telegram-specific conversation ID for persistent history
-        const conversationId = `telegram_${chatId}`;
-        
-        // Use same botId as terminal for shared memory
-        const botId = 'universal-provider';
-        const memoryPrompt = getMemoryPrompt(botId);
-        
-        // Telegram system prompt with memory
-        let systemPrompt = `You are a helpful Telegram assistant. Keep responses concise and friendly. Use emojis when appropriate. If users ask for file operations or system commands, politely explain that those features are available in the terminal version.`;
-        
-        if (memoryPrompt) {
-          systemPrompt += '\n\n' + memoryPrompt;
-        }
-        
         const cleanCommand = stripSlashPrefix(messageText);
-        const response = await sendMessage(cfg.providerApiKey || cfg.apiKey || '', botId, cleanCommand, conversationId, systemPrompt);
-        const reply = response?.reply || response?.message || '';
+        let reply = '';
+
+        if (gate.trusted) {
+          // Sahip: terminaldekiyle AYNI ajan — ayni persona, ayni kalici hafiza, ayni araclar
+          log('telegram', 'Trusted sender → unified agent brain', 'cyan');
+          const { runBrain } = require('../utils/channel-brain');
+          reply = await runBrain({ channel: 'telegram', chatKey: String(chatId), text: cleanCommand });
+        } else {
+          // Guvenilmeyen gonderen: hafizasiz + aracsiz hafif yol (v5.43 kurali)
+          log('telegram', 'Untrusted sender → memory-less lightweight path', 'gray');
+          const { sendMessage } = require('../utils/api');
+          const { getConfig } = require('../utils/config');
+          const cfg = getConfig();
+          const systemPrompt = `You are a helpful Telegram assistant. Keep responses concise and friendly. Use emojis when appropriate.`;
+          const response = await sendMessage(cfg.providerApiKey || cfg.apiKey || '', 'universal-provider', cleanCommand, `telegram_${chatId}`, systemPrompt, { noTools: true });
+          reply = response?.reply || response?.message || '';
+        }
 
         if (reply) {
           log('telegram', 'Sending reply...', 'cyan');
-          
-          await bot.sendMessage(chatId, reply);
-          
-          log('telegram', `Reply sent (${reply.length} chars)`, 'green');
-          
-          // Extract and save memory from user message
-          const memoryEntries = extractMemoryFromMessage(messageText);
-          for (const entry of memoryEntries) {
-            addMemoryEntry(botId, entry.key, entry.value);
-            log('telegram', `Memory saved: ${entry.key} = ${entry.value}`, 'gray');
+
+          // Telegram mesaj limiti 4096 — uzun yaniti parcalara bol
+          const { chunkText } = require('../utils/channel-brain');
+          for (const part of chunkText(reply, 4000)) {
+            await bot.sendMessage(chatId, part);
           }
+
+          log('telegram', `Reply sent (${reply.length} chars)`, 'green');
         } else {
           log('telegram', 'No reply from provider', 'yellow');
         }
@@ -958,34 +939,26 @@ async function processSignalEnvelope(envelope, config) {
 
     // Get AI response
     try {
-      const { sendMessage } = require('../utils/api');
-      const { getMemoryPrompt, extractMemoryFromMessage, addMemoryEntry } = require('../utils/memory');
-      const { getConfig, saveConfig } = require('../utils/config');
-      const cfg = getConfig();
-
-      const conversationId = `signal_${sender}`;
-      const botId = 'universal-provider';
-      const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
-
-      let systemPrompt = `You are a helpful Signal assistant. Keep responses concise.`;
-      if (memoryPrompt) {
-        systemPrompt += '\n\n' + memoryPrompt;
+      // v5.47 TEK BEYIN: guvenilir gonderen terminaldekiyle ayni ajani kullanir
+      let reply = '';
+      if (gate.trusted) {
+        const { runBrain } = require('../utils/channel-brain');
+        reply = await runBrain({ channel: 'signal', chatKey: sender, text: messageText });
+      } else {
+        const { sendMessage } = require('../utils/api');
+        const { getConfig } = require('../utils/config');
+        const cfg = getConfig();
+        const systemPrompt = `You are a helpful Signal assistant. Keep responses concise.`;
+        const response = await sendMessage(
+          cfg.providerApiKey || cfg.apiKey || '', 'universal-provider', messageText,
+          `signal_${sender}`, systemPrompt, { noTools: true }
+        );
+        reply = response?.reply || response?.message || '';
       }
-
-      const response = await sendMessage(
-        cfg.providerApiKey || cfg.apiKey || '', botId, messageText,
-        conversationId, systemPrompt
-      );
-      const reply = response?.reply || response?.message || '';
 
       if (reply) {
         await sendSignalMessage(config, sender, reply);
         log('signal', `Reply sent to ${sender} (${reply.length} chars)`, 'green');
-
-        const memoryEntries = extractMemoryFromMessage(messageText);
-        for (const entry of memoryEntries) {
-          addMemoryEntry(botId, entry.key, entry.value);
-        }
       }
     } catch (err) {
       log('signal', `Response error: ${err.message}`, 'red');
@@ -1215,25 +1188,25 @@ async function processIrcMessage(config, sender, target, text, socket) {
   const gate = channelGate(config, 'irc', sender);
   if (!gate.allowed) { log('irc', `Blocked (allow-list): ${sender}`, 'yellow'); return; }
   try {
-    const { sendMessage } = require('../utils/api');
-    const { getMemoryPrompt } = require('../utils/memory');
-    const { getConfig, saveConfig } = require('../utils/config');
-    const cfg = getConfig();
-
-    const conversationId = `irc_${sender}_${target}`;
-    const botId = 'universal-provider';
-    const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
-
-    let systemPrompt = `You are a helpful IRC assistant. Keep responses concise. Use IRC-friendly formatting.`;
-    if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
-
     // IRC handler's parameter is `text` (see signature above), not `messageText`.
     const cleanCommand = stripSlashPrefix(text);
-    const response = await sendMessage(
-      cfg.providerApiKey || cfg.apiKey || '', botId, cleanCommand,
-      conversationId, systemPrompt
-    );
-    const reply = response?.reply || response?.message || '';
+
+    // v5.47 TEK BEYIN: guvenilir gonderen terminaldekiyle ayni ajani kullanir
+    let reply = '';
+    if (gate.trusted) {
+      const { runBrain } = require('../utils/channel-brain');
+      reply = await runBrain({ channel: 'irc', chatKey: `${sender}_${target}`, text: cleanCommand });
+    } else {
+      const { sendMessage } = require('../utils/api');
+      const { getConfig } = require('../utils/config');
+      const cfg = getConfig();
+      const systemPrompt = `You are a helpful IRC assistant. Keep responses concise. Use IRC-friendly formatting.`;
+      const response = await sendMessage(
+        cfg.providerApiKey || cfg.apiKey || '', 'universal-provider', cleanCommand,
+        `irc_${sender}_${target}`, systemPrompt, { noTools: true }
+      );
+      reply = response?.reply || response?.message || '';
+    }
 
     if (reply) {
       const ircTarget = target.startsWith('#') ? target : sender;
@@ -1404,24 +1377,22 @@ async function handleMattermostPost(data, broadcast, config) {
     const gate = channelGate(config, 'mattermost', senderId);
     if (!gate.allowed) { log('mattermost', `Blocked (allow-list): ${senderId}`, 'yellow'); return; }
 
-    // Get AI response
-    const { sendMessage } = require('../utils/api');
-    const { getMemoryPrompt } = require('../utils/memory');
-    const { getConfig, saveConfig } = require('../utils/config');
-    const cfg = getConfig();
-
-    const conversationId = `mattermost_${channelId}`;
-    const botId = 'universal-provider';
-    const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
-
-    let systemPrompt = `You are a helpful Mattermost assistant. Keep responses concise.`;
-    if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
-
-    const response = await sendMessage(
-      cfg.providerApiKey || cfg.apiKey || '', botId, messageText,
-      conversationId, systemPrompt
-    );
-    const reply = response?.reply || response?.message || '';
+    // Get AI response — v5.47 TEK BEYIN: guvenilir gonderen ayni ajani kullanir
+    let reply = '';
+    if (gate.trusted) {
+      const { runBrain } = require('../utils/channel-brain');
+      reply = await runBrain({ channel: 'mattermost', chatKey: String(channelId), text: messageText });
+    } else {
+      const { sendMessage } = require('../utils/api');
+      const { getConfig } = require('../utils/config');
+      const cfg = getConfig();
+      const systemPrompt = `You are a helpful Mattermost assistant. Keep responses concise.`;
+      const response = await sendMessage(
+        cfg.providerApiKey || cfg.apiKey || '', 'universal-provider', messageText,
+        `mattermost_${channelId}`, systemPrompt, { noTools: true }
+      );
+      reply = response?.reply || response?.message || '';
+    }
 
     if (reply) {
       await sendMattermostMessage(config, channelId, reply);
@@ -1607,26 +1578,27 @@ async function processImessageMessage(msg, config) {
     }
     log('imessage', `Slash command: /${cleanCommand.slice(0, 60)}`, 'yellow');
 
-    const { sendMessage } = require('../utils/api');
-    const { getMemoryPrompt } = require('../utils/memory');
-    const { getConfig, saveConfig } = require('../utils/config');
+    const { getConfig } = require('../utils/config');
     const cfg = getConfig();
 
     // v5.43 GÜVENLİK: gönderen doğrulaması + hafıza sızıntısı önleme
     const gate = channelGate(cfg, 'imessage', sender);
     if (!gate.allowed) { log('imessage', `Blocked (allow-list): ${sender}`, 'yellow'); return; }
-    const conversationId = `imessage_${sender}`;
-    const botId = 'universal-provider';
-    const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
 
-    let systemPrompt = `You are a helpful iMessage assistant. Keep responses concise.`;
-    if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
-
-    const response = await sendMessage(
-      cfg.providerApiKey || cfg.apiKey || '', botId, cleanCommand,
-      conversationId, systemPrompt
-    );
-    const reply = response?.reply || response?.message || '';
+    // v5.47 TEK BEYIN: guvenilir gonderen terminaldekiyle ayni ajani kullanir
+    let reply = '';
+    if (gate.trusted) {
+      const { runBrain } = require('../utils/channel-brain');
+      reply = await runBrain({ channel: 'imessage', chatKey: sender, text: cleanCommand });
+    } else {
+      const { sendMessage } = require('../utils/api');
+      const systemPrompt = `You are a helpful iMessage assistant. Keep responses concise.`;
+      const response = await sendMessage(
+        cfg.providerApiKey || cfg.apiKey || '', 'universal-provider', cleanCommand,
+        `imessage_${sender}`, systemPrompt, { noTools: true }
+      );
+      reply = response?.reply || response?.message || '';
+    }
 
     if (reply) {
       execSync(`${global.imessageProvider.imsgPath} send --to "${sender}" --text "${reply.replace(/"/g, '\\"')}" 2>/dev/null`, {
@@ -1785,29 +1757,30 @@ async function handleSmsWebhook(config, body, req) {
 
   // Get AI response
   try {
-    const { sendMessage } = require('../utils/api');
-    const { getMemoryPrompt } = require('../utils/memory');
-    const { getConfig, saveConfig } = require('../utils/config');
-    const cfg = getConfig();
-
     // v5.43 GÜVENLİK: gönderen doğrulaması + hafıza sızıntısı önleme
     const gate = channelGate(config, 'sms', from);
     if (!gate.allowed) return { status: 200, body: { ok: true, blocked: true } };
-    const conversationId = `sms_${from}`;
-    const botId = 'universal-provider';
-    const memoryPrompt = gate.trusted ? getMemoryPrompt(botId) : '';
-
-    let systemPrompt = `You are a helpful SMS assistant. Keep responses concise (SMS format).`;
-    if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
 
     // SMS handler binds the inbound to `text` (Twilio webhook body), unlike
     // Telegram/IRC which use `messageText`.
     const cleanCommand = stripSlashPrefix(text);
-    const response = await sendMessage(
-      cfg.providerApiKey || cfg.apiKey || '', botId, cleanCommand,
-      conversationId, systemPrompt
-    );
-    const reply = response?.reply || response?.message || '';
+
+    // v5.47 TEK BEYIN: guvenilir gonderen terminaldekiyle ayni ajani kullanir
+    let reply = '';
+    if (gate.trusted) {
+      const { runBrain } = require('../utils/channel-brain');
+      reply = await runBrain({ channel: 'sms', chatKey: from, text: cleanCommand });
+    } else {
+      const { sendMessage } = require('../utils/api');
+      const { getConfig } = require('../utils/config');
+      const cfg = getConfig();
+      const systemPrompt = `You are a helpful SMS assistant. Keep responses concise (SMS format).`;
+      const response = await sendMessage(
+        cfg.providerApiKey || cfg.apiKey || '', 'universal-provider', cleanCommand,
+        `sms_${from}`, systemPrompt, { noTools: true }
+      );
+      reply = response?.reply || response?.message || '';
+    }
 
     if (reply) {
       await sendSmsMessage(config, from, reply);

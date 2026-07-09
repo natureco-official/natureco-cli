@@ -2,7 +2,19 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
-## [Unreleased]
+## [5.47.0] - 2026-07-09 — "TEK BEYIN: her kanalda aynı kişilik + aynı hafıza"
+
+### Fixed
+- **Split-brain: Telegram/WhatsApp'taki bot, terminaldekinden FARKLI kişilik ve hafızaya sahipti (kritik).** Mesajlaşma kanalları (Telegram, WhatsApp, Signal, IRC, Mattermost, iMessage, SMS) sabit İngilizce "You are a helpful X assistant" prompt'u + neredeyse boş legacy `universal-provider.json` hafızasıyla düz API passthrough'u kullanıyordu; terminal ise workflow orchestrator üzerinden gerçek personayı (`botName`) ve kullanıcı hafızasını (`<user>.json` + tree digest) alıyordu. Sonuç: terminalde her şeyi hatırlayan bot, Telegram'da kişiliksiz ve hafızasızdı.
+
+### Added
+- **`src/utils/channel-brain.js` — tek beyin köprüsü.** Allow-list'teki (güvenilir) gönderenden gelen kanal mesajı artık terminaldekiyle **AYNI** workflow ajanına gider: aynı sistem mesajı, aynı persona, aynı kalıcı hafıza (flat + ağaç), aynı araçlar, aynı `memory_write`/`memory_tree` kayıt yolları. Kanal yalnızca taşıma katmanı; kişilik ve hafıza kanaldan bağımsız. Kanal-içi kısa-süre konuşma geçmişi `~/.natureco/channel-history/<kanal>_<sohbet>.json`'da tutulur (son 40 mesaj; modele son 12'si gider).
+- Yanıtlar terminaldekiyle aynı model-adı temizliğinden geçer ("Ben MiniMax M2.5" → "Ben <botName>") ve Telegram 4096 limitine göre parçalanarak gönderilir (`chunkText`).
+- 13 yeni regresyon testi (`test/utils/channel-brain.test.js`): sanitize desenleri, chunk bölme, workflow'a giden çağrı şekli, kanal-içi süreklilik, geçmiş sınırı, path-traversal güvenliği.
+
+### Security
+- **Güvenilmeyen gönderen artık araçsız da (`noTools`).** Eski kanal yolu `sendMessage` varsayılanıyla tool tanımlarını da gönderiyordu; v5.43'ün "anonim kanala kişisel hafıza sızmaz" kuralına ek olarak artık araç erişimi de verilmiyor. Telegram gating'i de ortak `channelGate`'e taşındı (aynı semantik: allow-list doluysa dışındakiler engellenir, boşsa yanıt-ama-güvenilmez).
+- Kanallardaki eski regex tabanlı `extractMemoryFromMessage` otomatik hafıza yazımı kaldırıldı (v5.40 dersi: regex çıkarımı yanlış fact üretir; güvenilir yol zaten ajanın bilinçli `memory_write`/`memory_tree` kayıtlarını kullanıyor).
 
 ### Docs
 - **foldTr'nin ı/i çakışması bilinçli taviz olarak belgelendi.** `src/utils/tr-text.js` JSDoc'una not eklendi: foldTr İ/I/ı/i'yi tek forma indirdiği için yalnız casing değil ı/i ayrımını da kaldırır → "kıl" (hair) ile "kil" (clay) aynılaşır. Bir arama/hafıza safety-net'i için "yanlış pozitif" < "yanlış negatif" olduğundan bilinçli tercih; birebir imla gereken yerde KULLANILMAMALI. 2 niyet-testi eklendi (regresyon değil). **Davranış değişmedi, sürüm yükseltmesi yok.**
