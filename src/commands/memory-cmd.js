@@ -435,19 +435,19 @@ function lintMemoryCmd(user) {
     console.log(chalk.green('\n  ✓ Temiz — yinelenen veya çelişen kayıt yok.\n'));
     return;
   }
+  // Tree bulgularında dal (branch) bağlamını da göster ki kullanıcı "hangisi nerede" bilsin.
+  const br = (b) => (b ? chalk.gray(` (## ${b})`) : '');
+  const printFinding = (f, sym) => {
+    console.log(`     ${chalk.gray(`(%${Math.round(f.sim * 100)})`)} ${f.a}${br(f.aBranch)}`);
+    console.log(`     ${chalk.gray('           ' + sym)} ${f.b}${br(f.bBranch)}${f.file ? chalk.gray(' [' + f.file + ']') : ''}`);
+  };
   if (dups.length) {
     console.log(chalk.yellow(`\n  ⚠ ${dups.length} olası YİNELENEN (aynı bilgi iki kez):`));
-    for (const f of dups.slice(0, 10)) {
-      console.log(`     ${chalk.gray(`(%${Math.round(f.sim * 100)})`)} ${f.a}`);
-      console.log(`     ${chalk.gray('           ≈')} ${f.b}${f.file ? chalk.gray(' [' + f.file + ']') : ''}`);
-    }
+    for (const f of dups.slice(0, 10)) printFinding(f, '≈');
   }
   if (conflicts.length) {
     console.log(chalk.red(`\n  ⚠ ${conflicts.length} olası ÇELİŞKİ (aynı konu, farklı değer):`));
-    for (const f of conflicts.slice(0, 10)) {
-      console.log(`     ${chalk.gray(`(%${Math.round(f.sim * 100)})`)} ${f.a}`);
-      console.log(`     ${chalk.gray('           ↔')} ${f.b}${f.file ? chalk.gray(' [' + f.file + ']') : ''}`);
-    }
+    for (const f of conflicts.slice(0, 10)) printFinding(f, '↔');
   }
   console.log(chalk.gray(`\n  Öneri: eskiyen/yanlış kaydı düzeltin — "natureco memory clear" veya elle. Tek doğru kalsın.\n`));
 }

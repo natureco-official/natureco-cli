@@ -72,3 +72,38 @@ describe('memory_tree (ağaç-hafıza)', () => {
     expect(mod._internal.getPending(U).some((x) => /test gorevi/.test(x))).toBe(false);
   });
 });
+
+describe('memory_tree — yazma-anı hijyen (v5.46) + Türkçe recall (v5.45.1)', () => {
+  it('çok-benzer yaprağı tekrar EKLEMEZ (dedup, bloat önler)', () => {
+    const c = 'prod sunucu ip adresi 10.0.0.5 ubuntu';
+    append(U, '2-teknik', 'Kurulum & Sistem', c);
+    const r2 = append(U, '2-teknik', 'Kurulum & Sistem', c);
+    expect(r2.deduped).toBe(true);
+    expect(r2.note).toMatch(/benzer/i);
+    const content = readRoot(U, '2-teknik');
+    expect((content.match(/10\.0\.0\.5/g) || []).length).toBe(1); // ikinci kez eklenmedi
+  });
+
+  it('aynı konu farklı değer → EKLER ama UYARIR (çelişki, veri kaybı yok)', () => {
+    append(U, '1-kisisel', 'Tercihler', 'favori renk kırmızı');
+    const r2 = append(U, '1-kisisel', 'Tercihler', 'favori renk mavi');
+    expect(r2.deduped).toBeUndefined();
+    expect(r2.warning).toMatch(/farklı bir kayıt/i);
+    const content = readRoot(U, '1-kisisel');
+    expect(content).toContain('favori renk kırmızı');
+    expect(content).toContain('favori renk mavi'); // ikisi de saklandı
+  });
+
+  it('alakasız yaprak temiz eklenir (yanlış uyarı yok)', () => {
+    append(U, '2-teknik', 'Projeler', 'python fastapi kullaniyoruz');
+    const r2 = append(U, '2-teknik', 'Projeler', 'ofis istanbulda merkez sube');
+    expect(r2.deduped).toBeUndefined();
+    expect(r2.warning).toBeUndefined();
+  });
+
+  it('search Türkçe büyük-harf duyarsız (İstanbul == istanbul) [v5.45.1]', () => {
+    append(U, '2-teknik', 'Projeler', 'İstanbul ofisi prod sunucusu');
+    expect(search(U, 'istanbul').length).toBeGreaterThan(0);
+    expect(search(U, 'İSTANBUL').length).toBeGreaterThan(0);
+  });
+});

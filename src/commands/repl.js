@@ -1243,6 +1243,16 @@ async function startRepl(args) {
         console.log(chalk.gray(`  🎯 ${persistResult.preferencesAdded} yeni tercih kaydedildi`));
       }
 
+      // v5.46: oturum-sonu hafıza-sağlığı ipucu (gürültüsüz). Yinelenen/çelişen kayıt varsa
+      // tek satır hatırlat — kullanıcı çoğu zaman "natureco memory lint"i hiç çalıştırmaz,
+      // hafıza sessizce bozulur. Sadece bulgu varsa yazılır; hata asla oturumu bozmaz.
+      try {
+        const { lintUser } = require('../utils/memory-lint');
+        const { flatFindings, treeFindings } = lintUser(cfg.userName);
+        const n = (flatFindings.length + treeFindings.length);
+        if (n > 0) console.log(chalk.gray(`  💡 Hafızada ${n} olası yinelenen/çelişen kayıt — "natureco memory lint" ile gözden geçir.`));
+      } catch {}
+
       const sessId = saveSession(messages, {
         provider: providerUrl, model, user: cfg.userName,
         bot: memory.botName, factCount: memory.facts?.length || 0,

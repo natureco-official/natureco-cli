@@ -17,6 +17,8 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { foldTr } = require('../utils/tr-text');
+const { tokens, jaccard } = require('../utils/memory-lint');
 
 const ROOTS = [
   { id: '1-kisisel', title: 'Kişisel & Tercihler', branches: ['Kimlik', 'Tercihler', 'İletişim Kalıpları'] },
@@ -91,7 +93,10 @@ function buildDigest(username, maxChars = 2600) {
 
 function search(username, query) {
   ensureTree(username);
-  const q = String(query || '').toLowerCase().trim();
+  // v5.45.1: Türkçe-güvenli eşleşme (foldTr). Eski `line.toLowerCase().includes(q)` locale
+  // duyarsızdı → "İstanbul" .toLowerCase() = "i̇stanbul" olur ve "istanbul" sorgusuyla EŞLEŞMEZDİ;
+  // her büyük-harfli Türkçe kelime (İzmir, İş, İletişim…) canlı recall'da sessizce kaçıyordu.
+  const q = foldTr(query).trim();
   if (!q) return [];
   const hits = [];
   for (const r of ROOTS) {
@@ -99,7 +104,7 @@ function search(username, query) {
     let branch = '';
     for (const line of txt.split('\n')) {
       if (line.startsWith('## ')) branch = line.slice(3).trim();
-      else if (line.trim() && !line.startsWith('#') && line.toLowerCase().includes(q)) hits.push(`${r.id}/${branch}: ${line.trim()}`);
+      else if (line.trim() && !line.startsWith('#') && foldTr(line).includes(q)) hits.push(`${r.id}/${branch}: ${line.trim()}`);
     }
   }
   return hits;
@@ -121,17 +126,30 @@ function getPending(username) {
 function remove(username, root, query) {
   ensureTree(username);
   const r = resolveRoot(root || '3-kararlar');
-  const q = String(query || '').toLowerCase().trim();
+  const q = foldTr(query).trim(); // v5.45.1: Türkçe-güvenli (bkz: search)
   if (!q) return { success: false, error: 'query gerekli' };
   const txt = readSafe(username, r.id);
   const kept = [];
   let removed = 0;
   for (const line of txt.split('\n')) {
-    if (/^\s*-\s+/.test(line) && line.toLowerCase().includes(q)) { removed++; continue; }
+    if (/^\s*-\s+/.test(line) && foldTr(line).includes(q)) { removed++; continue; }
     kept.push(line);
   }
   if (removed) fs.writeFileSync(rootPath(username, r.id), kept.join('\n'), 'utf8');
   return { success: true, removed, root: r.id };
+}
+
+// Belirli bir daldaki mevcut yaprakları döndür (yazma-anı hijyen kontrolü için). Türkçe-güvenli dal eşleşmesi.
+function leavesInBranch(txt, branchName) {
+  const target = foldTr(branchName).trim();
+  const out = [];
+  let cur = null;
+  for (const line of txt.split('\n')) {
+    const h = line.match(/^##\s+(.+?)\s*$/);
+    if (h) { cur = foldTr(h[1]).trim(); continue; }
+    if (cur === target && /^\s*-\s+\S/.test(line)) out.push(line.trim().replace(/^-\s*/, ''));
+  }
+  return out;
 }
 
 function append(username, root, branch, content) {
@@ -139,8 +157,27 @@ function append(username, root, branch, content) {
   const r = resolveRoot(root);
   const p = rootPath(username, r.id);
   const br = String(branch || 'Genel').trim();
-  const leaf = '- ' + String(content).replace(/\s+/g, ' ').trim();
+  const cleaned = String(content).replace(/\s+/g, ' ').trim();
+  const leaf = '- ' + cleaned;
   let txt = fs.readFileSync(p, 'utf8');
+
+  // v5.46: yazma-anı hijyen (Urðr lint mantığı, LLM'siz). Aynı dala eklenen yaprağı mevcutlarla
+  // Jaccard ile karşılaştır: (a) çok-benzer (≥0.85) → TEKRAR EKLEME (bloat önle, veri kaybı yok
+  // çünkü zaten var); (b) aynı konu farklı değer (0.5–0.85) → EKLE ama UYAR (çelişki; hangi
+  // değerin doğru olduğuna karar veremeyiz, veriyi kaybetmeyiz → ajan/kullanıcı uzlaştırır).
+  let best = { sim: 0, leaf: null };
+  try {
+    const nt = tokens(cleaned);
+    for (const ex of leavesInBranch(txt, br)) {
+      const s = jaccard(nt, tokens(ex));
+      if (s > best.sim) best = { sim: s, leaf: ex };
+    }
+  } catch {}
+  if (best.sim >= 0.85) {
+    return { success: true, deduped: true, root: r.id, branch: br,
+      note: `Zaten çok benzer bir kayıt var (%${Math.round(best.sim * 100)}: "${best.leaf}") — tekrar eklenmedi.` };
+  }
+
   const bRe = new RegExp(`^##[ \\t]+${br.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[ \\t]*$`, 'mi');
   const m = txt.match(bRe);
   if (m) {
@@ -150,7 +187,11 @@ function append(username, root, branch, content) {
     txt = txt.trimEnd() + `\n\n## ${br}\n${leaf}\n`;
   }
   fs.writeFileSync(p, txt, 'utf8');
-  return { success: true, root: r.id, branch: br, saved: leaf };
+  const result = { success: true, root: r.id, branch: br, saved: leaf };
+  if (best.sim >= 0.5) {
+    result.warning = `Aynı konuda farklı bir kayıt var (%${Math.round(best.sim * 100)}): "${best.leaf}". İkisi de saklandı; doğru olan kalsın, gerekirse memory_tree remove ile eskisini sil.`;
+  }
+  return result;
 }
 
 module.exports = {
@@ -184,5 +225,5 @@ module.exports = {
       return { success: false, error: 'bilinmeyen action: ' + p.action + ' (index|read|search|append|remove)' };
     } catch (e) { return { success: false, error: e.message }; }
   },
-  _internal: { ensureTree, buildIndex, buildDigest, readRoot, search, append, getPending, remove, treeDir, rootPath, ROOTS },
+  _internal: { ensureTree, buildIndex, buildDigest, readRoot, search, append, getPending, remove, leavesInBranch, treeDir, rootPath, ROOTS },
 };

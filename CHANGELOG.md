@@ -2,6 +2,33 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [Unreleased]
+
+### Docs
+- **foldTr'nin ı/i çakışması bilinçli taviz olarak belgelendi.** `src/utils/tr-text.js` JSDoc'una not eklendi: foldTr İ/I/ı/i'yi tek forma indirdiği için yalnız casing değil ı/i ayrımını da kaldırır → "kıl" (hair) ile "kil" (clay) aynılaşır. Bir arama/hafıza safety-net'i için "yanlış pozitif" < "yanlış negatif" olduğundan bilinçli tercih; birebir imla gereken yerde KULLANILMAMALI. 2 niyet-testi eklendi (regresyon değil). **Davranış değişmedi, sürüm yükseltmesi yok.**
+
+## [5.46.0] - 2026-07-08 — "MEMORY: otomatik hijyen — yazma-anı dedup/çelişki uyarısı + oturum-sonu ipucu"
+
+### Added
+- **Otomatik hafıza hijyeni (lint artık yalnız manuel değil).** `natureco memory lint` güçlüydü ama çoğu kullanıcı hiç çalıştırmaz; hafıza sessizce yinelenen/çelişen kayıtlarla bozulurdu. İki gürültüsüz otomatik katman eklendi:
+  - **Yazma-anı (`memory_tree append`, ajanın her kaydında).** Yeni yaprak aynı dala eklenirken mevcut yapraklarla Jaccard benzerliğine bakılır (Urðr lint mantığı, LLM'siz): **(a)** çok-benzer (≥%85) → **tekrar EKLENMEZ** (`deduped:true` + not; bloat önlenir, veri kaybı yok çünkü zaten var); **(b)** aynı konu farklı değer (%50–85) → eklenir **ama** sonuca `warning` düşülür (çelişki; hangi değerin doğru olduğuna karar veremeyiz, veriyi kaybetmeyiz → ajan/kullanıcı uzlaştırır, gerekirse `memory_tree remove`). Uyarı `buildFeedback` üzerinden ajana ulaşır (E2E doğrulandı).
+  - **Oturum-sonu ipucu.** `natureco chat` kapanışında hafızada olası yinelenen/çelişen kayıt varsa tek satır hatırlatma: `💡 Hafızada N olası yinelenen/çelişen kayıt — "natureco memory lint" ile gözden geçir.` Sadece bulgu varsa yazılır; hata asla oturumu bozmaz.
+- 4 yeni regresyon testi (dedup atlama + tek kopya, çelişki uyarısı + ikisi de saklanır, alakasız temiz, tool-düzeyi Türkçe recall). **600 test yeşil** (597 + 3 skip).
+
+### Notes
+- Duplicate eşiği bilinçli olarak yüksek (%85) — yalnızca neredeyse-birebir kayıtlar atlanır; "sunucu ip 10.0.0.5" → "10.0.0.9" gibi gerçek güncellemeler çelişki sayılır (atlanmaz, uyarılır), böylece meşru bir değişiklik asla kaybolmaz.
+
+## [5.45.1] - 2026-07-08 — "FIX: Türkçe İ/i recall hatası — büyük-harfli her Türkçe kelime sessizce kaçıyordu"
+
+### Fixed
+- **Ajanın canlı hafıza recall'ı büyük-harfli Türkçe kelimeleri BULAMIYORDU (kritik, doğrulandı).** `memory_tree` search/remove eşleşmeyi `line.toLowerCase().includes(q)` ile yapıyordu; ama JS'in `toLowerCase()`'i locale-duyarsız: `"İstanbul".toLowerCase()` → `"i̇stanbul"` (ASCII i + U+0307 BİRLEŞİK NOKTA) olur ve `"istanbul"` sorgusuyla **EŞLEŞMEZ**. Sonuç: her konuşmada İstanbul, İzmir, İş, İletişim gibi büyük-harfli Türkçe kelimeler recall'da görünmez şekilde kaçıyordu — Türkçe-öncelikli bir üründe milyonlarca kullanıcı için sessiz veri kaybı. Artık ortak `src/utils/tr-text.js` **`foldTr`** helper'ı dört Türkçe i-varyantını (İ/I/ı/i → i) tek forma indiriyor; `{İstanbul, istanbul, ISTANBUL, ıstanbul}` hepsi `"istanbul"` sorgusuyla eşleşiyor, İngilizce bozulmuyor (`FILE`→`file`), anlam taşıyan ş/ç/ğ/ö/ü korunuyor (`şık`≠`sık`). Hem ajan recall'ı (`memory_tree`) hem insan CLI araması (`memory-lint searchTree`) aynı folding'i kullanıyor.
+- **`memory search` regex-özel-karakter tuzağı.** Fallback arama `new RegExp(query, 'i')` kullanıyordu; `"proje kod adı (v2)"` gibi doğal bir sorguda parantezler yakalama-grubu sayılıp literal metinle **eşleşmiyordu**. Artık regex yok: sorgu boşluklardan kelimelere ayrılıp **AND** mantığıyla literal aranıyor — özel karakterler `()[]*?` literal alınır, çok-kelimeli sorgular daha isabetli.
+
+### Added
+- `src/utils/tr-text.js` (`foldTr`, `foldIncludes`) — Türkçe-güvenli case folding, tek kaynak.
+- Lint bulgularında **dal (branch) bağlamı** gösterilir (`(## Projeler)` / `(## Kararlar)`) — kullanıcı çelişen kaydın hangisinin nerede olduğunu görür.
+- 22 yeni regresyon testi (İ/i folding, regex-özel-karakter literal, çok-kelime AND, branch koruma, dosya-yok güvenliği). **596 test yeşil** (593 + 3 skip).
+
 ## [5.45.0] - 2026-07-08 — "MEMORY: Urðr lint + fallback search entegre edildi"
 
 ### Added
