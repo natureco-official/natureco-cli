@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.47.1] - 2026-07-09 — "FIX: ASCII banner NATUREOO → NATURECO"
+
+### Fixed
+- **Ana banner "NATUREOO" yazıyordu.** `src/utils/tui.js` ve `src/utils/branding.js`'deki ASCII logoda 7. harf (C) kapalı kutu (O) olarak çizilmişti; C'nin sağ tarafı açıldı. `chat.js`/`code.js`/README'lerdeki kopyalar zaten doğruydu.
+
 ## [5.47.0] - 2026-07-09 — "TEK BEYIN: her kanalda aynı kişilik + aynı hafıza"
 
 ### Fixed
