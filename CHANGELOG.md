@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.50.1] - 2026-07-10 — "PERF: öz-bilgi bloğu sıkıştırıldı (~%55 daha az token)"
+
+### Changed
+- **Öz-bilgi bloğu 208 → ~94 tokene indirildi** (her istekte sistem mesajıyla gider; gerçek ölçüm: "merhaba" prompt'u 5.029 → 4.883 token). Uzun mutlak yollar tekilleştirildi, talimat metni sıkıştırıldı; sayılar "TAM OLARAK" vurgusuyla korundu. SELF.md haritası zaten sysMsg'e gömülmüyordu (istek üzerine okunur) — ölçümle bir kez daha doğrulandı. E2E: "kaç skillin var?" → "Toplam 319 skill ve 90 aracım var"; onarım sorusunda ilk okunacak dosya SELF.md.
+
 ## [5.50.0] - 2026-07-10 — "ÖZ-BİLGİ: ajan kendi evini tanıyor ve kendini onarabiliyor"
 
 ### Added

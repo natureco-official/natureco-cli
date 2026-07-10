@@ -254,17 +254,16 @@ async function workflow(params) {
       // sistemini kesfe cikip YANLIS sayiyordu (~/.natureco/skills yalniz kullanici
       // skill'leridir; yerlesikler paketin icindedir). Gercek sayilari ve konumlari
       // sistem mesajina gomuyoruz ki ajan kendi kurulumunu dogru anlatsin.
+      // Kompakt tutulur (~85 token): harita sysMsg'e GOMULMEZ, gerektiginde okunur
       let selfInfo = '';
       try {
         const skillCount = require('../utils/skill-index')._discoverSkills().length;
         const pkgRoot = path.join(__dirname, '..', '..');
-        selfInfo = '\n\nKendi kurulumun (kullanici sorarsa BU bilgiyi kullan, dosya sayarak tahmin etme):'
-          + '\n- Toplam skill: ' + skillCount + ' (yerlesikler paketle gelir: ' + path.join(pkgRoot, 'skills') + ' — ~/.natureco/skills-builtin baglantisi da ayni yere acilir)'
-          + '\n- Toplam arac: ' + tools.length + ' (kaynaklari: ' + path.join(pkgRoot, 'src', 'tools') + ' — ~/.natureco/tools baglantisi)'
-          + '\n- ~/.natureco/skills SADECE kullanicinin kendi ekledigi skill\'lerdir; yerlesikleri ICERMEZ.'
-          + '\n- OZ-BILGI HARITAN: ' + path.join(pkgRoot, 'SELF.md') + ' — kendi mimarin, dosya haritasi ve KENDINI ONARMA protokolun.'
-          + ' Kullanici "kendini incele / su ozelligin bozuk / kendini onar / nasil calisiyorsun" derse ONCE bu dosyayi read_file ile oku,'
-          + ' ilgili kaynak dosyayi bul-oku, gerekirse edit_file ile onar, node --check ile dogrula ve yaptigini durustce anlat.';
+        selfInfo = '\nKurulumun: kok=' + pkgRoot
+          + ' | skill sayin TAM OLARAK ' + skillCount + ' (kok/skills = ~/.natureco/skills-builtin; ~/.natureco/skills YALNIZ kullanici skill\'leri)'
+          + ' | arac sayin TAM OLARAK ' + tools.length + ' (kok/src/tools).'
+          + ' Oz-bilgi/onarim haritan: kok/SELF.md — "kendini incele/onar/nasil calisiyorsun" istenirse ONCE onu read_file ile oku;'
+          + ' onarim: read_file→edit_file→node --check, sonucu durustce raporla.';
       } catch { /* sayilamazsa satiri atla */ }
 
       const sysMsg = [
