@@ -2,6 +2,13 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.50.0] - 2026-07-10 — "ÖZ-BİLGİ: ajan kendi evini tanıyor ve kendini onarabiliyor"
+
+### Added
+- **`SELF.md` — ajanın öz-bilgi haritası** (paket köküne eklenir, pakete dahil): mimari harita (chat→repl→workflow→agentic-runner akışı, gateway/tek-beyin, hafıza sistemi, skill sistemi, güvenlik katmanları, ~/.natureco veri haritası), dosya-görev tablosu ve **kendini onarma protokolü** (belirtiyi netleştir → haritadan dosyayı bul → read_file → edit_file → node --check ile doğrula → dürüstçe raporla → "kurulu paketteki düzeltme güncellemede ezilir" uyarısı).
+- Sistem mesajındaki öz-bilgi bloğu SELF.md'ye işaret eder: kullanıcı "kendini incele / şu özelliğin bozuk / kendini onar / nasıl çalışıyorsun" dediğinde ajan önce haritayı okur, sonra ilgili kaynak dosyada çalışır. Token maliyeti düşük tutuldu (harita sysMsg'e GÖMÜLMEZ, istek üzerine okunur — progressive disclosure).
+- E2E doğrulandı: "hafıza sistemin hangi dosyalarda, Türkçe arama sorununu hangi dosya çözüyor, kendini nasıl onarırsın?" → doğru dosyalar (`memory_tree.js`, `tr-text.js`...) + SELF.md protokol adımları.
+
 ## [5.49.1] - 2026-07-10 — "FIX: ajan kendi skill/araç envanterini yanlış anlatıyordu"
 
 ### Fixed

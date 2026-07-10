@@ -261,7 +261,10 @@ async function workflow(params) {
         selfInfo = '\n\nKendi kurulumun (kullanici sorarsa BU bilgiyi kullan, dosya sayarak tahmin etme):'
           + '\n- Toplam skill: ' + skillCount + ' (yerlesikler paketle gelir: ' + path.join(pkgRoot, 'skills') + ' — ~/.natureco/skills-builtin baglantisi da ayni yere acilir)'
           + '\n- Toplam arac: ' + tools.length + ' (kaynaklari: ' + path.join(pkgRoot, 'src', 'tools') + ' — ~/.natureco/tools baglantisi)'
-          + '\n- ~/.natureco/skills SADECE kullanicinin kendi ekledigi skill\'lerdir; yerlesikleri ICERMEZ.';
+          + '\n- ~/.natureco/skills SADECE kullanicinin kendi ekledigi skill\'lerdir; yerlesikleri ICERMEZ.'
+          + '\n- OZ-BILGI HARITAN: ' + path.join(pkgRoot, 'SELF.md') + ' — kendi mimarin, dosya haritasi ve KENDINI ONARMA protokolun.'
+          + ' Kullanici "kendini incele / su ozelligin bozuk / kendini onar / nasil calisiyorsun" derse ONCE bu dosyayi read_file ile oku,'
+          + ' ilgili kaynak dosyayi bul-oku, gerekirse edit_file ile onar, node --check ile dogrula ve yaptigini durustce anlat.';
       } catch { /* sayilamazsa satiri atla */ }
 
       const sysMsg = [
