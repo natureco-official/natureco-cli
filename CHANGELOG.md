@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.51.2] - 2026-07-11 — "account: giriş linki (magic link) desteği"
+
+### Fixed
+- **`natureco account login` OTP akışı, e-posta 6 haneli kod yerine GİRİŞ LİNKİ (magic link) gönderdiğinde de çalışır.** Supabase e-posta şablonu `{{ .Token }}` yerine link gönderiyorsa, gelen linki yapıştırmak yeterli — CLI linkteki `token_hash`+`type`'ı çıkarıp `/verify` ile oturum açar (`verifyLink`). Kod da link de kabul edilir.
+
 ## [5.51.1] - 2026-07-10 — "SECURITY: edit_file onay atlaması + kendi-kaynağını-düzenleme kısıtı"
 
 ### Security

@@ -75,6 +75,25 @@ async function verifyOtp(email, token) {
   return saveSession(_shape(await _post('/verify', { type: 'email', email, token })));
 }
 
+/**
+ * E-postadan gelen GİRİŞ LİNKİ'ni doğrula (Supabase şablonu 6 haneli kod yerine
+ * magic link gönderdiğinde). Linkteki token_hash + type ile /verify çağrılır.
+ */
+async function verifyLink(link) {
+  let token_hash, type;
+  try {
+    const u = new URL(link.trim());
+    const q = u.searchParams;
+    const frag = new URLSearchParams((u.hash || '').replace(/^#/, ''));
+    token_hash = q.get('token_hash') || q.get('token') || frag.get('token_hash') || frag.get('token');
+    type = q.get('type') || frag.get('type') || 'magiclink';
+  } catch (e) {
+    throw new Error('Geçersiz link', { cause: e });
+  }
+  if (!token_hash) throw new Error("Linkte doğrulama token'ı bulunamadı");
+  return saveSession(_shape(await _post('/verify', { type, token_hash })));
+}
+
 /** Access token yenile */
 async function refresh() {
   const s = loadSession();
@@ -114,7 +133,7 @@ function currentEmail() {
 function logout() { clearSession(); }
 
 module.exports = {
-  loginWithPassword, sendOtp, verifyOtp, refresh,
+  loginWithPassword, sendOtp, verifyOtp, verifyLink, refresh,
   getAccessToken, whoami, isLoggedIn, currentEmail, logout,
   SUPABASE_URL,
 };

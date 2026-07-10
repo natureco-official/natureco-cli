@@ -47,15 +47,21 @@ async function doLogin() {
       console.log(chalk.gray('\n  Doğrulanıyor...'));
       await acc.loginWithPassword(email.trim(), password);
     } else {
-      console.log(chalk.gray('\n  Kod gönderiliyor...'));
+      console.log(chalk.gray('\n  Gönderiliyor...'));
       await acc.sendOtp(email.trim());
-      console.log(chalk.gray('  ') + chalk.cyan(email.trim()) + chalk.gray(' adresine 6 haneli kod gönderildi.'));
+      console.log(chalk.gray('  ') + chalk.cyan(email.trim()) + chalk.gray(' adresine e-posta gönderildi.'));
+      console.log(chalk.gray('  6 haneli kod geldiyse kodu, giriş linki geldiyse linki yapıştır.'));
       const { token } = await inquirer.prompt([{
-        type: 'input', name: 'token', message: '  Koddan gelen 6 hane:',
-        validate: (v) => ((v || '').trim().length >= 6 ? true : 'Kodu gir'),
+        type: 'input', name: 'token', message: '  Kod veya giriş linki:',
+        validate: (v) => ((v || '').trim().length >= 6 ? true : 'Kodu ya da linki gir'),
       }]);
       console.log(chalk.gray('\n  Doğrulanıyor...'));
-      await acc.verifyOtp(email.trim(), token.trim());
+      const val = token.trim();
+      if (/^https?:\/\//i.test(val) || val.includes('token')) {
+        await acc.verifyLink(val);
+      } else {
+        await acc.verifyOtp(email.trim(), val);
+      }
     }
   } catch (err) {
     console.log(chalk.red(`\n  ❌ ${err.message || 'Giriş başarısız'}\n`));
