@@ -56,9 +56,11 @@
 ### 4. Skill sistemi
 - Yerleşikler: paket kökünde `skills/` (her biri `<ad>/SKILL.md`, YAML frontmatter).
   Kullanıcınınkiler: `~/.natureco/skills/`. Proje: `./.natureco/skills/`.
-- İndeks: `src/utils/skill-index.js` (`_discoverSkills`, `buildSkillIndex` — 60+
-  skill'de KOMPAKT isim listesi üretir, token şişmesin diye; `NATURECO_SKILL_INDEX` env).
-- Yükleme: ajan `skill_view` aracıyla (progressive disclosure). CLI: `src/commands/skills.js`
+- İndeks: `src/utils/skill-index.js` (`buildSkillIndex` — 60+ skill'de sysMsg'e yalnız
+  TEK SATIR ipucu gider; isim listesi bile gömülmez. `NATURECO_SKILL_INDEX` env:
+  off|names|full ile eski davranışlar açılır).
+- Keşif: ajan `skill_find(query)` ile arar (`src/tools/skill_find.js`, foldTr'li),
+  `skill_view(name)` ile yükler (progressive disclosure). CLI: `src/commands/skills.js`
   + `src/utils/skills.js` (list/install/remove; indirme allowlist'i `skills-allowlist.json`).
 - Görünürlük bağlantıları: `~/.natureco/skills-builtin` ve `~/.natureco/tools`
   (junction/symlink, `src/utils/builtin-links.js`).

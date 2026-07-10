@@ -35,21 +35,35 @@ describe('buildSkillIndex — token bütçesi', () => {
     finally { if (prev === undefined) delete process.env.NATURECO_SKILL_INDEX; else process.env.NATURECO_SKILL_INDEX = prev; }
   });
 
-  it('gerçek skill index skill_view yönlendirmesi içerir + SKILL BAŞINA az char (tam açıklama gömmez)', () => {
+  it('v5.51 varsayılanı (çok skill): TEK SATIR ipucu — isim listesi bile gömülmez', () => {
     const prev = process.env.NATURECO_SKILL_INDEX;
     delete process.env.NATURECO_SKILL_INDEX;
     try {
       const idx = buildSkillIndex();
       if (!idx) return; // hiç skill yoksa (CI) atla
-      expect(idx).toContain('skill_view');
-      expect(idx).toContain('<available_skills>');
-      // Regresyon: TOPLAM boyut / skill sayısı. Eski bug'da her skill ~350 char
-      // (tam açıklama). Kompakt modda skill başına ~40 char (isim+virgül).
       const skillCount = mod._discoverSkills().length;
-      if (skillCount > 0) {
-        const charPerSkill = idx.length / skillCount;
-        expect(charPerSkill).toBeLessThan(120); // eski gömülü-açıklama bunu 3× aşardı
+      if (skillCount > 60) {
+        // Progressive disclosure 2. seviye: sadece sayı + skill_find/skill_view yönlendirmesi
+        expect(idx).toContain('skill_find');
+        expect(idx).toContain('skill_view');
+        expect(idx).toContain(String(skillCount));
+        expect(idx.length).toBeLessThan(400); // 319 isim listesi ~5.800 chardı — geri gelmesin
       }
     } finally { if (prev !== undefined) process.env.NATURECO_SKILL_INDEX = prev; }
+  });
+
+  it('NATURECO_SKILL_INDEX=names → isim listesi geri gelir (opt-in) + skill başına az char', () => {
+    const prev = process.env.NATURECO_SKILL_INDEX;
+    process.env.NATURECO_SKILL_INDEX = 'names';
+    try {
+      const idx = buildSkillIndex();
+      if (!idx) return;
+      expect(idx).toContain('<available_skills>');
+      const skillCount = mod._discoverSkills().length;
+      if (skillCount > 0) {
+        // Regresyon (v5.42): tam açıklama gömülmesin — isim modunda skill başına ~40 char
+        expect(idx.length / skillCount).toBeLessThan(120);
+      }
+    } finally { if (prev === undefined) delete process.env.NATURECO_SKILL_INDEX; else process.env.NATURECO_SKILL_INDEX = prev; }
   });
 });

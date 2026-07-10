@@ -78,10 +78,17 @@ function buildSkillIndex() {
   if (mode === 'off') return '';
   const skills = _discoverSkills();
   if (skills.length === 0) return '';
-  // Cok skill (>60) → KOMPAKT isim-listesi (kategorili, virgullu): en dusuk token.
-  // Az skill → isim + kisa aciklama. Kullanici 'full'/'names' ile ezebilir.
   const many = skills.length > 60;
-  const compact = mode === 'names' || (many && mode !== 'full');
+  // v5.51: cok skill'de VARSAYILAN artik tek satirlik IPUCU (progressive disclosure
+  // 2. seviye): 319 ismin listesi bile ~1.450 token tutuyordu. Ajan gorev bir
+  // uzmanlik istediginde skill_find(query) ile arar, skill_view(name) ile yukler.
+  // Eski davranislar env ile durur: names (isim listesi), full (isim+aciklama).
+  if (many && mode !== 'full' && mode !== 'names') {
+    return `## Skills: ${skills.length} adet hazir skill var (SEO, tasarim, video, guvenlik, kod...). ` +
+      'Gorev bir uzmanlik/sablon istiyorsa ONCE skill_find(query) ile ara, buldugunu skill_view(name) ile yukle.';
+  }
+  // Az skill → isim + kisa aciklama; 'names' → sadece isimler.
+  const compact = mode === 'names';
   const byCategory = {};
   for (const s of skills) {
     if (!byCategory[s.category]) byCategory[s.category] = [];

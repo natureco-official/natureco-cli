@@ -2,6 +2,17 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.51.0] - 2026-07-10 — "PERF: basit istek 2.698 token — %45 daha ucuz (skill keşfi isteğe bağlı)"
+
+### Changed
+- **Gerçek ölçüm: "merhaba" prompt'u 4.883 → 2.698 token** (v5.42 öncesine göre toplam %86 iniş). Bölüm bazlı ölçüm yapıldı ve üç büyük kalem vuruldu:
+  - **Skill index (1.468 → ~40 token):** 319 skill'in isim listesi artık sysMsg'e GÖMÜLMÜYOR; tek satır ipucu var. Yeni **`skill_find(query)`** aracı (foldTr'li Türkçe-güvenli arama) ile ajan gerektiğinde arar, `skill_view(name)` ile yükler — progressive disclosure 2. seviye. Eski davranış env ile: `NATURECO_SKILL_INDEX=names|full`.
+  - **Araç tanıtımları (~892 → ~540 token)** ve **kurallar (~725 → ~405 token):** her kuralın öğrettiği ders korunarak metinler sıkıştırıldı (cron-daemon dürüstlüğü, kayıt kalitesi, bekleyen işler, "internet erişimim yok deme"...).
+- E2E doğrulama (davranış bozulmadı): skill keşfi (ajan skill_find'ı kendisi çağırıp seo-optimization'ı buldu), dosya yazma (write_file ✓), hafıza recall ("Sen Gencay'sın, ben Hinata" ✓). **630 test yeşil** (+7 yeni: skill_find + yeni indeks varsayılanı).
+
+### Added
+- `src/tools/skill_find.js` — isim+açıklama üzerinde anahtar kelime skorlamalı skill arama (agentic allowlist'e eklendi).
+
 ## [5.50.1] - 2026-07-10 — "PERF: öz-bilgi bloğu sıkıştırıldı (~%55 daha az token)"
 
 ### Changed

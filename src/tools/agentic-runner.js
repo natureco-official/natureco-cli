@@ -22,7 +22,7 @@ const os = require('os');
 // digerleri → allowlist/full moda gore). Yani keyfi/yikici komut calismaz.
 // Diger ~85 arac (discord, telegram, cron, browser...) bilerek DISARIDA.
 const DEFAULT_ALLOWED = [
-  'write_file', 'read_file', 'edit_file', 'skill_view', 'bash', 'file_search', 'list_dir', 'grep_search',
+  'write_file', 'read_file', 'edit_file', 'skill_view', 'skill_find', 'bash', 'file_search', 'list_dir', 'grep_search',
   'memory_write', 'memory_tree', 'cron_create', 'duckduckgo', 'web_search', 'todo_write',
   'git', 'http_request', 'notebook_edit', 'clarify', 'code_execution',
   // orchestration + planlama (guvenli: sub_agent = alt-LLM cagrisi, plan = metin+.md; shell/sistem yok)
