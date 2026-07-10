@@ -8,6 +8,8 @@ require('../src/utils/process-errors').install();
 // Yeni sürüm bildirimi (önbellekten senkron basar; ağı arka planda, engellemeden tazeler).
 // Eski sürümde kalan kullanıcılar yeni skill/araçlardan haberdar olsun diye eklendi.
 try { require('../src/utils/update-check').maybeNotify(packageJson.version); } catch { /* asla komutu bozma */ }
+// Yerleşik skill/araçları ~/.natureco altında görünür yap (junction/symlink; kopya yok)
+try { require('../src/utils/builtin-links').ensureBuiltinLinks(); } catch { /* asla komutu bozma */ }
 const login = require('../src/commands/login');
 const logout = require('../src/commands/logout');
 const bots = require('../src/commands/bots');

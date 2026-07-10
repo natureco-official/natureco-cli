@@ -207,7 +207,7 @@ async function listSkills() {
 
   console.log(chalk.gray('\n  ' + '─'.repeat(48)));
   console.log(chalk.cyan.bold('\n  Yüklü Skill\'ler') + chalk.gray(`  —  toplam ${allSkills.length} (${builtinCount} yerleşik${userCount ? `, ${userCount} kişisel` : ''})`));
-  console.log(chalk.gray('  Yerleşik skill\'ler paketle birlikte gelir; kişisel skill\'ler ~/.natureco/skills altında yaşar.\n'));
+  console.log(chalk.gray('  Yerleşikler: ~/.natureco/skills-builtin · Kişiseller: ~/.natureco/skills · Araçlar: ~/.natureco/tools\n'));
 
   if (allSkills.length === 0) {
     // Yerleşikler pakette gelir; bu duruma normalde ancak paket bozulursa düşülür

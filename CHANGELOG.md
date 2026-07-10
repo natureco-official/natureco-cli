@@ -2,6 +2,15 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.49.0] - 2026-07-10 — "Yerleşik skill/araçlar artık ~/.natureco altında görünür"
+
+### Added
+- **`~/.natureco/skills-builtin` ve `~/.natureco/tools` bağlantıları** (`src/utils/builtin-links.js`): Yerleşik skill'ler ve araç kaynakları npm paketinin içinde yaşar ve oradan çalışır; ama kullanıcılar `~/.natureco`'ya bakıp "yok" sanıyordu. CLI artık her açılışta dizin bağlantısı kurar (Windows: junction — yönetici gerektirmez; macOS/Linux: symlink). Kopya yok: paket güncellenince içerik otomatik günceldir. Kırık/yanlış hedefli bağlantı onarılır; bağlantı olmayan GERÇEK klasöre asla dokunulmaz (kullanıcı verisi korunur). 5 yeni test.
+- `natureco skills list` başlığı üç konumu da gösterir: yerleşikler (`skills-builtin`), kişiseller (`skills`), araçlar (`tools`).
+
+### Notes
+- Skill keşfi bu bağlantıları taramaz — çift sayım olmaz; işlevsel yol değişmedi, bu salt görünürlük/gezilebilirlik.
+
 ## [5.48.0] - 2026-07-10 — "Güncelleme bildirimi + skill/araç görünürlüğü"
 
 ### Context
