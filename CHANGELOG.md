@@ -2,6 +2,19 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.51.1] - 2026-07-10 — "SECURITY: edit_file onay atlaması + kendi-kaynağını-düzenleme kısıtı"
+
+### Security
+- **`edit_file` onay/diff mekanizmasını atlıyordu (kritik).** tool-runner'ın `needsConfirm` kontrolü `write_file` için diff+onay isterken, aynı riski taşıyan hedefli değişiklik aracı `edit_file`'ı kapsamıyordu — SELF.md "kendini onar" protokolü ve Tek Beyin'in kanallara terminal-eşdeğeri araç erişimi ile birleşince, allow-list'teki bir hesaptan (veya prompt injection'dan) gelen mesaj paket kaynak kodunu gözetimsiz değiştirebilirdi. Düzeltmeler:
+  1. `edit_file` onay kapsamına alındı (`needsConfirmation` helper'ı çıkarıldı ve test edilebilir şekilde export edildi); onay ekranında `old_string` → `new_string` hedefli diff'i, dosya yolu ve `replace_all` uyarısı gösterilir.
+  2. **Kendi-kaynağını-düzenleme varsayılan KAPALI** (`src/utils/self-edit-guard.js`): hedef, paket kurulum kökü (veya herhangi bir `node_modules/natureco-cli`) altındaysa `edit_file`/`write_file` reddedilir; bilinçli açma `NATURECO_ALLOW_SELF_EDIT=1` env ya da config `allowSelfEdit: true` ile. Symlink/junction hilesi kapalı (hedef realpath'e çözülür — `~/.natureco/tools` bağlantısı paket içine açılır!). Koruma ARAÇ seviyesinde (v5.43 dersi: allowlist'e güvenme) — hem tool_calls hem agentic yolu kapsar.
+  3. **Kanal kaynaklı çağrılarda koşulsuz red:** `channel-brain` süreci `NATURECO_CHANNEL_ORIGIN=1` işaretler; bayrak/config açık olsa bile mesajlaşma kanalından paket kaynak koduna yazmak HER ZAMAN reddedilir (kanalda interaktif onay gösterilemez). Paket dışı dosyalar (ör. "masaüstüne oyun yap") kanaldan çalışmaya devam eder.
+  4. SELF.md onarma protokolüne yetki notu eklendi (okuma/teşhis her zaman serbest; yazma bilinçli bayrak ister; kanaldan asla).
+- 8 regresyon testi (`test/security/edit-file-approval.test.js`, önce kırmızı→sonra yeşil): onay kapsamı, bayraksız red + dosya değişmedi garantisi, bayrakla açılma, kanal-kaynağında bayrağın yok sayılması, channel-brain'in işareti koyması, paket-dışı dosyaların etkilenmemesi. **638 test yeşil**; canlı E2E: ajan kendi tr-text.js'ini değiştirmeye çalıştı → engellendi, dosya değişmedi, kullanıcıya bilinçli açma yolunu anlattı.
+
+### Added
+- **`natureco account login | logout | whoami` — tek NatureCo hesabı (SSO).** developers.natureco.me API-KEY girişinden (`natureco login`, config.json) AYRIDIR; natureco.me Supabase Auth üstünde kişi kimliği: e-posta+şifre veya e-posta OTP; oturum `~/.natureco/auth.json` (0600), token yenileme. `natureco-sdk` `NatureCoAuth` ile aynı protokol → ekosistem geneli (CLI/terminal/portal) tek hesap. Bağımlılıksız (Supabase REST). Yeni: `src/utils/natureco-account.js`, `src/commands/account.js`.
+
 ## [5.51.0] - 2026-07-10 — "PERF: basit istek 2.698 token — %45 daha ucuz (skill keşfi isteğe bağlı)"
 
 ### Changed

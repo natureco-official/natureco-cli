@@ -27,8 +27,16 @@ module.exports = {
         rawPath = path.join(require('os').homedir(), rawPath.slice(1));
       }
       const filePath = path.resolve(rawPath);
+
+      // GÜVENLİK (v5.51.1): paketin kendi kaynak koduna yazma varsayılan kapalı;
+      // kanal kaynaklı çağrılarda koşulsuz red. Bkz. src/utils/self-edit-guard.js
+      const guard = require('../utils/self-edit-guard').checkSelfEdit(filePath);
+      if (!guard.allowed) {
+        return { success: false, error: guard.error, reason: guard.reason, path: filePath };
+      }
+
       const dir = path.dirname(filePath);
-      
+
       // Create directory if it doesn't exist
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });

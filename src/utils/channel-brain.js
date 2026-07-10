@@ -89,6 +89,12 @@ function chunkText(text, maxLen) {
  * @returns {Promise<string>} bot yaniti ('' donerse gonderilecek bir sey yok)
  */
 async function runBrain({ channel, chatKey, text }, deps = {}) {
+  // GÜVENLİK (v5.51.1): bu süreçteki araç çağrılarının KANAL kaynaklı olduğunu
+  // işaretle — self-edit-guard bunu görünce paket kaynak koduna yazmayı, allow
+  // bayrağı açık olsa bile KOŞULSUZ reddeder (kanalda interaktif onay yok).
+  // Bilerek geri alınmaz: gateway sürecindeki her çalıştırma kanal kaynaklıdır.
+  process.env.NATURECO_CHANNEL_ORIGIN = '1';
+
   const workflow = deps.workflow || require('../tools/workflow');
   const getConfig = deps.getConfig || require('./config').getConfig;
   const cfg = getConfig();

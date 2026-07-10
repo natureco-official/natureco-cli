@@ -84,6 +84,21 @@ function getToolDefinitions() {
     }));
 }
 
+// ── Onay gerektiren araçlar ───────────────────────────────────────────────────
+// v5.43: shell_command da bash gibi onay tetikler (aksi halde onay/güvenlik
+// akışını atlayan ikinci bir arbitrary-shell yolu olurdu).
+// v5.51.1 GÜVENLİK: edit_file eklendi — write_file diff+onay isterken, aynı riski
+// taşıyan hedefli değişiklik (edit_file) onaysız geçiyordu (SELF.md kendini-onarma
+// + Tek Beyin kanal erişimiyle birleşince kritik).
+function needsConfirmation(toolName, params) {
+  const p = params || {};
+  return (
+    toolName === 'write_file' ||
+    toolName === 'edit_file' ||
+    ((toolName === 'bash' || toolName === 'shell_command') && /\b(rm|mv|cp|chmod|chown|dd|mkfs|truncate)\b/.test(p.command || ''))
+  );
+}
+
 // ── Execute a single tool ─────────────────────────────────────────────────────
 async function executeTool(toolName, params, opts = {}) {
   const safeParams = params ?? {};
@@ -97,28 +112,38 @@ async function executeTool(toolName, params, opts = {}) {
 
   const label = `${toolName}${safeParams.path ? ' — ' + safeParams.path : safeParams.command ? ' — ' + safeParams.command : ''}`;
 
-  // ── Onay mekanizması (write_file ve tehlikeli bash) ───────────────────────
+  // ── Onay mekanizması (dosya değiştiren araçlar ve tehlikeli bash) ──────────
   if (agentMode) {
-    // v5.43 GÜVENLİK: shell_command da bash gibi onay tetikler (aksi halde onay/güvenlik
-    // akışını atlayan ikinci bir arbitrary-shell yolu olurdu).
-    const needsConfirm =
-      toolName === 'write_file' ||
-      ((toolName === 'bash' || toolName === 'shell_command') && /\b(rm|mv|cp|chmod|chown|dd|mkfs|truncate)\b/.test(safeParams.command || ''));
-
-    if (needsConfirm) {
+    if (needsConfirmation(toolName, safeParams)) {
       if (toolName === 'write_file') {
         // Diff göster
         let oldContent = '';
         try { oldContent = fs.readFileSync(path.resolve(safeParams.path), 'utf-8'); } catch {}
         showDiff(oldContent, safeParams.content || '', safeParams.path);
+      } else if (toolName === 'edit_file') {
+        // v5.51.1 GÜVENLİK: edit_file onay kapsamına alındı — hedefli old→new
+        // diff'i göster (write_file'daki diff'in edit_file muadili).
+        console.log(chalk.gray(`\n  📄 ${safeParams.path}`));
+        for (const line of String(safeParams.old_string || '').split('\n')) {
+          console.log(chalk.red('  - ' + line));
+        }
+        for (const line of String(safeParams.new_string || '').split('\n')) {
+          console.log(chalk.green('  + ' + line));
+        }
+        if (safeParams.replace_all) console.log(chalk.yellow('  (replace_all: TÜM eşleşmeler değişecek)'));
+        console.log();
       } else {
         console.log(chalk.yellow(`\n  🖥️  Komut: ${chalk.white(safeParams.command)}\n`));
       }
 
+      const confirmMsg =
+        toolName === 'write_file' ? `✏️  ${safeParams.path} dosyası değiştirilecek` :
+        toolName === 'edit_file' ? `✏️  ${safeParams.path} dosyasında değişiklik yapılacak` :
+        '⚠️  Bu komut çalıştırılacak';
       const { confirm } = await inquirer.prompt([{
         type: 'confirm',
         name: 'confirm',
-        message: chalk.yellow(`  ${toolName === 'write_file' ? `✏️  ${safeParams.path} dosyası değiştirilecek` : '⚠️  Bu komut çalıştırılacak'}. Onaylıyor musun?`),
+        message: chalk.yellow(`  ${confirmMsg}. Onaylıyor musun?`),
         default: true,
       }]);
 
@@ -137,7 +162,7 @@ async function executeTool(toolName, params, opts = {}) {
 
     // İstatistik güncelle
     if (result.success !== false) {
-      if (toolName === 'write_file') filesChanged++;
+      if (toolName === 'write_file' || toolName === 'edit_file') filesChanged++;
       if (toolName === 'bash') commandsRun++;
     }
 
@@ -185,4 +210,5 @@ module.exports = {
   executeToolCalls,
   getSessionStats,
   resetSessionStats,
+  needsConfirmation,
 };
