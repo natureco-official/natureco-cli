@@ -75,21 +75,41 @@ async function verifyOtp(email, token) {
   return saveSession(_shape(await _post('/verify', { type: 'email', email, token })));
 }
 
+// JWT access_token içinden kullanıcıyı çöz (imza doğrulaması yok — sadece görüntüleme)
+function _userFromJwt(token) {
+  try {
+    const p = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString('utf8'));
+    return { id: p.sub, email: p.email };
+  } catch (_) { return null; }
+}
+
 /**
- * E-postadan gelen GİRİŞ LİNKİ'ni doğrula (Supabase şablonu 6 haneli kod yerine
- * magic link gönderdiğinde). Linkteki token_hash + type ile /verify çağrılır.
+ * E-postadan gelen GİRİŞ LİNKİ'ni işle (şablon 6 haneli kod yerine magic link
+ * gönderdiğinde). İki biçim:
+ *   1) Implicit: link fragment'inde ZATEN access_token+refresh_token var → doğrudan oturum.
+ *   2) token_hash: /verify ile doğrula.
  */
 async function verifyLink(link) {
-  let token_hash, type;
-  try {
-    const u = new URL(link.trim());
-    const q = u.searchParams;
-    const frag = new URLSearchParams((u.hash || '').replace(/^#/, ''));
-    token_hash = q.get('token_hash') || q.get('token') || frag.get('token_hash') || frag.get('token');
-    type = q.get('type') || frag.get('type') || 'magiclink';
-  } catch (e) {
-    throw new Error('Geçersiz link', { cause: e });
+  let u;
+  try { u = new URL(link.trim()); }
+  catch (e) { throw new Error('Geçersiz link', { cause: e }); }
+  const q = u.searchParams;
+  const frag = new URLSearchParams((u.hash || '').replace(/^#/, ''));
+  const pick = (k) => frag.get(k) || q.get(k);
+
+  const access_token = pick('access_token');
+  if (access_token) {
+    return saveSession(_shape({
+      access_token,
+      refresh_token: pick('refresh_token'),
+      token_type: pick('token_type') || 'bearer',
+      expires_at: parseInt(pick('expires_at') || '0', 10) || null,
+      expires_in: parseInt(pick('expires_in') || '0', 10) || null,
+      user: _userFromJwt(access_token),
+    }));
   }
+  const token_hash = pick('token_hash') || pick('token');
+  const type = pick('type') || 'magiclink';
   if (!token_hash) throw new Error("Linkte doğrulama token'ı bulunamadı");
   return saveSession(_shape(await _post('/verify', { type, token_hash })));
 }

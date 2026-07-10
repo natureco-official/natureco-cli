@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.51.3] - 2026-07-11 — "account: implicit magic link (fragment access_token)"
+
+### Fixed
+- **Giriş linki fragment'inde `access_token`+`refresh_token` doğrudan geldiğinde de çalışır** (Supabase implicit-flow / SiteURL redirect). Link `#access_token=...&refresh_token=...` biçimindeyse /verify gerekmez — CLI tokenları doğrudan kaydeder, kullanıcıyı JWT'den çözer. (5.51.2 yalnız token_hash biçimini işliyordu.)
+
 ## [5.51.2] - 2026-07-11 — "account: giriş linki (magic link) desteği"
 
 ### Fixed
