@@ -31,6 +31,7 @@ function help() {
       rows: [
         { name: 'natureco setup', desc: 'İlk kurulum sihirbazı (provider, bot)' },
         { name: 'natureco login', desc: 'API key ile giriş yap' },
+        { name: 'natureco account', desc: 'NatureCo hesabı / SSO (login|logout|whoami)' },
         { name: 'natureco logout', desc: 'Çıkış yap' },
         { name: 'natureco update', desc: 'Yeni versiyon kontrolü' },
         { name: 'natureco doctor', desc: 'Sistem sağlığı kontrolü (10 check)' },
