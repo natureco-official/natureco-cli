@@ -605,3 +605,6 @@ MIT © [NatureCo](https://github.com/natureco-official)
 <p align="center">
   Made with 🌿 in Turkey
 </p>
+---
+
+<sub>Part of the **NatureCo** ecosystem — [natureco.me](https://natureco.me) · NatureCo ekosisteminin parçası</sub>
