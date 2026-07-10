@@ -12,6 +12,7 @@ try { require('../src/utils/update-check').maybeNotify(packageJson.version); } c
 try { require('../src/utils/builtin-links').ensureBuiltinLinks(); } catch { /* asla komutu bozma */ }
 const login = require('../src/commands/login');
 const logout = require('../src/commands/logout');
+const account = require('../src/commands/account');
 const bots = require('../src/commands/bots');
 const chat = require('../src/commands/chat');
 const help = require('../src/commands/help');
@@ -101,6 +102,7 @@ ${chalk.yellow('⚙️  Kurulum & Ayarlar')}
   ${chalk.cyan('onboard')}       Interaktif onboarding (gateway|auth|workspace|channels|skills|health|status)
   ${chalk.cyan('configure')}     Interaktif yapılandırma (gateway|auth|channels|plugins|skills)
   ${chalk.cyan('login')}         API key ile giriş
+  ${chalk.cyan('account')}       NatureCo hesabı / SSO (login|logout|whoami)
   ${chalk.cyan('logout')}        Çıkış
   ${chalk.cyan('config')}        Ayarlar (get|set|unset|list|file|schema|validate|backups|restore)
   ${chalk.cyan('doctor')}        Sistem teşhis (run|list|check)
@@ -197,6 +199,11 @@ program
   .command('login')
   .description('Login with your NatureCo API key')
   .action(login);
+
+program
+  .command('account [action]')
+  .description('NatureCo hesabı / SSO (login | logout | whoami)')
+  .action(account);
 
 program
   .command('setup [action]')
