@@ -70,9 +70,21 @@ async function sendOtp(email) {
   return { sent: true, email };
 }
 
-/** OTP kodunu doğrula → oturum */
+/**
+ * OTP kodunu doğrula → oturum. Supabase'de e-postayla gelen kodun doğrulama tipi
+ * şablona göre 'email' ya da 'magiclink' olabilir → ikisini de dener.
+ */
 async function verifyOtp(email, token) {
-  return saveSession(_shape(await _post('/verify', { type: 'email', email, token })));
+  const code = String(token).replace(/\s+/g, '');
+  try {
+    return saveSession(_shape(await _post('/verify', { type: 'email', email, token: code })));
+  } catch (e1) {
+    try {
+      return saveSession(_shape(await _post('/verify', { type: 'magiclink', email, token: code })));
+    } catch (_) {
+      throw e1;
+    }
+  }
 }
 
 // JWT access_token içinden kullanıcıyı çöz (imza doğrulaması yok — sadece görüntüleme)

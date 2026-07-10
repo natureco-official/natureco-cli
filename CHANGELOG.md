@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.51.4] - 2026-07-11 — "account: OTP kodu magiclink tipini de dener"
+
+### Fixed
+- **6/8 haneli kodla giriş** (`{{ .Token }}` şablona eklenmişse) çalışır: kod doğrulaması `type:email` başarısızsa `type:magiclink` ile tekrar denenir; boşluklar temizlenir. (Kod tek kullanımlık — her `account login` yeni kod üretir, EN SON e-postadaki kodu kullan.)
+
 ## [5.51.3] - 2026-07-11 — "account: implicit magic link (fragment access_token)"
 
 ### Fixed
