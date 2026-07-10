@@ -250,10 +250,24 @@ async function workflow(params) {
           '\nTum arac listesi (isimle cagir; parametre yanlissa <tool_results> duzeltir): ' + allNames.join(', '),
         ].join('\n');
       }
+      // Oz-bilgi: ajan "kac skill'in/aracin var, nerede kayitli" sorularinda dosya
+      // sistemini kesfe cikip YANLIS sayiyordu (~/.natureco/skills yalniz kullanici
+      // skill'leridir; yerlesikler paketin icindedir). Gercek sayilari ve konumlari
+      // sistem mesajina gomuyoruz ki ajan kendi kurulumunu dogru anlatsin.
+      let selfInfo = '';
+      try {
+        const skillCount = require('../utils/skill-index')._discoverSkills().length;
+        const pkgRoot = path.join(__dirname, '..', '..');
+        selfInfo = '\n\nKendi kurulumun (kullanici sorarsa BU bilgiyi kullan, dosya sayarak tahmin etme):'
+          + '\n- Toplam skill: ' + skillCount + ' (yerlesikler paketle gelir: ' + path.join(pkgRoot, 'skills') + ' — ~/.natureco/skills-builtin baglantisi da ayni yere acilir)'
+          + '\n- Toplam arac: ' + tools.length + ' (kaynaklari: ' + path.join(pkgRoot, 'src', 'tools') + ' — ~/.natureco/tools baglantisi)'
+          + '\n- ~/.natureco/skills SADECE kullanicinin kendi ekledigi skill\'lerdir; yerlesikleri ICERMEZ.';
+      } catch { /* sayilamazsa satiri atla */ }
+
       const sysMsg = [
         'Sen NatureCo adli, arac kullanabilen bir yapay zeka ajanisin. Kullanicinin istegini SADECE anlatarak degil, ARACLARI cagirarak fiilen gerceklestir.',
         memCtx ? '\nKullanici bilgisi:\n' + memCtx : '',
-        '\n\nOrtam:\n- Isletim sistemi: ' + process.platform + '\n- Kullanici home: ' + os.homedir() + '\n- Masaustu: ' + desktop + '\n- Calisma dizini: ' + process.cwd(),
+        '\n\nOrtam:\n- Isletim sistemi: ' + process.platform + '\n- Kullanici home: ' + os.homedir() + '\n- Masaustu: ' + desktop + '\n- Calisma dizini: ' + process.cwd() + selfInfo,
         '\n\nArac cagirmak icin TAM olarak su formati kullan:\n<minimax:tool_call>\n<invoke name="ARAC_ADI">\n<parameter name="PARAM">DEGER</parameter>\n</invoke>\n</minimax:tool_call>',
         '\n\nKullanabilecegin araclar:',
         '- write_file: dosya olustur/uzerine yaz. parametreler: path (TAM yol), content (dosyanin TAM icerigi). Kod/oyun/site isteniyorsa TUM icerigi content icine yaz, kisaltma.',

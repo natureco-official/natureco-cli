@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.49.1] - 2026-07-10 — "FIX: ajan kendi skill/araç envanterini yanlış anlatıyordu"
+
+### Fixed
+- **"Kaç skill'in var?" sorusuna ajan 9 diyordu (gerçek: 319).** Ajan kendi kurulumunu bilmediğinden dosya sistemini keşfe çıkıyor ve `~/.natureco/skills`'i (yalnız KULLANICI skill'leri) sayıp yanlış cevap veriyordu; yerleşiklerin paket içinde yaşadığından habersizdi. Sistem mesajına öz-bilgi eklendi: gerçek skill/araç sayıları + yerleşiklerin konumu + "~/.natureco/skills yerleşikleri içermez" notu. E2E doğrulandı: "kaç skillin var?" → "319 skill ve 90 araç" + doğru konum.
+
 ## [5.49.0] - 2026-07-10 — "Yerleşik skill/araçlar artık ~/.natureco altında görünür"
 
 ### Added
