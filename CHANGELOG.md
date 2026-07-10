@@ -2,6 +2,17 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.48.0] - 2026-07-10 — "Güncelleme bildirimi + skill/araç görünürlüğü"
+
+### Context
+- **Saha raporu: "kullanıcılarda skill'ler ve araçlar görünmüyor."** İnceleme sonucu: paket her sürümde skill/araçları TAŞIYOR (v5.21'den beri 319 skill + ~90 araç, `npm pack` ve temiz-kurulum simülasyonuyla doğrulandı). Asıl neden iki katmanlı: (1) v5.21 öncesi sürümlerde gerçekten yalnız 3–10 skill vardı ve eski sürümde kalan kullanıcıların bundan haberi olmuyordu — CLI hiç güncelleme uyarısı vermiyordu; (2) yerleşik skill'ler `~/.natureco/` altında değil npm paketinin içinde yaşadığından "sistem dosyalarında yok" sanılıyordu.
+
+### Added
+- **Yeni sürüm bildirimi** (`src/utils/update-check.js`): CLI açılışında önbellekten senkron tek satır uyarı ("⬆ Yeni sürüm: vX → vY — npm install -g natureco-cli"); registry en fazla 24 saatte bir, arka planda ve süreci bekletmeden sorgulanır (socket.unref). Yalnız TTY'de basılır, `NATURECO_NO_UPDATE_CHECK=1` ile kapatılır, hiçbir hata komutu bozamaz.
+- **`natureco status`** artık Skills (toplam + yerleşik/kişisel kırılımı) ve Tools sayısını gösterir — "görünmüyor" raporları tek komutla teşhis edilir.
+- **`natureco skills list`** başlığında toplam/kaynak özeti + "yerleşikler paketle gelir, kişiseller ~/.natureco/skills altındadır" açıklaması; 0 skill durumu artık bozuk kurulum uyarısı verir (yerleşikler pakette geldiğinden bu durum normal değildir).
+- 7 yeni test (`test/utils/update-check.test.js`): semver karşılaştırma, TTY/opt-out kapıları, hata dayanıklılığı.
+
 ## [5.47.1] - 2026-07-09 — "FIX: ASCII banner NATUREOO → NATURECO"
 
 ### Fixed

@@ -5,6 +5,9 @@ const chalk = require('chalk');
 const packageJson = require('../package.json');
 // Küresel çökme/EPIPE yakalayıcıları — ham Node stack yerine düzgün mesaj + audit log
 require('../src/utils/process-errors').install();
+// Yeni sürüm bildirimi (önbellekten senkron basar; ağı arka planda, engellemeden tazeler).
+// Eski sürümde kalan kullanıcılar yeni skill/araçlardan haberdar olsun diye eklendi.
+try { require('../src/utils/update-check').maybeNotify(packageJson.version); } catch { /* asla komutu bozma */ }
 const login = require('../src/commands/login');
 const logout = require('../src/commands/logout');
 const bots = require('../src/commands/bots');

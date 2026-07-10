@@ -60,6 +60,28 @@ function cmdRun() {
 
   const channelCount = [cfg.telegramToken, cfg.whatsappConnected, cfg.discordToken, cfg.slackToken].filter(Boolean).length;
   lines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Channels         ') + tui.styled(String(channelCount).padEnd(36), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
+
+  // Skill + araç görünürlüğü: "skill'ler görünmüyor" raporlarını tek bakışta
+  // teşhis edilir yapar (yerleşikler npm paketinin içinde yaşar, ~/.natureco'da değil)
+  let skillInfo = '—';
+  try {
+    const { getSkills } = tryRequire('../utils/skills') || {};
+    if (getSkills) {
+      const all = getSkills();
+      const builtin = all.filter(s => s.source === 'builtin').length;
+      const user = all.length - builtin;
+      skillInfo = `${all.length} (${builtin} yerleşik` + (user > 0 ? ` + ${user} kullanıcı` : '') + ')';
+    }
+  } catch {}
+  lines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Skills           ') + tui.styled(skillInfo.padEnd(36), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
+
+  let toolCount = '—';
+  try {
+    const toolsDir = path.join(__dirname, '..', 'tools');
+    toolCount = String(fs.readdirSync(toolsDir).filter(f => f.endsWith('.js')).length);
+  } catch {}
+  lines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Tools            ') + tui.styled(String(toolCount).padEnd(36), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
+
   lines.push(tui.styled('  ╰' + '─'.repeat(cardW) + '╯', { color: tui.PALETTE.border }));
   console.log('\n' + tui.styled('  🩺 Sistem Durumu', { color: tui.PALETTE.primary, bold: true }));
   console.log(lines.join('\n'));

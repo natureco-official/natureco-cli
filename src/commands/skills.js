@@ -202,14 +202,17 @@ function uninstallMarketplace(skillName) {
 
 async function listSkills() {
   const allSkills = getSkills();
+  const builtinCount = allSkills.filter(s => s.source === 'builtin').length;
+  const userCount = allSkills.filter(s => s.source === 'user').length;
 
   console.log(chalk.gray('\n  ' + '─'.repeat(48)));
-  console.log(chalk.cyan.bold('\n  Yüklü Skill\'ler\n'));
+  console.log(chalk.cyan.bold('\n  Yüklü Skill\'ler') + chalk.gray(`  —  toplam ${allSkills.length} (${builtinCount} yerleşik${userCount ? `, ${userCount} kişisel` : ''})`));
+  console.log(chalk.gray('  Yerleşik skill\'ler paketle birlikte gelir; kişisel skill\'ler ~/.natureco/skills altında yaşar.\n'));
 
   if (allSkills.length === 0) {
-    console.log(chalk.gray('  Hiç skill yüklü değil.\n'));
-    console.log(chalk.gray('  Yüklemek için: ') + chalk.cyan('natureco skills install <slug>'));
-    console.log(chalk.gray('  Gözatmak için: ') + chalk.cyan('natureco skills browse\n'));
+    // Yerleşikler pakette gelir; bu duruma normalde ancak paket bozulursa düşülür
+    console.log(chalk.red('  ⚠ Hiç skill bulunamadı — kurulum bozuk olabilir.'));
+    console.log(chalk.gray('  Onarmak için: ') + chalk.cyan('npm install -g natureco-cli') + chalk.gray(' (yeniden kurar)\n'));
     return;
   }
 
