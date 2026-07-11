@@ -54,14 +54,32 @@ async function dna(pathArg, opts = {}) {
   console.log('  ' + chalk.gray(`Taranan dosya: ${data.file_count || 0}`));
   console.log('');
 
+  // Anlama skoru (1-5): anket varsa onu, yoksa otomatik tahmini kullan
+  const uScore = (f) => (f.understanding != null ? f.understanding : f.understanding_estimate);
+  const uCol = (v) => (v >= 4 ? chalk.green : v >= 2.5 ? chalk.yellow : chalk.red);
+
   // En yüksek YZ olasılıklı 5 dosya
   const top = (data.files || []).slice(0, 5);
   if (top.length) {
     console.log('  ' + chalk.gray('En yüksek YZ olasılıklı dosyalar:'));
     for (const f of top) {
       const fp = Math.round((f.ai_probability || 0) * 100);
-      const u = f.understanding == null ? '' : chalk.gray(`  anlama %${Math.round(f.understanding * 100)}`);
+      const uv = uScore(f);
+      const u = uv == null ? '' : '  ' + uCol(uv)(`anlama ${uv.toFixed(1)}/5`);
       console.log('    ' + tone(fp).bold(`%${String(fp).padStart(3)}`) + '  ' + chalk.white(f.file) + u);
+    }
+    console.log('');
+  }
+
+  // 🧠 Anlama borcu — AI-yoğun ama az-anlaşılan dosyalar (farklılaştırıcı)
+  const debt = (data.files || [])
+    .filter((f) => { const v = uScore(f); return v != null && v < 3 && (f.ai_probability || 0) >= 0.3; })
+    .sort((a, b) => uScore(a) - uScore(b))
+    .slice(0, 5);
+  if (debt.length) {
+    console.log('  ' + chalk.bold('🧠 Anlama borcu') + chalk.gray(' (AI yazdı ama ekip muhtemelen anlamıyor):'));
+    for (const f of debt) {
+      console.log('    ' + chalk.red(`${uScore(f).toFixed(1)}/5`) + '  ' + chalk.white(f.file) + chalk.gray(`  (YZ %${Math.round(f.ai_probability * 100)})`));
     }
     console.log('');
   }
