@@ -47,6 +47,8 @@ function extractPreferenceFacts(content) {
   return out;
 }
 const chalk = require('chalk');
+const { getLang: _getLang } = require('../utils/i18n');
+const L = (tr, en) => (_getLang() === 'en' ? en : tr);
 const tui = require('../utils/tui');
 const { loadToolDefinitions, toOpenAIFormat, executeTool } = require('../utils/tools');
 const { accumulateToolCallDeltas, finalizeToolCalls } = require('../utils/streaming-tools');
@@ -1031,7 +1033,7 @@ function runCliCommand(args) {
       stdio: 'inherit',
     });
     proc.on('close', (code) => resolve(code));
-    proc.on('error', (e) => { console.log(chalk.red('  Hata: ' + e.message)); resolve(1); });
+    proc.on('error', (e) => { console.log(chalk.red(L('  Hata: ', '  Error: ') + e.message)); resolve(1); });
   });
 }
 
@@ -1117,7 +1119,7 @@ async function startRepl(args) {
       messages = session.messages || [];
       console.log(chalk.green(`\n  ✓ Oturum yüklendi: ${session.id} (${messages.length} mesaj)\n`));
     } else {
-      console.log(chalk.yellow(`\n  ⚠️  Oturum bulunamadı: ${resumeId}\n`));
+      console.log(chalk.yellow(`\n  ⚠️  ${L('Oturum bulunamadı', 'Session not found')}: ${resumeId}\n`));
     }
   }
 
@@ -1440,7 +1442,7 @@ async function startRepl(args) {
           console.log(chalk.gray('\n  Devam etmek için: /resume <id> veya /resume last\n'));
           break;
         case 'resume':
-          if (!arg) { console.log(chalk.yellow('  Kullanım: /resume <id> veya /resume last')); break; }
+          if (!arg) { console.log(chalk.yellow(L('  Kullanım: /resume <id> veya /resume last', '  Usage: /resume <id> or /resume last'))); break; }
           const session = loadSession(arg);
           if (session) {
             messages = session.messages || [];
@@ -1449,11 +1451,11 @@ async function startRepl(args) {
             else messages.unshift({ role: 'system', content: systemPrompt, _internal: true });
             console.log(chalk.green(`  ✓ Oturum yüklendi: ${session.id} (${messages.length} mesaj)`));
           } else {
-            console.log(chalk.yellow(`  ⚠️  Oturum bulunamadı: ${arg}`));
+            console.log(chalk.yellow(`  ⚠️  ${L('Oturum bulunamadı', 'Session not found')}: ${arg}`));
           }
           break;
         case 'system':
-          if (!arg) { console.log(chalk.yellow('  Kullanım: /system <text>')); break; }
+          if (!arg) { console.log(chalk.yellow(L('  Kullanım: /system <text>', '  Usage: /system <text>'))); break; }
           // Override stable tier directly (user's custom text)
           _cachedStable = arg;
           // Rebuild volatile only (context stays unchanged)
@@ -1467,7 +1469,7 @@ async function startRepl(args) {
           console.log(chalk.green('  ✓ System prompt güncellendi'));
           break;
         case 'model':
-          if (!arg) { console.log(chalk.yellow('  Kullanım: /model <name>')); break; }
+          if (!arg) { console.log(chalk.yellow(L('  Kullanım: /model <name>', '  Usage: /model <name>'))); break; }
           model = arg;
           console.log(chalk.green('  ✓ Model: ') + chalk.cyan(model));
           break;
@@ -1508,7 +1510,7 @@ async function startRepl(args) {
               console.log(tui.C.yellow('  Henüz plan yok.'));
             }
           } else {
-            console.log(tui.C.yellow('  Kullanım: /plan on|off|show'));
+            console.log(tui.C.yellow(L('  Kullanım: /plan on|off|show', '  Usage: /plan on|off|show')));
           }
           break;
         case 'save':
@@ -1530,7 +1532,7 @@ async function startRepl(args) {
               await runCliCommand(args2);
             }
           } else {
-            console.log(chalk.yellow(`  Bilinmeyen komut: /${cmd}. /help yazın.`));
+            console.log(chalk.yellow(`  ${L('Bilinmeyen komut', 'Unknown command')}: /${cmd}. ${L('/help yazın.', 'type /help.')}`));
           }
       }
       safePrompt();
