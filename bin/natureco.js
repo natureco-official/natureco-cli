@@ -14,6 +14,7 @@ const login = require('../src/commands/login');
 const logout = require('../src/commands/logout');
 const account = require('../src/commands/account');
 const dna = require('../src/commands/dna');
+const lang = require('../src/commands/lang');
 const bots = require('../src/commands/bots');
 const chat = require('../src/commands/chat');
 const help = require('../src/commands/help');
@@ -212,6 +213,11 @@ program
   .description('Kod şeffaflığı — CodeDNA ile yazılan kodun YZ-DNA raporu')
   .option('--max <n>', 'En fazla taranacak dosya sayısı')
   .action(dna);
+
+program
+  .command('lang [code]')
+  .description('Arayüz dili / Interface language (tr | en)')
+  .action(lang);
 
 program
   .command('setup [action]')

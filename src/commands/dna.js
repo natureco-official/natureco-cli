@@ -1,5 +1,6 @@
 const chalk = require('chalk');
 const { spawnSync } = require('child_process');
+const { t } = require('../utils/i18n');
 
 /**
  * `natureco dna [path]` — CodeDNA ile kod şeffaflığı.
@@ -21,9 +22,9 @@ async function dna(pathArg, opts = {}) {
 
   if (res.error && res.error.code === 'ENOENT') {
     console.log('');
-    console.log(chalk.yellow('  CodeDNA kurulu değil.'));
-    console.log(chalk.gray('  Kurmak için:  ') + chalk.cyan('pip install codedna') + chalk.gray('  (veya ') + chalk.cyan('uv tool install codedna') + chalk.gray(')'));
-    console.log(chalk.gray('  CodeDNA, kodun ne kadarının yapay zekâ olduğunu ölçen NatureCo aracıdır.\n'));
+    console.log(chalk.yellow('  ' + t('dna.notInstalled')));
+    console.log(chalk.gray('  ' + t('dna.installHint') + '  ') + chalk.cyan('pip install codedna') + chalk.gray('  (uv tool install codedna)'));
+    console.log(chalk.gray('  ' + t('dna.installDesc') + '\n'));
     process.exitCode = 1;
     return;
   }
@@ -32,7 +33,7 @@ async function dna(pathArg, opts = {}) {
   try {
     data = JSON.parse(res.stdout);
   } catch (_e) {
-    console.log(chalk.red('  CodeDNA çıktısı okunamadı.'));
+    console.log(chalk.red('  ' + t('dna.unreadable')));
     if (res.stderr) console.log(chalk.gray(res.stderr.trim().split('\n').slice(0, 4).join('\n')));
     process.exitCode = 1;
     return;
@@ -49,9 +50,10 @@ async function dna(pathArg, opts = {}) {
   console.log('');
   console.log('  ' + chalk.bold.cyan('🧬 CodeDNA') + chalk.gray('  ·  ' + (data.repo || target)));
   console.log('');
-  console.log('  ' + chalk.gray('Ortalama YZ olasılığı  ') + tone(pct)(bar(pct)) + '  ' + tone(pct).bold(`%${pct}`));
-  console.log('  ' + chalk.gray('En yüksek dosya        ') + tone(maxPct)(bar(maxPct)) + '  ' + tone(maxPct).bold(`%${maxPct}`));
-  console.log('  ' + chalk.gray(`Taranan dosya: ${data.file_count || 0}`));
+  const pad = (s) => (s + '                      ').slice(0, 22);
+  console.log('  ' + chalk.gray(pad(t('dna.avgAi'))) + tone(pct)(bar(pct)) + '  ' + tone(pct).bold(`%${pct}`));
+  console.log('  ' + chalk.gray(pad(t('dna.maxFile'))) + tone(maxPct)(bar(maxPct)) + '  ' + tone(maxPct).bold(`%${maxPct}`));
+  console.log('  ' + chalk.gray(t('dna.scanned', { n: data.file_count || 0 })));
   console.log('');
 
   // Anlama skoru (1-5): anket varsa onu, yoksa otomatik tahmini kullan
@@ -61,11 +63,11 @@ async function dna(pathArg, opts = {}) {
   // En yüksek YZ olasılıklı 5 dosya
   const top = (data.files || []).slice(0, 5);
   if (top.length) {
-    console.log('  ' + chalk.gray('En yüksek YZ olasılıklı dosyalar:'));
+    console.log('  ' + chalk.gray(t('dna.topFiles')));
     for (const f of top) {
       const fp = Math.round((f.ai_probability || 0) * 100);
       const uv = uScore(f);
-      const u = uv == null ? '' : '  ' + uCol(uv)(`anlama ${uv.toFixed(1)}/5`);
+      const u = uv == null ? '' : '  ' + uCol(uv)(`${t('dna.understanding')} ${uv.toFixed(1)}/5`);
       console.log('    ' + tone(fp).bold(`%${String(fp).padStart(3)}`) + '  ' + chalk.white(f.file) + u);
     }
     console.log('');
@@ -77,13 +79,13 @@ async function dna(pathArg, opts = {}) {
     .sort((a, b) => uScore(a) - uScore(b))
     .slice(0, 5);
   if (debt.length) {
-    console.log('  ' + chalk.bold('🧠 Anlama borcu') + chalk.gray(' (AI yazdı ama ekip muhtemelen anlamıyor):'));
+    console.log('  ' + chalk.bold(t('dna.debtTitle')) + chalk.gray(' ' + t('dna.debtDesc')));
     for (const f of debt) {
-      console.log('    ' + chalk.red(`${uScore(f).toFixed(1)}/5`) + '  ' + chalk.white(f.file) + chalk.gray(`  (YZ %${Math.round(f.ai_probability * 100)})`));
+      console.log('    ' + chalk.red(`${uScore(f).toFixed(1)}/5`) + '  ' + chalk.white(f.file) + chalk.gray(`  (AI %${Math.round(f.ai_probability * 100)})`));
     }
     console.log('');
   }
-  console.log(chalk.gray('  Ayrıntı için: ') + chalk.cyan('codedna scan') + chalk.gray('  ·  Ekosistem: ') + chalk.cyan('natureco.me/ekosistem') + '\n');
+  console.log(chalk.gray('  ' + t('dna.detail') + ' ') + chalk.cyan('codedna scan') + chalk.gray('  ·  ' + t('dna.ecosystem') + ' ') + chalk.cyan('natureco.me/ekosistem') + '\n');
 }
 
 module.exports = dna;

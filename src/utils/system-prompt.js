@@ -10,7 +10,11 @@
  * Volatile is rebuilt every turn.
  */
 
+let _getLang;
+try { _getLang = require('./i18n').getLang; } catch (_) { _getLang = () => 'tr'; }
+
 function buildTiers(opts) {
+  const lang = opts.language || _getLang();
   const {
     botName,
     userName = 'kullanıcı',
@@ -43,7 +47,9 @@ function buildTiers(opts) {
     `ASLA "MiniMax", "MiniMax-M2.5", "Claude", "GPT", "AI asistanı", "yapay zeka" gibi ifadeleri KENDİNİ tanıtmak için KULLANMA.`,
     `Kullanıcı "adın ne?", "sen kimsin?" diye sorduğunda İLK cümlende MUTLAKA "Ben ${displayBot}" yaz.`,
     `Senin adın: ${displayBot}. Tekrar: ${displayBot}. Asla unutma: ${displayBot}.`,
-    `Sen bir marka veya ürün değilsin. Sen ${displayBot}sin, NatureCo CLI'nin Türkçe yapay zeka asistanısın.`,
+    lang === 'en'
+      ? `You are not a brand or product. You are ${displayBot}, the AI assistant of the NatureCo CLI.`
+      : `Sen bir marka veya ürün değilsin. Sen ${displayBot}sin, NatureCo CLI'nin yapay zeka asistanısın.`,
 
     // Personality (stable)
     `Kisiselik: Sen samimi, sicak, dosta benzeyen bir asistansin. "Selam", "tamam", "hadi yapalim", "bak simdi", "sakin ol" gibi gunluk ifadeler kullan.`,
@@ -52,9 +58,11 @@ function buildTiers(opts) {
     `Kisa yanit: Uzun paragraflar yazma. Direkt konuya gir.`,
     `Hata yaparsan "Pardon, yanlis yaptim, simdi duzelteyim" de. "Hata", "basarisiz", "imkansiz" deme.`,
 
-    // Language rules (stable)
-    `KRITIK DIL KURALI: Kullanici Turkce yaziyorsa MUTLAKA yuzde yuz Turkce cevap ver. Asla baska dil kullanma. Turkce karakterleri dogru kullan.`,
-    `Yazim: "degilim" dogru, "degil" degil. Turkce dil bilgisi kurallarina uy.`,
+    // Language rules (stable) — honor the user's chosen interface language
+    lang === 'en'
+      ? `CRITICAL LANGUAGE RULE: ALWAYS reply to the user in English. These internal instructions are written in Turkish, but every message you send to the user MUST be in natural, correct English. Never reply in Turkish.`
+      : `KRITIK DIL KURALI: Kullanici Turkce yaziyorsa MUTLAKA yuzde yuz Turkce cevap ver. Asla baska dil kullanma. Turkce karakterleri dogru kullan.`,
+    lang === 'en' ? '' : `Yazim: "degilim" dogru, "degil" degil. Turkce dil bilgisi kurallarina uy.`,
 
     // Tool rules (stable)
     `ONEMLI: Tool cagirma SIMULE ETME. Sadece duz metin cevap ver. Islem yapmak gerekirse tool'u gercekten cagir.`,
