@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -29,7 +31,7 @@ async function agent(args) {
   if (opts.action === 'unbind') return unbindAgent(opts);
   if (opts.action === 'set-identity') return setIdentity(opts);
 
-  console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${opts.action}\n`));
+  console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${opts.action}\n`));
   process.exit(1);
 }
 
@@ -46,7 +48,7 @@ async function runAgent(opts) {
   const apiKey = pc?.apiKey || config[`${provider}ApiKey`] || process.env[`${provider.toUpperCase()}_API_KEY`];
 
   if (!apiKey) {
-    console.log(chalk.red(`\n  ❌ ${provider} API key gerekli\n`));
+    console.log(chalk.red(`\n  ❌ ${provider} API key ${L('gerekli', 'required')}\n`));
     process.exit(1);
   }
 
@@ -104,18 +106,18 @@ function abortAgent(taskId) {
   const { cancelTask, listTasks } = require('../utils/background');
   if (taskId) {
     const t = cancelTask(taskId);
-    if (!t) { console.log(chalk.red(`\n  ❌ Task bulunamadı: ${taskId}\n`)); process.exit(1); }
-    console.log(chalk.yellow(`\n  🛑 Task iptal edildi: ${taskId}\n`));
+    if (!t) { console.log(chalk.red(`\n  ❌ ${L('Task bulunamadı', 'Task not found')}: ${taskId}\n`)); process.exit(1); }
+    console.log(chalk.yellow(`\n  🛑 ${L('Task iptal edildi', 'Task cancelled')}: ${taskId}\n`));
     return;
   }
   const running = listTasks({ status: 'running' });
   if (running.length === 0) {
-    console.log(chalk.gray('\n  Çalışan task yok\n'));
+    console.log(chalk.gray(L('\n  Çalışan task yok\n', '\n  No running tasks\n')));
     return;
   }
   for (const t of running) {
     cancelTask(t.id);
-    console.log(chalk.yellow(`  🛑 Task iptal edildi: ${t.id} — ${t.message}`));
+    console.log(chalk.yellow(`  🛑 ${L('Task iptal edildi', 'Task cancelled')}: ${t.id} — ${t.message}`));
   }
   console.log();
 }
@@ -123,11 +125,11 @@ function abortAgent(taskId) {
 function tailAgent(taskId) {
   const { getTask } = require('../utils/background');
   if (!taskId) {
-    console.log(chalk.red('\n  ❌ Task ID gerekli. Kullanım: natureco agent tail <id>\n'));
+    console.log(chalk.red(L('\n  ❌ Task ID gerekli. Kullanım: natureco agent tail <id>\n', '\n  ❌ Task ID required. Usage: natureco agent tail <id>\n')));
     process.exit(1);
   }
   const task = getTask(taskId);
-  if (!task) { console.log(chalk.red(`\n  ❌ Task bulunamadı: ${taskId}\n`)); process.exit(1); }
+  if (!task) { console.log(chalk.red(`\n  ❌ ${L('Task bulunamadı', 'Task not found')}: ${taskId}\n`)); process.exit(1); }
   console.log(chalk.cyan(`\n  📋 Task: ${task.id}\n`));
   console.log(chalk.gray('  ' + '─'.repeat(48)));
   console.log(`  ${chalk.white('Message:')}  ${task.message}`);
@@ -145,11 +147,11 @@ function logsAgent(statusFilter) {
   console.log(chalk.cyan(`\n  📜 Agent Logs${statusFilter ? ` (${statusFilter})` : ''}\n`));
   console.log(chalk.gray('  ' + '─'.repeat(48)));
   if (tasks.length === 0) {
-    console.log(chalk.gray('  Task bulunamadı.\n'));
+    console.log(chalk.gray(L('  Task bulunamadı.\n', '  Task not found.\n')));
     return;
   }
   for (const t of tasks.slice(0, 20)) {
-    console.log(`  ${statusColor(t.status)} ${chalk.white(t.message || '(boş)')}`);
+    console.log(`  ${statusColor(t.status)} ${chalk.white(t.message || L('(boş)', '(empty)'))}`);
     console.log(chalk.gray(`     [${t.id}] ${t.createdAt?.slice(0, 16) || ''} — ${t.runtime}`));
   }
   console.log();
@@ -271,7 +273,7 @@ function showHelp() {
   console.log(chalk.cyan('    --model <model>') + chalk.gray('        Model override'));
   console.log(chalk.cyan('    --provider <name>') + chalk.gray('     Provider override'));
   console.log(chalk.gray('\n  Examples:'));
-  console.log(chalk.gray('    natureco agent run --message "Merhaba"'));
+  console.log(chalk.gray(L('    natureco agent run --message "Merhaba"', '    natureco agent run --message "Hello"')));
   console.log(chalk.gray('    natureco agent abort'));
   console.log(chalk.gray('    natureco agent tail <id>'));
   console.log(chalk.gray('    natureco agent logs running\n'));
