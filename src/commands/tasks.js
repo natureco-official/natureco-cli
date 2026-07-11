@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const F = require('../utils/format');
 const { listTasks, getTask, cancelTask, auditTasks, maintenanceTasks, getTaskSummary, TASK_STATUSES, RUNTIME_TYPES } = require('../utils/background');
 const { spawnSubAgent, spawnParallel, getStatus } = require('../utils/sub-agent');
@@ -65,8 +67,8 @@ async function tasks(args) {
   if (action === 'delegate-parallel') return delegateParallelHandler(params.join(' '));
   if (action === 'sub-status') return subStatusHandler();
 
-  console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco tasks [list|show|cancel|audit|maintenance|flow|summary|notify|delegate|delegate-parallel|sub-status]\n'));
+  console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${action}\n`));
+  console.log(chalk.gray(L('  Kullanım: natureco tasks [list|show|cancel|audit|maintenance|flow|summary|notify|delegate|delegate-parallel|sub-status]\n', '  Usage: natureco tasks [list|show|cancel|audit|maintenance|flow|summary|notify|delegate|delegate-parallel|sub-status]\n')));
   process.exit(1);
 }
 
@@ -81,9 +83,9 @@ function listTasksHandler(opts) {
   F.header('Background Tasks');
 
   if (tasks.length === 0) {
-    F.meta('Hiç task bulunamadı.');
-    if (opts.runtime) F.meta('Filtre: runtime=' + opts.runtime);
-    if (opts.status) F.meta('Filtre: status=' + opts.status);
+    F.meta(L('Hiç task bulunamadı.', 'No tasks found.'));
+    if (opts.runtime) F.meta(L('Filtre: runtime=', 'Filter: runtime=') + opts.runtime);
+    if (opts.status) F.meta(L('Filtre: status=', 'Filter: status=') + opts.status);
     return;
   }
 
@@ -97,21 +99,21 @@ function listTasksHandler(opts) {
   F.table(['ID', 'Name', 'Status', 'Runtime', 'Time'], rows);
 
   const summary = getTaskSummary();
-  F.meta('Toplam: ' + tasks.length + ' (gösterilen) | Aktif: ' + summary.active + ' | Hata: ' + summary.failures);
-  F.meta('Filtre: --runtime <type> --status <status>');
+  F.meta(L('Toplam: ', 'Total: ') + tasks.length + L(' (gösterilen) | Aktif: ', ' (shown) | Active: ') + summary.active + L(' | Hata: ', ' | Errors: ') + summary.failures);
+  F.meta(L('Filtre: --runtime <type> --status <status>', 'Filter: --runtime <type> --status <status>'));
   F.meta('JSON: natureco tasks list --json');
 }
 
 function showTaskHandler(id, opts) {
   if (!id) {
-    F.error('Task ID gerekli');
-    F.meta('Kullanım: natureco tasks show <id>');
+    F.error(L('Task ID gerekli', 'Task ID required'));
+    F.meta(L('Kullanım: natureco tasks show <id>', 'Usage: natureco tasks show <id>'));
     process.exit(1);
   }
 
   const task = getTask(id);
   if (!task) {
-    F.error('Task bulunamadı: ' + id);
+    F.error(L('Task bulunamadı: ', 'Task not found: ') + id);
     process.exit(1);
   }
 
@@ -121,27 +123,27 @@ function showTaskHandler(id, opts) {
   }
 
   F.header('Task: ' + task.id);
-  F.kv('Durum', task.status);
+  F.kv(L('Durum', 'Status'), task.status);
   F.kv('Runtime', task.runtime);
   F.kv('Bot', task.botName);
-  if (task.message) F.kv('Mesaj', task.message);
-  F.kv('Oluşturma', formatTime(task.createdAt));
-  if (task.startedAt) F.kv('Başlangıç', formatTime(task.startedAt));
-  if (task.endedAt) F.kv('Bitiş', formatTime(task.endedAt));
-  if (task.notifyPolicy) F.kv('Bildirim', task.notifyPolicy);
-  if (task.childSessionKey) F.kv('Çocuk', task.childSessionKey);
+  if (task.message) F.kv(L('Mesaj', 'Message'), task.message);
+  F.kv(L('Oluşturma', 'Created'), formatTime(task.createdAt));
+  if (task.startedAt) F.kv(L('Başlangıç', 'Started'), formatTime(task.startedAt));
+  if (task.endedAt) F.kv(L('Bitiş', 'Ended'), formatTime(task.endedAt));
+  if (task.notifyPolicy) F.kv(L('Bildirim', 'Notification'), task.notifyPolicy);
+  if (task.childSessionKey) F.kv(L('Çocuk', 'Child'), task.childSessionKey);
   if (task.runId) F.kv('Run ID', task.runId);
 
   if (task.result) {
     console.log('');
-    F.kv('Sonuç', task.result);
+    F.kv(L('Sonuç', 'Result'), task.result);
   }
   if (task.error) {
     console.log('');
-    F.kv('Hata', task.error);
+    F.kv(L('Hata', 'Error'), task.error);
   }
   if (task.cleanupAfter) {
-    F.meta('Temizlik: ' + formatTime(task.cleanupAfter));
+    F.meta(L('Temizlik: ', 'Cleanup: ') + formatTime(task.cleanupAfter));
   }
   if (task.metadata && Object.keys(task.metadata).length > 0) {
     console.log('');
@@ -152,21 +154,21 @@ function showTaskHandler(id, opts) {
 
 function cancelTaskHandler(id) {
   if (!id) {
-    F.error('Task ID gerekli');
-    F.meta('Kullanım: natureco tasks cancel <id>');
+    F.error(L('Task ID gerekli', 'Task ID required'));
+    F.meta(L('Kullanım: natureco tasks cancel <id>', 'Usage: natureco tasks cancel <id>'));
     process.exit(1);
   }
 
   const result = cancelTask(id);
   if (!result) {
-    F.error('Task bulunamadı: ' + id);
+    F.error(L('Task bulunamadı: ', 'Task not found: ') + id);
     process.exit(1);
   }
 
   if (result.status === 'cancelled') {
-    F.success('Task iptal edildi: ' + id);
+    F.success(L('Task iptal edildi: ', 'Task cancelled: ') + id);
   } else {
-    F.warning('Task zaten terminal durumda: ' + result.status);
+    F.warning(L('Task zaten terminal durumda: ', 'Task already in terminal state: ') + result.status);
   }
 }
 
@@ -178,10 +180,10 @@ function auditHandler(opts) {
     return;
   }
 
-  F.header('Task Denetimi');
+  F.header(L('Task Denetimi', 'Task Audit'));
 
   if (findings.length === 0) {
-    F.success('Sorun bulunamadı.');
+    F.success(L('Sorun bulunamadı.', 'No issues found.'));
     return;
   }
 
@@ -191,7 +193,7 @@ function auditHandler(opts) {
   }
 
   if (filtered.length === 0) {
-    F.meta('Filtreye uygun bulgu yok (severity=' + opts.severity + ')');
+    F.meta(L('Filtreye uygun bulgu yok (severity=', 'No findings match filter (severity=') + opts.severity + ')');
     return;
   }
 
@@ -203,33 +205,33 @@ function auditHandler(opts) {
   ]);
   F.table(['ID', 'Code', 'Severity', 'Message'], rows);
 
-  F.meta('Toplam: ' + filtered.length + ' bulgu');
-  F.meta('Bakım: natureco tasks maintenance --apply');
+  F.meta(L('Toplam: ', 'Total: ') + filtered.length + L(' bulgu', ' findings'));
+  F.meta(L('Bakım: natureco tasks maintenance --apply', 'Maintenance: natureco tasks maintenance --apply'));
 }
 
 function maintenanceHandler(opts) {
-  F.header('Task Bakımı');
+  F.header(L('Task Bakımı', 'Task Maintenance'));
 
   const dryRun = !opts.apply;
   const result = maintenanceTasks(dryRun);
 
   if (dryRun) {
-    F.info('Kuru çalışma (--apply ile uygula)');
+    F.info(L('Kuru çalışma (--apply ile uygula)', 'Dry run (apply with --apply)'));
   }
 
-  F.kv('Temizlenen', result.pruned);
-  F.kv('Düzeltilen', result.reconciled);
-  F.kv('Etiketlenen', result.cleaned);
-  F.kv('Kalan task', result.remaining);
+  F.kv(L('Temizlenen', 'Pruned'), result.pruned);
+  F.kv(L('Düzeltilen', 'Reconciled'), result.reconciled);
+  F.kv(L('Etiketlenen', 'Labeled'), result.cleaned);
+  F.kv(L('Kalan task', 'Remaining'), result.remaining);
 
   if (result.pruned > 0 || result.reconciled > 0 || result.cleaned > 0) {
     if (dryRun) {
-      F.meta('Uygulamak için: natureco tasks maintenance --apply');
+      F.meta(L('Uygulamak için: natureco tasks maintenance --apply', 'To apply: natureco tasks maintenance --apply'));
     } else {
-      F.success('Bakım uygulandı.');
+      F.success(L('Bakım uygulandı.', 'Maintenance applied.'));
     }
   } else {
-    F.success('Bakım gerekmiyor.');
+    F.success(L('Bakım gerekmiyor.', 'No maintenance needed.'));
   }
 }
 
@@ -244,7 +246,7 @@ function flowListHandler(opts) {
   F.header('Task Flow');
 
   if (tasks.length === 0) {
-    F.meta('Task Flow kaydı yok.');
+    F.meta(L('Task Flow kaydı yok.', 'No Task Flow records.'));
     return;
   }
 
@@ -255,12 +257,12 @@ function flowListHandler(opts) {
   ]);
   F.table(['ID', 'Status', 'Message'], rows);
 
-  F.meta('Toplam: ' + tasks.length + ' flow');
+  F.meta(L('Toplam: ', 'Total: ') + tasks.length + ' flow');
 }
 
 function flowShowHandler(id, opts) {
   if (!id) {
-    console.log(chalk.red('\n  ❌ Flow ID gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Flow ID gerekli\n', '\n  ❌ Flow ID required\n')));
     process.exit(1);
   }
   return showTaskHandler(id, opts);
@@ -268,7 +270,7 @@ function flowShowHandler(id, opts) {
 
 function flowCancelHandler(id) {
   if (!id) {
-    console.log(chalk.red('\n  ❌ Flow ID gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Flow ID gerekli\n', '\n  ❌ Flow ID required\n')));
     process.exit(1);
   }
   return cancelTaskHandler(id);
@@ -284,11 +286,11 @@ function summaryHandler(opts) {
 
   console.log('');
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(chalk.cyan.bold('\n  Task Özeti\n'));
-  console.log(chalk.gray('  Aktif    : ') + (summary.active > 0 ? chalk.yellow(summary.active) : chalk.green('0')));
-  console.log(chalk.gray('  Hatalı   : ') + (summary.failures > 0 ? chalk.red(summary.failures) : chalk.green('0')));
-  console.log(chalk.gray('  Toplam   : ') + chalk.white(summary.total));
-  console.log(chalk.gray('\n  Runtime Dağılımı'));
+  console.log(chalk.cyan.bold(L('\n  Task Özeti\n', '\n  Task Summary\n')));
+  console.log(chalk.gray(L('  Aktif    : ', '  Active   : ')) + (summary.active > 0 ? chalk.yellow(summary.active) : chalk.green('0')));
+  console.log(chalk.gray(L('  Hatalı   : ', '  Failed   : ')) + (summary.failures > 0 ? chalk.red(summary.failures) : chalk.green('0')));
+  console.log(chalk.gray(L('  Toplam   : ', '  Total    : ')) + chalk.white(summary.total));
+  console.log(chalk.gray(L('\n  Runtime Dağılımı', '\n  Runtime Distribution')));
   Object.entries(summary.byRuntime).forEach(([rt, count]) => {
     if (count > 0) console.log(chalk.gray(`    ${rt.padEnd(10)}: ${count}`));
   });
@@ -298,28 +300,28 @@ function summaryHandler(opts) {
 function getAgeString(dateStr) {
   const ms = Date.now() - new Date(dateStr).getTime();
   const sec = Math.floor(ms / 1000);
-  if (sec < 60) return `${sec}s önce`;
+  if (sec < 60) return `${sec}${L('s önce', 's ago')}`;
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}dk önce`;
+  if (min < 60) return `${min}${L('dk önce', 'm ago')}`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}sa önce`;
+  if (hr < 24) return `${hr}${L('sa önce', 'h ago')}`;
   const days = Math.floor(hr / 24);
-  return `${days}g önce`;
+  return `${days}${L('g önce', 'd ago')}`;
 }
 
 function formatTime(dateStr) {
-  return new Date(dateStr).toLocaleString('tr-TR');
+  return new Date(dateStr).toLocaleString(_gl() === 'en' ? 'en-US' : 'tr-TR');
 }
 
 function notifyTaskHandler(id, message) {
   if (!id) {
-    F.error('Task ID gerekli');
-    F.meta('Kullanım: natureco tasks notify <id> [message]');
+    F.error(L('Task ID gerekli', 'Task ID required'));
+    F.meta(L('Kullanım: natureco tasks notify <id> [message]', 'Usage: natureco tasks notify <id> [message]'));
     process.exit(1);
   }
   const task = getTask(id);
   if (!task) {
-    F.error('Task bulunamadı: ' + id);
+    F.error(L('Task bulunamadı: ', 'Task not found: ') + id);
     process.exit(1);
   }
   F.header('Task Notification');
@@ -331,8 +333,8 @@ function notifyTaskHandler(id, message) {
 
 async function delegateHandler(type, task) {
   if (!type || !task) {
-    F.error('Kullanım: natureco tasks delegate <type> <task>');
-    F.meta('Tipler: explore, general, review');
+    F.error(L('Kullanım: natureco tasks delegate <type> <task>', 'Usage: natureco tasks delegate <type> <task>'));
+    F.meta(L('Tipler: explore, general, review', 'Types: explore, general, review'));
     process.exit(1);
   }
 
@@ -342,38 +344,38 @@ async function delegateHandler(type, task) {
 
   try {
     const result = await spawnSubAgent(type, task);
-    F.success('Sub-agent tamamlandı');
+    F.success(L('Sub-agent tamamlandı', 'Sub-agent completed'));
     F.divider();
     console.log(chalk.white(result.result));
     if (result.duration) {
-      F.meta(`Süre: ${(result.duration / 1000).toFixed(1)}s`);
+      F.meta(`${L('Süre', 'Duration')}: ${(result.duration / 1000).toFixed(1)}s`);
     }
     if (result.usage) {
       F.meta(`Token: ${result.usage.prompt_tokens || result.usage.input_tokens || '?'} → ${result.usage.completion_tokens || result.usage.output_tokens || '?'}`);
     }
   } catch (err) {
-    F.error('Sub-agent hatası: ' + err.message);
+    F.error(L('Sub-agent hatası: ', 'Sub-agent error: ') + err.message);
     process.exit(1);
   }
 }
 
 async function delegateParallelHandler(input) {
   if (!input) {
-    F.error('Kullanım: natureco tasks delegate-parallel <type1> <task1> | <type2> <task2>');
-    F.meta('Birden çok agent\'ı " | " (pipe) ile ayırın');
+    F.error(L('Kullanım: natureco tasks delegate-parallel <type1> <task1> | <type2> <task2>', 'Usage: natureco tasks delegate-parallel <type1> <task1> | <type2> <task2>'));
+    F.meta(L('Birden çok agent\'ı " | " (pipe) ile ayırın', 'Separate multiple agents with " | " (pipe)'));
     process.exit(1);
   }
 
   const parts = input.split(/\s+\|\s+/);
   if (parts.length < 2) {
-    F.error('En az 2 agent belirtin, " | " ile ayırın');
+    F.error(L('En az 2 agent belirtin, " | " ile ayırın', 'Specify at least 2 agents, separated by " | "'));
     process.exit(1);
   }
 
   const agents = parts.map(p => {
     const trimmed = p.trim();
     const spaceIdx = trimmed.indexOf(' ');
-    if (spaceIdx === -1) throw new Error(`Geçersiz agent: "${trimmed}" (type + task gerekli)`);
+    if (spaceIdx === -1) throw new Error(`${L('Geçersiz agent', 'Invalid agent')}: "${trimmed}" (type + task ${L('gerekli', 'required')})`);
     return {
       type: trimmed.slice(0, spaceIdx),
       task: trimmed.slice(spaceIdx + 1).trim(),
@@ -383,7 +385,7 @@ async function delegateParallelHandler(input) {
   F.header('Parallel Sub-agents (' + agents.length + ')');
   agents.forEach(a => F.kv(a.type, a.task.slice(0, 60)));
 
-  F.info('Çalıştırılıyor...');
+  F.info(L('Çalıştırılıyor...', 'Running...'));
 
   const { results, failed } = await spawnParallel(agents);
 
@@ -392,16 +394,16 @@ async function delegateParallelHandler(input) {
   results.forEach((r, i) => {
     const agent = agents[i];
     if (r.status === 'fulfilled') {
-      F.success(`${agent.type} — tamamlandı (${(r.value.duration / 1000).toFixed(1)}s)`);
+      F.success(`${agent.type} — ${L('tamamlandı', 'completed')} (${(r.value.duration / 1000).toFixed(1)}s)`);
     } else {
-      F.error(`${agent.type} — hata: ${r.reason}`);
+      F.error(`${agent.type} — ${L('hata', 'error')}: ${r.reason}`);
     }
   });
 
   if (failed.length > 0) {
-    F.warning(`${failed.length}/${agents.length} agent başarısız`);
+    F.warning(`${failed.length}/${agents.length} agent ${L('başarısız', 'failed')}`);
   } else {
-    F.success('Tüm agent' + (agents.length > 1 ? 'lar' : '') + ' tamamlandı');
+    F.success(L('Tüm agent' + (agents.length > 1 ? 'lar' : '') + ' tamamlandı', 'All agents completed'));
   }
 }
 
@@ -410,15 +412,15 @@ function subStatusHandler() {
 
   if (status.total === 0) {
     F.header('Sub-agent Status');
-    F.meta('Henüz sub-agent kaydı yok.');
+    F.meta(L('Henüz sub-agent kaydı yok.', 'No sub-agent records yet.'));
     return;
   }
 
   F.header('Sub-agent Status');
-  F.kv('Toplam', status.total);
-  F.kv('Çalışan', String(status.running));
-  F.kv('Tamamlanan', String(status.completed));
-  F.kv('Hatalı', String(status.failed));
+  F.kv(L('Toplam', 'Total'), status.total);
+  F.kv(L('Çalışan', 'Running'), String(status.running));
+  F.kv(L('Tamamlanan', 'Completed'), String(status.completed));
+  F.kv(L('Hatalı', 'Failed'), String(status.failed));
 
   if (status.agents.length > 0) {
     console.log('');
@@ -427,7 +429,7 @@ function subStatusHandler() {
       a.type,
       a.status === 'completed' ? chalk.green('✓') : a.status === 'failed' ? chalk.red('✗') : chalk.cyan('⟳'),
       a.task.slice(0, 40),
-      a.completedAt ? new Date(a.completedAt).toLocaleString('tr-TR') : '—',
+      a.completedAt ? new Date(a.completedAt).toLocaleString(_gl() === 'en' ? 'en-US' : 'tr-TR') : '—',
     ]);
     F.table(['ID', 'Type', '', 'Task', 'Completed'], rows);
   }
