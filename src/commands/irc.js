@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const inquirer = require('../utils/inquirer-wrapper');
 const { getConfig, saveConfig } = require('../utils/config');
 
@@ -14,10 +16,10 @@ async function irc(action) {
 async function connectIrc() {
   const config = getConfig();
   if (!config.providerUrl) {
-    console.log(chalk.red('\n❌ Setup yapılmamış. Önce "natureco setup" çalıştırın.\n'));
+    console.log(chalk.red(L('\n❌ Setup yapılmamış. Önce "natureco setup" çalıştırın.\n', '\n❌ Setup not done. Run "natureco setup" first.\n')));
     process.exit(1);
   }
-  console.log(chalk.yellow('\n⏳ IRC bağlantısı hazırlanıyor...\n'));
+  console.log(chalk.yellow(L('\n⏳ IRC bağlantısı hazırlanıyor...\n', '\n⏳ Preparing IRC connection...\n')));
 
   const defaults = {
     host: config.ircHost || '',
@@ -34,18 +36,18 @@ async function connectIrc() {
   };
 
   const answers = await inquirer.prompt([
-    { type: 'input', name: 'host', message: 'IRC sunucusu:', default: defaults.host, validate: v => v.trim() ? true : 'Gerekli' },
-    { type: 'input', name: 'port', message: 'Port:', default: String(defaults.port), validate: v => { const n = parseInt(v); return n > 0 && n < 65536 ? true : '1-65535 arası' } },
-    { type: 'confirm', name: 'tls', message: 'TLS kullanılsın mı?', default: defaults.tls },
-    { type: 'input', name: 'nick', message: 'Nick:', default: defaults.nick, validate: v => v.trim() ? true : 'Gerekli' },
-    { type: 'input', name: 'username', message: 'Kullanıcı adı (opsiyonel):', default: defaults.username || defaults.nick },
-    { type: 'input', name: 'realname', message: 'Gerçek ad (opsiyonel):', default: defaults.realname || 'NatureCo' },
-    { type: 'password', name: 'password', message: 'Sunucu parolası (opsiyonel):' },
-    { type: 'input', name: 'channels', message: 'Kanallar (virgülle ayırın):', default: defaults.channels.join(',') },
-    { type: 'confirm', name: 'nickservEnabled', message: 'NickServ kullanılsın mı?', default: defaults.nickservEnabled },
-    { type: 'password', name: 'nickservPassword', message: 'NickServ parolası (opsiyonel):' },
-    { type: 'list', name: 'dmPolicy', message: 'DM politikası:', default: defaults.dmPolicy, choices: [
-      { name: 'Pairing (önerilen)', value: 'pairing' },
+    { type: 'input', name: 'host', message: L('IRC sunucusu:', 'IRC server:'), default: defaults.host, validate: v => v.trim() ? true : L('Gerekli', 'Required') },
+    { type: 'input', name: 'port', message: 'Port:', default: String(defaults.port), validate: v => { const n = parseInt(v); return n > 0 && n < 65536 ? true : L('1-65535 arası', 'between 1-65535') } },
+    { type: 'confirm', name: 'tls', message: L('TLS kullanılsın mı?', 'Use TLS?'), default: defaults.tls },
+    { type: 'input', name: 'nick', message: 'Nick:', default: defaults.nick, validate: v => v.trim() ? true : L('Gerekli', 'Required') },
+    { type: 'input', name: 'username', message: L('Kullanıcı adı (opsiyonel):', 'Username (optional):'), default: defaults.username || defaults.nick },
+    { type: 'input', name: 'realname', message: L('Gerçek ad (opsiyonel):', 'Real name (optional):'), default: defaults.realname || 'NatureCo' },
+    { type: 'password', name: 'password', message: L('Sunucu parolası (opsiyonel):', 'Server password (optional):') },
+    { type: 'input', name: 'channels', message: L('Kanallar (virgülle ayırın):', 'Channels (comma-separated):'), default: defaults.channels.join(',') },
+    { type: 'confirm', name: 'nickservEnabled', message: L('NickServ kullanılsın mı?', 'Use NickServ?'), default: defaults.nickservEnabled },
+    { type: 'password', name: 'nickservPassword', message: L('NickServ parolası (opsiyonel):', 'NickServ password (optional):') },
+    { type: 'list', name: 'dmPolicy', message: L('DM politikası:', 'DM policy:'), default: defaults.dmPolicy, choices: [
+      { name: L('Pairing (önerilen)', 'Pairing (recommended)'), value: 'pairing' },
       { name: 'Allowlist', value: 'allowlist' },
       { name: 'Open', value: 'open' },
       { name: 'Disabled', value: 'disabled' },
@@ -67,12 +69,12 @@ async function connectIrc() {
   config.ircBotId = botId;
   saveConfig(config);
 
-  console.log(chalk.green('\n✅ IRC bağlantısı kaydedildi!\n'));
+  console.log(chalk.green(L('\n✅ IRC bağlantısı kaydedildi!\n', '\n✅ IRC connection saved!\n')));
   console.log(chalk.cyan('Bot ID:'), chalk.white(botId));
-  console.log(chalk.cyan('Sunucu:'), chalk.white(`${answers.host.trim()}:${answers.port}`));
+  console.log(chalk.cyan(L('Sunucu:', 'Server:')), chalk.white(`${answers.host.trim()}:${answers.port}`));
   console.log(chalk.cyan('Nick:'), chalk.white(answers.nick.trim()));
-  if (config.ircChannels.length) console.log(chalk.cyan('Kanallar:'), chalk.white(config.ircChannels.join(', ')));
-  console.log(chalk.gray('\nGateway ile başlatmak için: natureco gateway start\n'));
+  if (config.ircChannels.length) console.log(chalk.cyan(L('Kanallar:', 'Channels:')), chalk.white(config.ircChannels.join(', ')));
+  console.log(chalk.gray(L('\nGateway ile başlatmak için: natureco gateway start\n', '\nTo start with the gateway: natureco gateway start\n')));
 }
 
 async function disconnectIrc() {
@@ -82,7 +84,7 @@ async function disconnectIrc() {
     return;
   }
   const { confirm } = await inquirer.prompt([
-    { type: 'confirm', name: 'confirm', message: 'IRC bağlantısını kaldırmak istediğinize emin misiniz?', default: false }
+    { type: 'confirm', name: 'confirm', message: L('IRC bağlantısını kaldırmak istediğinize emin misiniz?', 'Are you sure you want to remove the IRC connection?'), default: false }
   ]);
   if (!confirm) {
     console.log(chalk.gray('\nCancelled\n'));
@@ -105,14 +107,14 @@ function statusIrc() {
   }
   console.log(chalk.green('\n✅ IRC connected\n'));
   console.log(chalk.cyan('Bot ID:'), chalk.white(config.ircBotId));
-  console.log(chalk.cyan('Sunucu:'), chalk.white(`${config.ircHost}:${config.ircPort}`));
-  console.log(chalk.cyan('TLS:'), chalk.white(config.ircTls ? 'Evet' : 'Hayır'));
+  console.log(chalk.cyan(L('Sunucu:', 'Server:')), chalk.white(`${config.ircHost}:${config.ircPort}`));
+  console.log(chalk.cyan('TLS:'), chalk.white(config.ircTls ? L('Evet', 'Yes') : L('Hayır', 'No')));
   console.log(chalk.cyan('Nick:'), chalk.white(config.ircNick));
-  console.log(chalk.cyan('Kullanıcı:'), chalk.white(config.ircUsername));
+  console.log(chalk.cyan(L('Kullanıcı:', 'User:')), chalk.white(config.ircUsername));
   if (config.ircRealname) console.log(chalk.cyan('Realname:'), chalk.white(config.ircRealname));
-  if (config.ircChannels?.length) console.log(chalk.cyan('Kanallar:'), chalk.white(config.ircChannels.join(', ')));
-  console.log(chalk.cyan('NickServ:'), chalk.white(config.ircNickservEnabled ? 'Evet' : 'Hayır'));
-  console.log(chalk.cyan('DM Politikası:'), chalk.white(config.ircDmPolicy || 'pairing'));
+  if (config.ircChannels?.length) console.log(chalk.cyan(L('Kanallar:', 'Channels:')), chalk.white(config.ircChannels.join(', ')));
+  console.log(chalk.cyan('NickServ:'), chalk.white(config.ircNickservEnabled ? L('Evet', 'Yes') : L('Hayır', 'No')));
+  console.log(chalk.cyan(L('DM Politikası:', 'DM Policy:')), chalk.white(config.ircDmPolicy || 'pairing'));
   console.log(chalk.gray('\nDisconnect with: natureco irc disconnect\n'));
 }
 
