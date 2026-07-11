@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const inquirer = require('../utils/inquirer-wrapper');
 const { getApiKey, getConfig, saveConfig } = require('../utils/config');
 const { getBots } = require('../utils/api');
@@ -27,7 +29,7 @@ async function connectDiscord() {
   const config = getConfig();
   
   if (!config.providerUrl) {
-    console.log(chalk.red('\n❌ Setup yapılmamış. Önce "natureco setup" çalıştırın.\n'));
+    console.log(chalk.red(L('\n❌ Setup yapılmamış. Önce "natureco setup" çalıştırın.\n', '\n❌ Setup not done. Run "natureco setup" first.\n')));
     process.exit(1);
   }
   
@@ -46,18 +48,18 @@ async function connectDiscord() {
   const botId = `discord_${Date.now()}`;
   const selectedBot = { name: 'Discord Bot', id: botId };
   
-  console.log(chalk.yellow('\n⏳ Discord bağlantısı kaydediliyor...\n'));
+  console.log(chalk.yellow(L('\n⏳ Discord bağlantısı kaydediliyor...\n', '\n⏳ Saving Discord connection...\n')));
   
   // Save to config (v2.x - no backend call)
   config.discordToken = answers.token.trim();
   config.discordBotId = botId;
   saveConfig(config);
   
-  console.log(chalk.green('✅ Discord token kaydedildi!\n'));
+  console.log(chalk.green(L('✅ Discord token kaydedildi!\n', '✅ Discord token saved!\n')));
   console.log(chalk.cyan('Bot ID:'), chalk.white(botId));
   console.log(chalk.cyan('Token:'), chalk.white(answers.token.slice(0, 20) + '...'));
-  console.log(chalk.gray('\nNot: Discord botunuzu Discord Developer Portal\'dan yapılandırmanız gerekiyor.'));
-  console.log(chalk.gray('Token config\'e kaydedildi: ~/.natureco/config.json\n'));
+  console.log(chalk.gray(L('\nNot: Discord botunuzu Discord Developer Portal\'dan yapılandırmanız gerekiyor.', '\nNote: You need to configure your Discord bot from the Discord Developer Portal.')));
+  console.log(chalk.gray(L('Token config\'e kaydedildi: ~/.natureco/config.json\n', 'Token saved to config: ~/.natureco/config.json\n')));
 }
 
 async function disconnectDiscord() {
