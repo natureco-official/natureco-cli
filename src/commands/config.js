@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const F = require('../utils/format');
 const path = require('path');
 const fs = require('fs');
@@ -13,7 +15,7 @@ function config(args) {
   const [action, key, ...valueParts] = args;
 
   if (!action) {
-    F.error('Kullanım: natureco config <get|set|unset|list|file|schema|validate|backups|restore> [key] [value]');
+    F.error(L('Kullanım: natureco config <get|set|unset|list|file|schema|validate|backups|restore> [key] [value]', 'Usage: natureco config <get|set|unset|list|file|schema|validate|backups|restore> [key] [value]'));
     process.exit(1);
   }
 
@@ -34,12 +36,12 @@ function config(args) {
       sensitive: SENSITIVE_KEYS.some(sk => k.toLowerCase().includes(sk.toLowerCase())),
     }));
 
-    console.log('\n' + tui.styled('  ⚙️  Configuration (' + rows.length + ' ayar)', { color: tui.PALETTE.primary, bold: true }));
+    console.log('\n' + tui.styled('  ⚙️  Configuration (' + rows.length + L(' ayar)', ' settings)'), { color: tui.PALETTE.primary, bold: true }));
     console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
     console.log('\n' + tui.table(rows, [
-      { key: 'key', label: 'Anahtar', minWidth: 24, render: r => tui.styled(r.key, { color: tui.PALETTE.primary, bold: true }) },
+      { key: 'key', label: L('Anahtar', 'Key'), minWidth: 24, render: r => tui.styled(r.key, { color: tui.PALETTE.primary, bold: true }) },
       {
-        key: 'value', label: 'Değer', minWidth: 40,
+        key: 'value', label: L('Değer', 'Value'), minWidth: 40,
         render: r => r.sensitive
           ? tui.styled(r.value, { color: tui.PALETTE.warning })
           : tui.C.text(r.value)
@@ -51,7 +53,7 @@ function config(args) {
 
   if (action === 'get') {
     if (!key) {
-      console.log('\n' + tui.C.red('  ❌ Key belirtilmedi.') + '\n');
+      console.log('\n' + tui.C.red(L('  ❌ Key belirtilmedi.', '  ❌ Key not specified.')) + '\n');
       process.exit(1);
     }
     const cfg = getConfig();
@@ -61,7 +63,7 @@ function config(args) {
       value = value?.[k];
     }
     if (value === undefined) {
-      console.log('\n' + tui.styled('  ℹ ' + key + ': (tanımlı değil)', { color: tui.PALETTE.muted }) + '\n');
+      console.log('\n' + tui.styled('  ℹ ' + key + L(': (tanımlı değil)', ': (not set)'), { color: tui.PALETTE.muted }) + '\n');
     } else {
       const cardW = 60;
       console.log('\n' + tui.styled('  🔍 ' + key, { color: tui.PALETTE.primary, bold: true }));
@@ -79,11 +81,11 @@ function config(args) {
 
   if (action === 'set') {
     if (!key) {
-      F.error('Key belirtilmedi.');
+      F.error(L('Key belirtilmedi.', 'Key not specified.'));
       process.exit(1);
     }
     if (valueParts.length === 0) {
-      F.error('Value belirtilmedi.');
+      F.error(L('Value belirtilmedi.', 'Value not specified.'));
       process.exit(1);
     }
     const value = valueParts.join(' ');
@@ -100,7 +102,7 @@ function config(args) {
 
   if (action === 'unset') {
     if (!key) {
-      F.error('Key belirtilmedi.');
+      F.error(L('Key belirtilmedi.', 'Key not specified.'));
       process.exit(1);
     }
     const cfg = getConfig();
@@ -197,18 +199,18 @@ function config(args) {
 
   if (action === 'backups' || action === 'backup') {
     const backups = listBackups();
-    F.section('Config Yedekleri');
+    F.section(L('Config Yedekleri', 'Config Backups'));
     if (backups.length === 0) {
-      F.info('Hen\u00fcz yedek al\u0131nmam\u0131\u015f.');
+      F.info(L('Hen\u00fcz yedek al\u0131nmam\u0131\u015f.', 'No backups yet.'));
       return;
     }
     const rows = backups.map((f, i) => {
       const ts = f.replace(/^config-|\.json$/g, '').replace(/T/, ' ').replace(/-/g, ':').replace(/:[^:]*$/, '');
       return [String(i + 1), ts, path.join(CONFIG_BACKUP_DIR, f)];
     });
-    F.table(['#', 'Tarih', 'Dosya'], rows);
-    F.meta('Geri y\u00fcklemek i\u00e7in: natureco config restore <dosya-ad\u0131>');
-    F.meta(`\u00d6rnek: natureco config restore ${backups[0] || 'config-....json'}`);
+    F.table(['#', L('Tarih', 'Date'), L('Dosya', 'File')], rows);
+    F.meta(L('Geri y\u00fcklemek i\u00e7in: natureco config restore <dosya-ad\u0131>', 'To restore: natureco config restore <file-name>'));
+    F.meta(`${L('Örnek', 'Example')}: natureco config restore ${backups[0] || 'config-....json'}`);
     return;
   }
 
@@ -217,22 +219,22 @@ function config(args) {
     if (!backupId) {
       const backups = listBackups();
       if (backups.length === 0) {
-        F.error('Geri y\u00fcklenecek yedek bulunamad\u0131.');
+        F.error(L('Geri y\u00fcklenecek yedek bulunamad\u0131.', 'No backup found to restore.'));
         process.exit(1);
       }
-      F.section('Geri Y\u00fckleme');
-      F.kv('En son yedek', backups[0]);
-      F.meta(`Kullan\u0131m: natureco config restore ${backups[0]}`);
-      F.meta('Yedekleri listelemek i\u00e7in: natureco config backups');
+      F.section(L('Geri Y\u00fckleme', 'Restore'));
+      F.kv(L('En son yedek', 'Latest backup'), backups[0]);
+      F.meta(`${L('Kullanım', 'Usage')}: natureco config restore ${backups[0]}`);
+      F.meta(L('Yedekleri listelemek i\u00e7in: natureco config backups', 'To list backups: natureco config backups'));
       return;
     }
 
     try {
       const result = restoreConfig(backupId);
-      F.success(`Config geri y\u00fcklendi: ${result.timestamp}`);
-      F.meta(`Kaynak: ${result.path}`);
+      F.success(`${L('Config geri yüklendi', 'Config restored')}: ${result.timestamp}`);
+      F.meta(`${L('Kaynak', 'Source')}: ${result.path}`);
     } catch (err) {
-      F.error(`Geri y\u00fckleme ba\u015far\u0131s\u0131z: ${err.message}`);
+      F.error(`${L('Geri yükleme başarısız', 'Restore failed')}: ${err.message}`);
       process.exit(1);
     }
     return;
@@ -242,8 +244,8 @@ function config(args) {
     return configBudget(key, valueParts);
   }
 
-  F.error(`Ge\u00e7ersiz action: ${action}`);
-  F.meta('Kullan\u0131m: natureco config <get|set|unset|list|file|schema|validate|backups|restore|budget> [key] [value]');
+  F.error(`${L('Geçersiz action', 'Invalid action')}: ${action}`);
+  F.meta(L('Kullan\u0131m: natureco config <get|set|unset|list|file|schema|validate|backups|restore|budget> [key] [value]', 'Usage: natureco config <get|set|unset|list|file|schema|validate|backups|restore|budget> [key] [value]'));
   process.exit(1);
 }
 
@@ -294,12 +296,12 @@ function configBudget(sub, args) {
     const key = args[0];
     const val = args[1];
     if (!key || val === undefined) {
-      F.error('Kullan\u0131m: natureco config budget set <key> <value>');
+      F.error(L('Kullan\u0131m: natureco config budget set <key> <value>', 'Usage: natureco config budget set <key> <value>'));
       return;
     }
     const budget = TB.load();
     if (!(key in budget)) {
-      F.error('Bilinmeyen budget key: ' + key);
+      F.error(L('Bilinmeyen budget key: ', 'Unknown budget key: ') + key);
       return;
     }
     const num = Number(val);
@@ -312,7 +314,7 @@ function configBudget(sub, args) {
   if (sub === 'usage') {
     const usage = TB.getAllUsage();
     if (!usage || Object.keys(usage).length === 0) {
-      F.info('Hen\u00fcz token kullan\u0131m\u0131 kaydedilmedi.');
+      F.info(L('Hen\u00fcz token kullan\u0131m\u0131 kaydedilmedi.', 'No token usage recorded yet.'));
       return;
     }
     F.header('Token Usage');
@@ -327,8 +329,8 @@ function configBudget(sub, args) {
     return;
   }
 
-  F.error('Budget alt komutu: ' + sub);
-  F.meta('Kullan\u0131m: natureco config budget <show|preset|set|usage>');
+  F.error(L('Budget alt komutu: ', 'Budget sub-command: ') + sub);
+  F.meta(L('Kullan\u0131m: natureco config budget <show|preset|set|usage>', 'Usage: natureco config budget <show|preset|set|usage>'));
 }
 
 module.exports = config;
