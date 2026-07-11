@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const { getConfig, saveConfig } = require('../utils/config');
 const { NatureCoError, handleError } = require('../utils/errors');
 
@@ -71,12 +73,12 @@ const PROVIDER_MODELS = {
     { id: 'accounts/fireworks/models/llama-v3p1-8b-instruct',  label: 'Llama 3.1 8B Instruct',  features: ['tool'] },
   ],
   'natureco.me': [
-    { id: 'natureco-default',  label: 'NatureCo Default (otomatik)', features: ['tool'] },
-    { id: 'natureco-fast',     label: 'NatureCo Fast (hızlı)',       features: ['tool'] },
+    { id: 'natureco-default',  label: L('NatureCo Default (otomatik)', 'NatureCo Default (auto)'), features: ['tool'] },
+    { id: 'natureco-fast',     label: L('NatureCo Fast (hızlı)', 'NatureCo Fast (fast)'),       features: ['tool'] },
     { id: 'natureco-reasoner', label: 'NatureCo Reasoner',           features: [] },
   ],
   'openrouter.ai': [
-    { id: 'openrouter/auto',   label: 'OpenRouter Auto (otomatik seçim)', features: ['tool', 'vision'] },
+    { id: 'openrouter/auto',   label: L('OpenRouter Auto (otomatik seçim)', 'OpenRouter Auto (auto-select)'), features: ['tool', 'vision'] },
   ],
 };
 
@@ -119,8 +121,8 @@ async function models(args) {
   if (action === 'set-image') return setImageModel(params[0]);
   if (action === 'image-fallbacks') return manageImageFallbacks(params);
 
-  console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco models [list|set|scan|aliases|fallbacks|set-image|image-fallbacks]\n'));
+  console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${action}\n`));
+  console.log(chalk.gray(L('  Kullanım: natureco models [list|set|scan|aliases|fallbacks|set-image|image-fallbacks]\n', '  Usage: natureco models [list|set|scan|aliases|fallbacks|set-image|image-fallbacks]\n')));
   process.exit(1);
 }
 
@@ -147,17 +149,17 @@ async function listModels(opts) {
   const fallbackModel = config.fallbackModel || '';
   const count = opts.refresh ? 50 : 0;
 
-  const providerHost = providerUrl.replace('https://', '').split('/')[0] || 'yapılandırılmamış';
+  const providerHost = providerUrl.replace('https://', '').split('/')[0] || L('yapılandırılmamış', 'not configured');
   let liveModels = [];
 
   if (opts.refresh) {
     const endpoint = findModelsEndpoint(providerUrl);
     if (endpoint) {
-      console.log(chalk.gray('\n  Canlı modeller taranıyor...\n'));
+      console.log(chalk.gray(L('\n  Canlı modeller taranıyor...\n', '\n  Scanning live models...\n')));
       try {
         liveModels = await fetchLiveModels(endpoint, config.providerApiKey, opts);
         if (liveModels.length > 0) {
-          console.log(chalk.gray(`  ${liveModels.length} model bulundu\n`));
+          console.log(chalk.gray(`  ${liveModels.length} ${L('model bulundu', 'models found')}\n`));
         }
       } catch (err) {
         console.log(chalk.yellow(`  ⚠ ${err.message}\n`));
@@ -179,36 +181,36 @@ async function listModels(opts) {
 
   console.log('');
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(chalk.cyan.bold('\n  Model Yapılandırması\n'));
+  console.log(chalk.cyan.bold(L('\n  Model Yapılandırması\n', '\n  Model Configuration\n')));
   console.log(chalk.gray('  Provider : ') + chalk.white(providerHost));
-  console.log(chalk.gray('  Aktif    : ') + chalk.cyan(currentModel || 'ayarlanmamış'));
+  console.log(chalk.gray(L('  Aktif    : ', '  Active   : ')) + chalk.cyan(currentModel || L('ayarlanmamış', 'not set')));
   if (fallbackModel) {
-    console.log(chalk.gray('  Yedek    : ') + chalk.yellow(fallbackModel));
+    console.log(chalk.gray(L('  Yedek    : ', '  Fallback : ')) + chalk.yellow(fallbackModel));
   }
 
   if (config.modelAliases && Object.keys(config.modelAliases).length > 0) {
-    console.log(chalk.gray('  Takma ad : ') + chalk.white(
+    console.log(chalk.gray(L('  Takma ad : ', '  Alias    : ')) + chalk.white(
       Object.entries(config.modelAliases).map(([k, v]) => `${k}→${v}`).join(', ')
     ));
   }
 
   if (liveModels.length > 0) {
-    console.log(chalk.cyan.bold(`\n  Canlı Modeller (${liveModels.length})\n`));
+    console.log(chalk.cyan.bold(`\n  ${L('Canlı Modeller', 'Live Models')} (${liveModels.length})\n`));
     liveModels.slice(0, count || 30).forEach(m => {
-      const active = m.id === currentModel ? chalk.green(' ← aktif') : '';
-      const fallback = m.id === fallbackModel ? chalk.yellow(' ← yedek') : '';
+      const active = m.id === currentModel ? chalk.green(L(' ← aktif', ' ← active')) : '';
+      const fallback = m.id === fallbackModel ? chalk.yellow(L(' ← yedek', ' ← fallback')) : '';
       console.log(chalk.white(`  ${m.id}`) + active + fallback);
     });
     if (liveModels.length > 30 && !count) {
-      console.log(chalk.gray(`  ... ve ${liveModels.length - 30} model daha (--refresh ile tümü)`));
+      console.log(chalk.gray(`  ... ${L('ve', 'and')} ${liveModels.length - 30} ${L('model daha (--refresh ile tümü)', 'more models (--refresh for all)')}`));
     }
   } else if (!opts.refresh) {
     const knownModels = getKnownModels(providerUrl);
     if (knownModels.length > 0) {
-      console.log(chalk.cyan.bold('\n  Bilinen Modeller\n'));
+      console.log(chalk.cyan.bold(L('\n  Bilinen Modeller\n', '\n  Known Models\n')));
       knownModels.forEach(m => {
-        const active = m.id === currentModel ? chalk.green(' ← aktif') : '';
-        const fallback = m.id === fallbackModel ? chalk.yellow(' ← yedek') : '';
+        const active = m.id === currentModel ? chalk.green(L(' ← aktif', ' ← active')) : '';
+        const fallback = m.id === fallbackModel ? chalk.yellow(L(' ← yedek', ' ← fallback')) : '';
         const featureIcons = (m.features || []).map(f => FEATURE_ICONS[f] || '').join(' ');
         console.log(chalk.white(`  ${m.id}`) + active + fallback);
         console.log(chalk.gray(`    ${m.label}`) + (featureIcons ? ` ${featureIcons}` : ''));
@@ -217,16 +219,16 @@ async function listModels(opts) {
   }
 
   if (opts.probe && config.providerUrl) {
-    console.log(chalk.cyan.bold('\n  Canlı Sınama\n'));
+    console.log(chalk.cyan.bold(L('\n  Canlı Sınama\n', '\n  Live Probe\n')));
     await probeProvider(config.providerUrl, config.providerApiKey, currentModel, opts);
   }
 
   console.log('');
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(chalk.gray('  Değiştirmek  : ') + chalk.cyan('natureco models set <model-id>'));
-  console.log(chalk.gray('  Taramak      : ') + chalk.cyan('natureco models scan'));
-  console.log(chalk.gray('  Yedek model  : ') + chalk.cyan('natureco models fallbacks set <model-id>'));
-  console.log(chalk.gray('  Canlı sınama : ') + chalk.cyan('natureco models list --probe\n'));
+  console.log(chalk.gray(L('  Değiştirmek  : ', '  Change       : ')) + chalk.cyan('natureco models set <model-id>'));
+  console.log(chalk.gray(L('  Taramak      : ', '  Scan         : ')) + chalk.cyan('natureco models scan'));
+  console.log(chalk.gray(L('  Yedek model  : ', '  Fallback     : ')) + chalk.cyan('natureco models fallbacks set <model-id>'));
+  console.log(chalk.gray(L('  Canlı sınama : ', '  Live probe   : ')) + chalk.cyan('natureco models list --probe\n'));
 }
 
 async function setModel(modelId) {
@@ -235,23 +237,23 @@ async function setModel(modelId) {
   if (!modelId) {
     const knownModels = getKnownModels(config.providerUrl || '');
     if (knownModels.length === 0) {
-      console.log(chalk.red('\n  ❌ Bu provider için bilinen model yok. Model ID\'sini parametre olarak verin.\n'));
-      console.log(chalk.gray('  Kullanım: natureco models set <model-id>\n'));
+      console.log(chalk.red(L('\n  ❌ Bu provider için bilinen model yok. Model ID\'sini parametre olarak verin.\n', '\n  ❌ No known models for this provider. Pass the model ID as a parameter.\n')));
+      console.log(chalk.gray(L('  Kullanım: natureco models set <model-id>\n', '  Usage: natureco models set <model-id>\n')));
       process.exit(1);
     }
-    console.log(chalk.cyan('\n  Mevcut Modeller\n'));
+    console.log(chalk.cyan(L('\n  Mevcut Modeller\n', '\n  Available Models\n')));
     knownModels.forEach((m, i) => {
       console.log(chalk.white(`  ${i + 1}. ${m.id}`));
       console.log(chalk.gray(`     ${m.label}`));
     });
     console.log('');
-    console.log(chalk.gray('  Kullanım: natureco models set <model-id>\n'));
+    console.log(chalk.gray(L('  Kullanım: natureco models set <model-id>\n', '  Usage: natureco models set <model-id>\n')));
     return;
   }
 
   config.providerModel = modelId;
   saveConfig(config);
-  console.log(chalk.green(`\n  ✓ Model güncellendi: ${modelId}\n`));
+  console.log(chalk.green(`\n  ✓ ${L('Model güncellendi', 'Model updated')}: ${modelId}\n`));
 }
 
 async function scanModels(opts) {
@@ -262,7 +264,7 @@ async function scanModels(opts) {
   const spinner = ['\\', '|', '/', '-'];
   let si = 0;
   const spin = setInterval(() => {
-    process.stdout.write(`\r  ${chalk.gray(spinner[si % spinner.length])} Modeller taranıyor...`);
+    process.stdout.write(`\r  ${chalk.gray(spinner[si % spinner.length])} ${L('Modeller taranıyor...', 'Scanning models...')}`);
     si++;
   }, 150);
 
@@ -307,7 +309,7 @@ async function scanModels(opts) {
     }
   }
 
-  // 3. Bilinen statik modeller
+  // 3. Bilinen ${L('statik', 'static')} modeller
   const known = getKnownModels(providerUrl);
   known.forEach(m => {
     if (!allModels.some(ex => ex.id === m.id)) {
@@ -336,7 +338,7 @@ async function scanModels(opts) {
   console.log(chalk.gray('  ' + '─'.repeat(48)));
 
   if (errors.length > 0) {
-    console.log(chalk.yellow(`\n  ⚠  ${errors.length} uyarı:`));
+    console.log(chalk.yellow(`\n  ⚠  ${errors.length} ${L('uyarı', 'warning(s)')}:`));
     errors.forEach(e => console.log(chalk.gray(`     ${e}`)));
   }
 
@@ -344,33 +346,33 @@ async function scanModels(opts) {
   const freeCount = allModels.filter(m => m.source === 'openrouter-free').length;
   const staticCount = allModels.filter(m => m.source === 'static').length;
 
-  console.log(chalk.cyan.bold(`\n  Modeller (${allModels.length} bulundu)\n`));
-  console.log(chalk.gray(`  Kaynak: ${liveCount} canlı, ${freeCount} ücretsiz, ${staticCount} statik\n`));
+  console.log(chalk.cyan.bold(`\n  ${L('Modeller', 'Models')} (${allModels.length} ${L('bulundu', 'found')})\n`));
+  console.log(chalk.gray(`  ${L('Kaynak', 'Source')}: ${liveCount} ${L('canlı', 'live')}, ${freeCount} ${L('ücretsiz', 'free')}, ${staticCount} ${L('statik', 'static')}\n`));
 
   if (liveCount > 0) {
-    console.log(chalk.cyan('  Canlı Modeller\n'));
+    console.log(chalk.cyan(L('  Canlı Modeller\n', '  Live Models\n')));
     allModels.filter(m => m.source === 'live').slice(0, 20).forEach(m => {
       console.log(chalk.white(`  ${m.id}`));
-      if (m.context) console.log(chalk.gray(`    Bağlam: ${m.context} token`));
+      if (m.context) console.log(chalk.gray(`    ${L('Bağlam', 'Context')}: ${m.context} token`));
     });
     if (allModels.filter(m => m.source === 'live').length > 20) {
-      console.log(chalk.gray(`  ... ve ${allModels.filter(m => m.source === 'live').length - 20} model daha`));
+      console.log(chalk.gray(`  ... ${L('ve', 'and')} ${allModels.filter(m => m.source === 'live').length - 20} ${L('model daha', 'more models')}`));
     }
   }
 
   if (freeCount > 0) {
-    console.log(chalk.cyan('\n  OpenRouter Ücretsiz Modeller\n'));
+    console.log(chalk.cyan(L('\n  OpenRouter Ücretsiz Modeller\n', '\n  OpenRouter Free Models\n')));
     allModels.filter(m => m.source === 'openrouter-free').slice(0, 15).forEach(m => {
       console.log(chalk.white(`  ${m.id}`));
       if (m.label && m.label !== m.id) console.log(chalk.gray(`    ${m.label}`));
     });
     if (allModels.filter(m => m.source === 'openrouter-free').length > 15) {
-      console.log(chalk.gray(`  ... ve ${allModels.filter(m => m.source === 'openrouter-free').length - 15} model daha`));
+      console.log(chalk.gray(`  ... ${L('ve', 'and')} ${allModels.filter(m => m.source === 'openrouter-free').length - 15} ${L('model daha', 'more models')}`));
     }
   }
 
   if (staticCount > 0 && liveCount === 0) {
-    console.log(chalk.cyan('\n  Statik Modeller\n'));
+    console.log(chalk.cyan(L('\n  Statik Modeller\n', '\n  Static Models\n')));
     allModels.filter(m => m.source === 'static').forEach(m => {
       const featureIcons = (m.features || []).map(f => FEATURE_ICONS[f] || '').join(' ');
       console.log(chalk.white(`  ${m.id}`) + (featureIcons ? ` ${featureIcons}` : ''));
@@ -380,8 +382,8 @@ async function scanModels(opts) {
 
   const currentModel = config.providerModel || '';
   if (currentModel && !allModels.some(m => m.id === currentModel)) {
-    console.log(chalk.yellow(`\n  ⚠  Mevcut model "${currentModel}" bu provider için bulunamadı.`));
-    console.log(chalk.gray('     Güncellemek için: ') + chalk.cyan('natureco models set <model-id>'));
+    console.log(chalk.yellow(`\n  ⚠  ${L('Mevcut model', 'Current model')} "${currentModel}" ${L('bu provider için bulunamadı.', 'was not found for this provider.')}`));
+    console.log(chalk.gray(L('     Güncellemek için: ', '     To update: ')) + chalk.cyan('natureco models set <model-id>'));
   }
 
   console.log('');
@@ -392,10 +394,10 @@ function manageAliases(params) {
   const aliases = config.modelAliases || {};
 
   if (params.length === 0) {
-    console.log(chalk.cyan.bold('\n  Model Takma Adları\n'));
+    console.log(chalk.cyan.bold(L('\n  Model Takma Adları\n', '\n  Model Aliases\n')));
     if (Object.keys(aliases).length === 0) {
-      console.log(chalk.gray('  Takma ad yok.\n'));
-      console.log(chalk.gray('  Eklemek için: ') + chalk.cyan('natureco models aliases <takma-ad> <model-id>\n'));
+      console.log(chalk.gray(L('  Takma ad yok.\n', '  No aliases.\n')));
+      console.log(chalk.gray(L('  Eklemek için: ', '  To add: ')) + chalk.cyan('natureco models aliases <alias> <model-id>\n'));
       return;
     }
     Object.entries(aliases).forEach(([alias, model]) => {
@@ -410,14 +412,14 @@ function manageAliases(params) {
     aliases[alias] = modelId;
     config.modelAliases = aliases;
     saveConfig(config);
-    console.log(chalk.green(`\n  ✓ Takma ad eklendi: ${alias} → ${modelId}\n`));
+    console.log(chalk.green(`\n  ✓ ${L('Takma ad eklendi', 'Alias added')}: ${alias} → ${modelId}\n`));
     return;
   }
 
   if (params.length === 1 && (params[0] === 'clear' || params[0] === '--clear')) {
     config.modelAliases = {};
     saveConfig(config);
-    console.log(chalk.green('\n  ✓ Tüm takma adlar temizlendi.\n'));
+    console.log(chalk.green(L('\n  ✓ Tüm takma adlar temizlendi.\n', '\n  ✓ All aliases cleared.\n')));
     return;
   }
 
@@ -425,7 +427,7 @@ function manageAliases(params) {
     delete aliases[params[0]];
     config.modelAliases = aliases;
     saveConfig(config);
-    console.log(chalk.green(`\n  ✓ Takma ad silindi: ${params[0]}\n`));
+    console.log(chalk.green(`\n  ✓ ${L('Takma ad silindi', 'Alias removed')}: ${params[0]}\n`));
     return;
   }
 
@@ -434,41 +436,41 @@ function manageAliases(params) {
     if (resolved) {
       console.log(chalk.cyan(`\n  ${params[0]} → ${resolved}\n`));
     } else {
-      console.log(chalk.yellow(`\n  "${params[0]}" çözülemedi.\n`));
+      console.log(chalk.yellow(`\n  "${params[0]}" ${L('çözülemedi.', "couldn't be resolved.")}\n`));
     }
     return;
   }
 
-  console.log(chalk.gray('\n  Kullanım: natureco models aliases [<takma-ad> <model-id>]\n'));
+  console.log(chalk.gray(L('\n  Kullanım: natureco models aliases [<takma-ad> <model-id>]\n', '\n  Usage: natureco models aliases [<alias> <model-id>]\n')));
 }
 
 function manageFallbacks(params) {
   const config = getConfig();
 
   if (params.length === 0 || params[0] === 'list') {
-    console.log(chalk.cyan.bold('\n  Model Yedekleri\n'));
-    console.log(chalk.gray('  Birincil : ') + chalk.white(config.providerModel || 'ayarlanmamış'));
-    console.log(chalk.gray('  Yedek    : ') + chalk.white(config.fallbackModel || 'ayarlanmamış'));
+    console.log(chalk.cyan.bold(L('\n  Model Yedekleri\n', '\n  Model Fallbacks\n')));
+    console.log(chalk.gray(L('  Birincil : ', '  Primary  : ')) + chalk.white(config.providerModel || L('ayarlanmamış', 'not set')));
+    console.log(chalk.gray(L('  Yedek    : ', '  Fallback : ')) + chalk.white(config.fallbackModel || L('ayarlanmamış', 'not set')));
     console.log('');
-    console.log(chalk.gray('  Ayarlamak için: ') + chalk.cyan('natureco models fallbacks set <model-id>\n'));
+    console.log(chalk.gray(L('  Ayarlamak için: ', '  To set: ')) + chalk.cyan('natureco models fallbacks set <model-id>\n'));
     return;
   }
 
   if (params[0] === 'set' && params[1]) {
     config.fallbackModel = params[1];
     saveConfig(config);
-    console.log(chalk.green(`\n  ✓ Yedek model ayarlandı: ${params[1]}\n`));
+    console.log(chalk.green(`\n  ✓ ${L('Yedek model ayarlandı', 'Fallback model set')}: ${params[1]}\n`));
     return;
   }
 
   if (params[0] === 'clear') {
     delete config.fallbackModel;
     saveConfig(config);
-    console.log(chalk.green('\n  ✓ Yedek model temizlendi.\n'));
+    console.log(chalk.green(L('\n  ✓ Yedek model temizlendi.\n', '\n  ✓ Fallback model cleared.\n')));
     return;
   }
 
-  console.log(chalk.gray('\n  Kullanım: natureco models fallbacks [list|set <model-id>|clear]\n'));
+  console.log(chalk.gray(L('\n  Kullanım: natureco models fallbacks [list|set <model-id>|clear]\n', '\n  Usage: natureco models fallbacks [list|set <model-id>|clear]\n')));
 }
 
 function setImageModel(modelId) {
@@ -558,10 +560,10 @@ async function fetchLiveModels(endpoint, apiKey, opts) {
 
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
-      throw new Error('API key geçersiz veya yetkisiz erişim');
+      throw new Error(L('API key geçersiz veya yetkisiz erişim', 'Invalid API key or unauthorized'));
     }
     if (res.status === 404) {
-      throw new Error('Provider bu endpoint\'i desteklemiyor (/v1/models)');
+      throw new Error(L('Provider bu endpoint\'i desteklemiyor (/v1/models)', 'Provider does not support this endpoint (/v1/models)'));
     }
     throw new Error(`HTTP ${res.status}: ${res.statusText}`);
   }
@@ -601,9 +603,9 @@ async function probeProvider(providerUrl, apiKey, modelId, opts) {
 
     const ms = Date.now() - start;
     if (res.ok) {
-      console.log(chalk.green(`  ✓ ${testModel}: ${ms}ms (yanıt alındı)`));
+      console.log(chalk.green(`  ✓ ${testModel}: ${ms}ms ${L('(yanıt alındı)', '(response received)')}`));
     } else if (res.status === 401 || res.status === 403) {
-      console.log(chalk.red(`  ✗ ${testModel}: Yetkisiz (${res.status})`));
+      console.log(chalk.red(`  ✗ ${testModel}: ${L('Yetkisiz', 'Unauthorized')} (${res.status})`));
     } else if (res.status === 429) {
       console.log(chalk.yellow(`  ⚠ ${testModel}: Rate limit (${res.status})`));
     } else {
@@ -612,7 +614,7 @@ async function probeProvider(providerUrl, apiKey, modelId, opts) {
   } catch (err) {
     const ms = Date.now() - start;
     if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-      console.log(chalk.red(`  ✗ ${testModel}: Zaman aşımı (${opts.timeout}ms)`));
+      console.log(chalk.red(`  ✗ ${testModel}: ${L('Zaman aşımı', 'Timeout')} (${opts.timeout}ms)`));
     } else {
       console.log(chalk.red(`  ✗ ${testModel}: ${err.message}`));
     }
