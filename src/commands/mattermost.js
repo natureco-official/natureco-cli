@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const inquirer = require('../utils/inquirer-wrapper');
 const { getConfig, saveConfig } = require('../utils/config');
 
@@ -15,14 +17,14 @@ async function mattermost(action) {
 async function connectMattermost() {
   const config = getConfig();
   if (!config.providerUrl) {
-    console.log(chalk.red('\n❌ Setup yapılmamış. Önce "natureco setup" çalıştırın.\n'));
+    console.log(chalk.red(L('\n❌ Setup yapılmamış. Önce "natureco setup" çalıştırın.\n', '\n❌ Setup not done. Run "natureco setup" first.\n')));
     process.exit(1);
   }
-  console.log(chalk.yellow('\n⏳ Mattermost bağlantısı hazırlanıyor...\n'));
-  console.log(chalk.gray('Mattermost bot token almak için:'));
+  console.log(chalk.yellow(L('\n⏳ Mattermost bağlantısı hazırlanıyor...\n', '\n⏳ Preparing Mattermost connection...\n')));
+  console.log(chalk.gray(L('Mattermost bot token almak için:', 'To get a Mattermost bot token:')));
   console.log(chalk.gray('1. Mattermost > System Console > Bot Accounts'));
-  console.log(chalk.gray('2. Bot oluşturun veya mevcut botu kullanın'));
-  console.log(chalk.gray('3. Access Token oluşturun\n'));
+  console.log(chalk.gray(L('2. Bot oluşturun veya mevcut botu kullanın', '2. Create a bot or use an existing one')));
+  console.log(chalk.gray(L('3. Access Token oluşturun\n', '3. Create an Access Token\n')));
 
   const defaults = {
     baseUrl: config.mattermostBaseUrl || '',
@@ -31,11 +33,11 @@ async function connectMattermost() {
   };
 
   const answers = await inquirer.prompt([
-    { type: 'input', name: 'baseUrl', message: 'Mattermost sunucu URL:', default: defaults.baseUrl, validate: v => v.trim() ? true : 'Gerekli' },
-    { type: 'input', name: 'token', message: 'Bot token:', default: defaults.token ? defaults.token.slice(0, 10) + '...' : '', validate: v => v.trim() ? true : 'Gerekli' },
-    { type: 'confirm', name: 'enableSlash', message: 'Slash komutları kaydedilsin mi?', default: config.mattermostSlashEnabled !== false },
-    { type: 'list', name: 'dmPolicy', message: 'DM politikası:', default: defaults.dmPolicy, choices: [
-      { name: 'Pairing (önerilen)', value: 'pairing' },
+    { type: 'input', name: 'baseUrl', message: L('Mattermost sunucu URL:', 'Mattermost server URL:'), default: defaults.baseUrl, validate: v => v.trim() ? true : L('Gerekli', 'Required') },
+    { type: 'input', name: 'token', message: 'Bot token:', default: defaults.token ? defaults.token.slice(0, 10) + '...' : '', validate: v => v.trim() ? true : L('Gerekli', 'Required') },
+    { type: 'confirm', name: 'enableSlash', message: L('Slash komutları kaydedilsin mi?', 'Register slash commands?'), default: config.mattermostSlashEnabled !== false },
+    { type: 'list', name: 'dmPolicy', message: L('DM politikası:', 'DM policy:'), default: defaults.dmPolicy, choices: [
+      { name: L('Pairing (önerilen)', 'Pairing (recommended)'), value: 'pairing' },
       { name: 'Allowlist', value: 'allowlist' },
       { name: 'Open', value: 'open' },
       { name: 'Disabled', value: 'disabled' },
@@ -50,11 +52,11 @@ async function connectMattermost() {
   config.mattermostBotId = botId;
   saveConfig(config);
 
-  console.log(chalk.green('\n✅ Mattermost bağlantısı kaydedildi!\n'));
+  console.log(chalk.green(L('\n✅ Mattermost bağlantısı kaydedildi!\n', '\n✅ Mattermost connection saved!\n')));
   console.log(chalk.cyan('Bot ID:'), chalk.white(botId));
-  console.log(chalk.cyan('Sunucu:'), chalk.white(config.mattermostBaseUrl));
+  console.log(chalk.cyan(L('Sunucu:', 'Server:')), chalk.white(config.mattermostBaseUrl));
   console.log(chalk.cyan('Token:'), chalk.white((answers.token || '').slice(0, 20) + '...'));
-  console.log(chalk.gray('\nGateway ile başlatmak için: natureco gateway start\n'));
+  console.log(chalk.gray(L('\nGateway ile başlatmak için: natureco gateway start\n', '\nTo start with the gateway: natureco gateway start\n')));
 }
 
 async function disconnectMattermost() {
@@ -64,7 +66,7 @@ async function disconnectMattermost() {
     return;
   }
   const { confirm } = await inquirer.prompt([
-    { type: 'confirm', name: 'confirm', message: 'Mattermost bağlantısını kaldırmak istediğinize emin misiniz?', default: false }
+    { type: 'confirm', name: 'confirm', message: L('Mattermost bağlantısını kaldırmak istediğinize emin misiniz?', 'Are you sure you want to remove the Mattermost connection?'), default: false }
   ]);
   if (!confirm) {
     console.log(chalk.gray('\nCancelled\n'));
@@ -86,14 +88,14 @@ function statusMattermost() {
   }
   console.log(chalk.green('\n✅ Mattermost connected\n'));
   console.log(chalk.cyan('Bot ID:'), chalk.white(config.mattermostBotId));
-  console.log(chalk.cyan('Sunucu:'), chalk.white(config.mattermostBaseUrl));
+  console.log(chalk.cyan(L('Sunucu:', 'Server:')), chalk.white(config.mattermostBaseUrl));
   console.log(chalk.cyan('Token:'), chalk.white((config.mattermostToken || '').slice(0, 20) + '...'));
-  console.log(chalk.cyan('Slash Komutları:'), chalk.white(config.mattermostSlashEnabled !== false ? 'Aktif' : 'Devre Dışı'));
-  console.log(chalk.cyan('DM Politikası:'), chalk.white(config.mattermostDmPolicy || 'pairing'));
+  console.log(chalk.cyan(L('Slash Komutları:', 'Slash Commands:')), chalk.white(config.mattermostSlashEnabled !== false ? L('Aktif', 'Active') : L('Devre Dışı', 'Disabled')));
+  console.log(chalk.cyan(L('DM Politikası:', 'DM Policy:')), chalk.white(config.mattermostDmPolicy || 'pairing'));
 
   // Optionally probe
   if (config.mattermostBaseUrl && config.mattermostToken) {
-    console.log(chalk.gray('\nProbe için: natureco mattermost probe\n'));
+    console.log(chalk.gray(L('\nProbe için: natureco mattermost probe\n', '\nFor probe: natureco mattermost probe\n')));
   }
   console.log(chalk.gray('\nDisconnect with: natureco mattermost disconnect\n'));
 }
@@ -101,15 +103,15 @@ function statusMattermost() {
 async function probeMattermost() {
   const config = getConfig();
   if (!config.mattermostBaseUrl || !config.mattermostToken) {
-    console.log(chalk.red('\n❌ Mattermost bağlantısı yapılmamış\n'));
-    console.log(chalk.gray('Önce: natureco mattermost connect\n'));
+    console.log(chalk.red(L('\n❌ Mattermost bağlantısı yapılmamış\n', '\n❌ Mattermost connection not set up\n')));
+    console.log(chalk.gray(L('Önce: natureco mattermost connect\n', 'First: natureco mattermost connect\n')));
     process.exit(1);
   }
 
   const baseUrl = config.mattermostBaseUrl.replace(/\/+$/, '');
   const token = config.mattermostToken;
 
-  console.log(chalk.yellow(`\n⏳ Problanıyor: ${baseUrl}\n`));
+  console.log(chalk.yellow(`\n⏳ ${L('Problanıyor', 'Probing')}: ${baseUrl}\n`));
 
   try {
     const res = await fetch(`${baseUrl}/api/v4/users/me`, {
@@ -118,18 +120,18 @@ async function probeMattermost() {
     });
 
     if (!res.ok) {
-      console.log(chalk.red(`✗ API Hatası: HTTP ${res.status}`));
-      if (res.status === 401) console.log(chalk.gray('  Token geçersiz. Yeni bir bot token alın.'));
-      if (res.status === 403) console.log(chalk.gray('  Botun yetkisi yetersiz.'));
+      console.log(chalk.red(`✗ ${L('API Hatası', 'API Error')}: HTTP ${res.status}`));
+      if (res.status === 401) console.log(chalk.gray(L('  Token geçersiz. Yeni bir bot token alın.', '  Token invalid. Get a new bot token.')));
+      if (res.status === 403) console.log(chalk.gray(L('  Botun yetkisi yetersiz.', '  Bot has insufficient permissions.')));
       process.exit(1);
     }
 
     const me = await res.json();
-    console.log(chalk.green('✓ API Bağlantısı Başarılı\n'));
-    console.log(chalk.cyan('Bot Kullanıcı ID:'), chalk.white(me.id));
-    console.log(chalk.cyan('Kullanıcı Adı:'), chalk.white(me.username));
-    console.log(chalk.cyan('E-posta:'), chalk.white(me.email));
-    console.log(chalk.cyan('Rol:'), chalk.white(me.roles));
+    console.log(chalk.green(L('✓ API Bağlantısı Başarılı\n', '✓ API Connection Successful\n')));
+    console.log(chalk.cyan(L('Bot Kullanıcı ID:', 'Bot User ID:')), chalk.white(me.id));
+    console.log(chalk.cyan(L('Kullanıcı Adı:', 'Username:')), chalk.white(me.username));
+    console.log(chalk.cyan(L('E-posta:', 'Email:')), chalk.white(me.email));
+    console.log(chalk.cyan(L('Rol:', 'Role:')), chalk.white(me.roles));
 
     // Check WebSocket
     const wsUrl = baseUrl.replace(/^http/, 'ws') + '/api/v4/websocket';
@@ -143,7 +145,7 @@ async function probeMattermost() {
       });
       if (teamsRes.ok) {
         const teams = await teamsRes.json();
-        console.log(chalk.gray(`\nTakımlar (${teams.length}):`));
+        console.log(chalk.gray(`\n${L('Takımlar', 'Teams')} (${teams.length}):`));
         for (const team of teams.slice(0, 5)) {
           console.log(chalk.gray(`  - ${team.display_name} (${team.name})`));
         }
@@ -153,9 +155,9 @@ async function probeMattermost() {
     console.log('');
 
   } catch (err) {
-    console.log(chalk.red(`\n✗ Probe hatası: ${err.message}\n`));
+    console.log(chalk.red(`\n✗ ${L('Probe hatası', 'Probe error')}: ${err.message}\n`));
     if (err.message.includes('ENOTFOUND') || err.message.includes('ECONNREFUSED')) {
-      console.log(chalk.gray('Sunucuya erişilemiyor. URL\'yi kontrol edin.\n'));
+      console.log(chalk.gray(L('Sunucuya erişilemiyor. URL\'yi kontrol edin.\n', 'Cannot reach the server. Check the URL.\n')));
     }
     process.exit(1);
   }
