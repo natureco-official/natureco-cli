@@ -6,6 +6,8 @@ const inquirer = require('../utils/inquirer-wrapper');
 const TB = require('../utils/token-budget');
 const tui = require('../utils/tui');
 const chalk = require('chalk');
+const { getLang: _getLang } = require('../utils/i18n');
+const L = (tr, en) => (_getLang() === 'en' ? en : tr);
 const { getApiKey, getConfig } = require('../utils/config');
 const repl = require('./repl');
 const { getSkillPrompts, getSkills } = require('../utils/skills');
@@ -273,7 +275,7 @@ async function chat(botName, options = {}) {
               session = createSession(bot.id, bot.name);
               console.log(chalk.green(`Bot değişti: ${newBot.name}`));
             } else {
-              console.log(chalk.red(`Bot bulunamadı: ${newName}`));
+              console.log(chalk.red(`${L('Bot bulunamadı', 'Bot not found')}: ${newName}`));
             }
           }
           console.log();
@@ -300,7 +302,7 @@ async function chat(botName, options = {}) {
           console.log();
           return;
         case 'help':
-          console.log(chalk.yellow('Chat Komutları:'));
+          console.log(chalk.yellow(L('Chat Komutları:', 'Chat commands:')));
           [
             ['/clear', 'Ekranı temizle'],
             ['/bot [ad]', 'Bot değiştir'],

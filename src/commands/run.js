@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
+const { getLang: _getLang } = require('../utils/i18n');
+const L = (tr, en) => (_getLang() === 'en' ? en : tr);
 const { getApiKey, getConfig } = require('../utils/config');
 const { sendMessage } = require('../utils/api');
 const { getSkillPrompts } = require('../utils/skills');
@@ -9,7 +11,7 @@ async function run(scriptPath) {
   const apiKey = getApiKey();
 
   if (!apiKey) {
-    console.log(chalk.red('\n❌ Giriş yapılmamış. Önce "natureco login" çalıştırın.\n'));
+    console.log(chalk.red(L('\n❌ Giriş yapılmamış. Önce "natureco login" çalıştırın.\n', '\n❌ Not signed in. Run "natureco login" first.\n')));
     process.exit(1);
   }
 
@@ -17,7 +19,7 @@ async function run(scriptPath) {
   const defaultBotId = config.defaultBotId;
 
   if (!defaultBotId) {
-    console.log(chalk.red('\n❌ Varsayılan bot ayarlanmamış. "natureco config set defaultBotId <bot-id>" ile ayarlayın.\n'));
+    console.log(chalk.red(L('\n❌ Varsayılan bot ayarlanmamış. "natureco config set defaultBotId <bot-id>" ile ayarlayın.\n', '\n❌ No default bot set. Set one with "natureco config set defaultBotId <bot-id>".\n')));
     process.exit(1);
   }
 
@@ -25,21 +27,21 @@ async function run(scriptPath) {
   const fullPath = path.resolve(scriptPath);
   
   if (!fs.existsSync(fullPath)) {
-    console.log(chalk.red(`\n❌ Dosya bulunamadı: ${scriptPath}\n`));
+    console.log(chalk.red(`\n❌ ${L('Dosya bulunamadı', 'File not found')}: ${scriptPath}\n`));
     process.exit(1);
   }
 
   const scriptContent = fs.readFileSync(fullPath, 'utf8');
 
   if (!scriptContent || scriptContent.trim().length === 0) {
-    console.log(chalk.red('\n❌ Script dosyası boş.\n'));
+    console.log(chalk.red(L('\n❌ Script dosyası boş.\n', '\n❌ Script file is empty.\n')));
     process.exit(1);
   }
 
   // Skill prompts'ları yükle
   const skillPrompts = getSkillPrompts();
 
-  console.log(chalk.yellow(`\n⏳ Script çalıştırılıyor: ${path.basename(scriptPath)}\n`));
+  console.log(chalk.yellow(`\n⏳ ${L('Script çalıştırılıyor', 'Running script')}: ${path.basename(scriptPath)}\n`));
 
   // Loading animasyonu
   const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];

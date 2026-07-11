@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _getLang } = require('../utils/i18n');
+const L = (tr, en) => (_getLang() === 'en' ? en : tr);
 const { getApiKey, getConfig } = require('../utils/config');
 const { getBots, sendMessage } = require('../utils/api');
 const { getSkillPrompts } = require('../utils/skills');
@@ -9,7 +11,7 @@ async function ask(question, options = {}) {
   const apiKey = getApiKey();
 
   if (!apiKey) {
-    console.log(chalk.red('\n❌ Giriş yapılmamış. Önce "natureco login" çalıştırın.\n'));
+    console.log(chalk.red(L('\n❌ Giriş yapılmamış. Önce "natureco login" çalıştırın.\n', '\n❌ Not signed in. Run "natureco login" first.\n')));
     process.exit(1);
   }
 
@@ -26,7 +28,7 @@ async function ask(question, options = {}) {
   }
 
   if (!defaultBotId) {
-    console.log(chalk.red('\n❌ Hiç bot bulunamadı. "natureco chat" ile yerel sağlayıcıyı kullanabilir ya da bir bot oluşturabilirsiniz.\n'));
+    console.log(chalk.red(L('\n❌ Hiç bot bulunamadı. "natureco chat" ile yerel sağlayıcıyı kullanabilir ya da bir bot oluşturabilirsiniz.\n', '\n❌ No bots found. Use "natureco chat" for the local provider, or create a bot.\n')));
     process.exit(1);
   }
 
