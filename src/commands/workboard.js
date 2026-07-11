@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -33,8 +35,8 @@ function workboard(args) {
   if (action === 'export') return exportBoard();
   if (action === 'import') return importBoard(params[0]);
 
-  console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco workboard [show|add|move|remove|clear|columns|export|import]\n'));
+  console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${action}\n`));
+  console.log(chalk.gray(L('  Kullanım: natureco workboard [show|add|move|remove|clear|columns|export|import]\n', '  Usage: natureco workboard [show|add|move|remove|clear|columns|export|import]\n')));
   process.exit(1);
 }
 
@@ -80,7 +82,7 @@ function showBoard() {
 
 function addItem(text) {
   if (!text) {
-    console.log(chalk.red('\n  ❌ Text gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Text gerekli\n', '\n  ❌ Text required\n')));
     console.log(chalk.cyan('    natureco workboard add "Task description"\n'));
     process.exit(1);
   }
@@ -100,7 +102,7 @@ function addItem(text) {
 
 function moveItem(id, column) {
   if (!id || !column) {
-    console.log(chalk.red('\n  ❌ id ve column gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ id ve column gerekli\n', '\n  ❌ id and column required\n')));
     console.log(chalk.cyan('    natureco workboard move <id> done\n'));
     process.exit(1);
   }
@@ -108,7 +110,7 @@ function moveItem(id, column) {
   const board = loadBoard();
   const item = board.items.find(i => i.id === id);
   if (!item) {
-    console.log(chalk.red(`\n  ❌ Item bulunamadı: ${id}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Item bulunamadı', 'Item not found')}: ${id}\n`));
     process.exit(1);
   }
 
@@ -120,14 +122,14 @@ function moveItem(id, column) {
 
 function removeItem(id) {
   if (!id) {
-    console.log(chalk.red('\n  ❌ id gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ id gerekli\n', '\n  ❌ id required\n')));
     process.exit(1);
   }
 
   const board = loadBoard();
   const idx = board.items.findIndex(i => i.id === id);
   if (idx === -1) {
-    console.log(chalk.red(`\n  ❌ Item bulunamadı: ${id}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Item bulunamadı', 'Item not found')}: ${id}\n`));
     process.exit(1);
   }
 
@@ -140,7 +142,7 @@ function clearBoard() {
   const board = loadBoard();
   board.items = [];
   saveBoard(board);
-  console.log(chalk.gray('\n  🗑️  Board temizlendi\n'));
+  console.log(chalk.gray(L('\n  🗑️  Board temizlendi\n', '\n  🗑️  Board cleared\n')));
 }
 
 function manageColumns(params) {
@@ -150,7 +152,7 @@ function manageColumns(params) {
   if (params[0] === 'set') {
     const cols = params.slice(1);
     if (cols.length === 0) {
-      console.log(chalk.red('\n  ❌ En az bir kolon gerekli\n'));
+      console.log(chalk.red(L('\n  ❌ En az bir kolon gerekli\n', '\n  ❌ At least one column required\n')));
       process.exit(1);
     }
     config.workboard.columns = cols;
@@ -180,26 +182,26 @@ function exportBoard() {
 
 function importBoard(filePath) {
   if (!filePath) {
-    console.log(chalk.red('\n  ❌ Dosya gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Dosya gerekli\n', '\n  ❌ File required\n')));
     process.exit(1);
   }
 
   if (!fs.existsSync(filePath)) {
-    console.log(chalk.red(`\n  ❌ Dosya bulunamadı: ${filePath}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Dosya bulunamadı', 'File not found')}: ${filePath}\n`));
     process.exit(1);
   }
 
   try {
     const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
     if (!data.items || !Array.isArray(data.items)) {
-      console.log(chalk.red('\n  ❌ Geçersiz board JSON (items array gerekli)\n'));
+      console.log(chalk.red(L('\n  ❌ Geçersiz board JSON (items array gerekli)\n', '\n  ❌ Invalid board JSON (items array required)\n')));
       process.exit(1);
     }
 
     saveBoard(data);
     console.log(chalk.green(`\n  ✅ Board imported: ${data.items.length} items\n`));
   } catch (err) {
-    console.log(chalk.red(`\n  ❌ Import hatası: ${err.message}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Import hatası', 'Import error')}: ${err.message}\n`));
     process.exit(1);
   }
 }
