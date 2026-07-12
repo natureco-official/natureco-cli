@@ -14,6 +14,8 @@
  */
 
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -30,7 +32,7 @@ function getToken() {
 
 async function apiCall(endpoint, options = {}) {
   const token = getToken();
-  if (!token) throw new Error('Medium integration token tanımlı değil');
+  if (!token) throw new Error(L('Medium integration token tanımlı değil', 'Medium integration token not set'));
   return new Promise((resolve, reject) => {
     const url = new URL(endpoint, API_BASE);
     const req = https.request({
@@ -74,68 +76,68 @@ function parseMarkdown(content) {
     }
     body.push(line);
   }
-  return { title: title || 'Başlıksız', content: body.join('\n').trim() };
+  return { title: title || L('Başlıksız', 'Untitled'), content: body.join('\n').trim() };
 }
 
 async function cmdDraft(args) {
   const filePath = args[0];
   if (!filePath) {
-    console.log(chalk.red('\n  Kullanım: natureco medium draft <dosya.md>\n'));
+    console.log(chalk.red(L('\n  Kullanım: natureco medium draft <dosya.md>\n', '\n  Usage: natureco medium draft <file.md>\n')));
     return;
   }
   if (!fs.existsSync(filePath)) {
-    console.log(chalk.red(`\n  Dosya bulunamadı: ${filePath}\n`));
+    console.log(chalk.red(`\n  ${L('Dosya bulunamadı', 'File not found')}: ${filePath}\n`));
     return;
   }
 
   const content = fs.readFileSync(filePath, 'utf8');
   const { title, content: body } = parseMarkdown(content);
 
-  console.log(chalk.cyan('\n  📝 Taslak hazırlanıyor...\n'));
-  console.log(chalk.gray(`  Başlık: ${title}`));
-  console.log(chalk.gray(`  Uzunluk: ${body.length} karakter, ${body.split(/\s+/).length} kelime`));
+  console.log(chalk.cyan(L('\n  📝 Taslak hazırlanıyor...\n', '\n  📝 Preparing draft...\n')));
+  console.log(chalk.gray(`  ${L('Başlık', 'Title')}: ${title}`));
+  console.log(chalk.gray(`  ${L('Uzunluk', 'Length')}: ${body.length} ${L('karakter', 'chars')}, ${body.split(/\s+/).length} ${L('kelime', 'words')}`));
 
   const token = getToken();
   if (!token) {
-    console.log(chalk.yellow('\n  ⚠️  Medium token tanımlı değil.'));
-    console.log(chalk.gray('  Ayarlamak için: ') + chalk.cyan('natureco config set mediumIntegrationToken <token>'));
-    console.log(chalk.gray('\n  Token almak için: ') + chalk.cyan('https://medium.com/me/settings/tokens'));
+    console.log(chalk.yellow(L('\n  ⚠️  Medium token tanımlı değil.', '\n  ⚠️  Medium token not set.')));
+    console.log(chalk.gray(L('  Ayarlamak için: ', '  To set: ')) + chalk.cyan('natureco config set mediumIntegrationToken <token>'));
+    console.log(chalk.gray(L('\n  Token almak için: ', '\n  To get a token: ')) + chalk.cyan('https://medium.com/me/settings/tokens'));
     console.log('');
     // Yerel taslak kaydet
     const draftDir = path.join(os.homedir(), '.natureco', 'medium-drafts');
     if (!fs.existsSync(draftDir)) fs.mkdirSync(draftDir, { recursive: true });
     const draftFile = path.join(draftDir, `${Date.now()}-${path.basename(filePath, '.md')}.json`);
     fs.writeFileSync(draftFile, JSON.stringify({ title, body, source: filePath, createdAt: new Date().toISOString() }, null, 2));
-    console.log(chalk.green(`  ✓ Taslak yerel olarak kaydedildi: ${draftFile}\n`));
+    console.log(chalk.green(`  ✓ ${L('Taslak yerel olarak kaydedildi', 'Draft saved locally')}: ${draftFile}\n`));
     return;
   }
 
   try {
     const user = await apiCall('/me');
     const userId = user.data?.id;
-    if (!userId) throw new Error('User ID alınamadı');
+    if (!userId) throw new Error(L('User ID alınamadı', 'Could not get User ID'));
 
     const result = await apiCall(`/users/${userId}/posts`, {
       method: 'POST',
       body: { title, contentFormat: 'markdown', content: body, publishStatus: 'draft' },
     });
-    console.log(chalk.green('\n  ✓ Medium\'a taslak yüklendi!'));
+    console.log(chalk.green(L('\n  ✓ Medium\'a taslak yüklendi!', '\n  ✓ Draft uploaded to Medium!')));
     if (result.data?.url) console.log(chalk.cyan(`  🔗 ${result.data.url}\n`));
     audit.log(audit.ACTIONS.INFO, { source: 'medium', action: 'draft', url: result.data?.url });
   } catch (e) {
-    console.log(chalk.yellow(`\n  ⚠️  API hatası: ${e.message}`));
-    console.log(chalk.gray('  Token\'ı kontrol et veya mediumIntegrationToken ayarla.\n'));
+    console.log(chalk.yellow(`\n  ⚠️  ${L('API hatası', 'API error')}: ${e.message}`));
+    console.log(chalk.gray(L('  Token\'ı kontrol et veya mediumIntegrationToken ayarla.\n', '  Check the token or set mediumIntegrationToken.\n')));
   }
 }
 
 async function cmdPublish(args) {
   const filePath = args[0];
   if (!filePath) {
-    console.log(chalk.red('\n  Kullanım: natureco medium publish <dosya.md>\n'));
+    console.log(chalk.red(L('\n  Kullanım: natureco medium publish <dosya.md>\n', '\n  Usage: natureco medium publish <file.md>\n')));
     return;
   }
   if (!fs.existsSync(filePath)) {
-    console.log(chalk.red(`\n  Dosya bulunamadı: ${filePath}\n`));
+    console.log(chalk.red(`\n  ${L('Dosya bulunamadı', 'File not found')}: ${filePath}\n`));
     return;
   }
 
@@ -144,12 +146,12 @@ async function cmdPublish(args) {
 
   const token = getToken();
   if (!token) {
-    console.log(chalk.red('\n  ❌ Medium token tanımlı değil.\n'));
-    console.log(chalk.gray('  Yayınlamak için mediumIntegrationToken gerekli.\n'));
+    console.log(chalk.red(L('\n  ❌ Medium token tanımlı değil.\n', '\n  ❌ Medium token not set.\n')));
+    console.log(chalk.gray(L('  Yayınlamak için mediumIntegrationToken gerekli.\n', '  mediumIntegrationToken required to publish.\n')));
     return;
   }
 
-  console.log(chalk.yellow(`\n  ⚠️  "${title}" Medium'da YAYINLANACAK.\n`));
+  console.log(chalk.yellow(`\n  ⚠️  "${title}" ${L("Medium'da YAYINLANACAK.", 'WILL BE PUBLISHED on Medium.')}\n`));
 
   try {
     const user = await apiCall('/me');
@@ -158,22 +160,22 @@ async function cmdPublish(args) {
       method: 'POST',
       body: { title, contentFormat: 'markdown', content: body, publishStatus: 'public' },
     });
-    console.log(chalk.green('\n  ✓ Yayınlandı!'));
+    console.log(chalk.green(L('\n  ✓ Yayınlandı!', '\n  ✓ Published!')));
     if (result.data?.url) console.log(chalk.cyan(`  🔗 ${result.data.url}\n`));
     audit.log(audit.ACTIONS.INFO, { source: 'medium', action: 'publish', url: result.data?.url });
   } catch (e) {
-    console.log(chalk.red(`\n  ❌ Yayınlama başarısız: ${e.message}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Yayınlama başarısız', 'Publish failed')}: ${e.message}\n`));
   }
 }
 
 function cmdList() {
   const draftDir = path.join(os.homedir(), '.natureco', 'medium-drafts');
   if (!fs.existsSync(draftDir)) {
-    console.log(chalk.gray('\n  Henüz taslak yok.\n'));
+    console.log(chalk.gray(L('\n  Henüz taslak yok.\n', '\n  No drafts yet.\n')));
     return;
   }
   const files = fs.readdirSync(draftDir).sort().reverse();
-  console.log(chalk.cyan('\n  📚 Medium Taslakları\n'));
+  console.log(chalk.cyan(L('\n  📚 Medium Taslakları\n', '\n  📚 Medium Drafts\n')));
   for (const f of files) {
     const filePath = path.join(draftDir, f);
     try {
@@ -189,18 +191,18 @@ function cmdList() {
 async function medium(args) {
   const [action, ...params] = args || [];
   if (!action || action === 'help') {
-    console.log(chalk.yellow('\n  Kullanım:'));
-    console.log(chalk.gray('    natureco medium draft <file.md>      Taslak oluştur'));
-    console.log(chalk.gray('    natureco medium publish <file.md>    Doğrudan yayınla'));
-    console.log(chalk.gray('    natureco medium list                 Taslaklar'));
-    console.log(chalk.gray('\n  Token ayarla: ') + chalk.cyan('natureco config set mediumIntegrationToken <token>'));
+    console.log(chalk.yellow(L('\n  Kullanım:', '\n  Usage:')));
+    console.log(chalk.gray(L('    natureco medium draft <file.md>      Taslak oluştur', '    natureco medium draft <file.md>      Create draft')));
+    console.log(chalk.gray(L('    natureco medium publish <file.md>    Doğrudan yayınla', '    natureco medium publish <file.md>    Publish directly')));
+    console.log(chalk.gray(L('    natureco medium list                 Taslaklar', '    natureco medium list                 Drafts')));
+    console.log(chalk.gray(L('\n  Token ayarla: ', '\n  Set token: ')) + chalk.cyan('natureco config set mediumIntegrationToken <token>'));
     console.log('');
     return;
   }
   if (action === 'draft') return cmdDraft(params);
   if (action === 'publish') return cmdPublish(params);
   if (action === 'list') return cmdList();
-  console.log(chalk.red(`\n  Bilinmeyen: ${action}\n`));
+  console.log(chalk.red(`\n  ${L('Bilinmeyen', 'Unknown')}: ${action}\n`));
 }
 
 module.exports = medium;
