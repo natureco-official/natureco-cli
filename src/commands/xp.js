@@ -17,6 +17,8 @@
  */
 
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const tui = require('../utils/tui');
 const fs = require('fs');
 const path = require('path');
@@ -24,14 +26,14 @@ const os = require('os');
 
 const XP_FILE = path.join(os.homedir(), '.natureco', 'xp.json');
 const LEVELS = [
-  { level: 1, minXP: 0,    title: '🌱 Tohum',      color: chalk.green },
-  { level: 2, minXP: 100,  title: '🌿 Filiz',      color: chalk.green },
-  { level: 3, minXP: 300,  title: '🍃 Yaprak',     color: chalk.cyan },
-  { level: 4, minXP: 700,  title: '🌳 Ağaç',       color: chalk.blue },
-  { level: 5, minXP: 1500, title: '🌲 Orman',      color: chalk.yellow },
-  { level: 6, minXP: 3000, title: '🏔️  Dağ',       color: chalk.magenta },
-  { level: 7, minXP: 6000, title: '⭐ Yıldız',     color: chalk.red.bold },
-  { level: 8, minXP: 12000,title: '🌌 Galaksi',    color: chalk.hex('#a78bfa').bold },
+  { level: 1, minXP: 0,    title: L('🌱 Tohum', '🌱 Seed'),      color: chalk.green },
+  { level: 2, minXP: 100,  title: L('🌿 Filiz', '🌿 Sprout'),      color: chalk.green },
+  { level: 3, minXP: 300,  title: L('🍃 Yaprak', '🍃 Leaf'),     color: chalk.cyan },
+  { level: 4, minXP: 700,  title: L('🌳 Ağaç', '🌳 Tree'),       color: chalk.blue },
+  { level: 5, minXP: 1500, title: L('🌲 Orman', '🌲 Forest'),      color: chalk.yellow },
+  { level: 6, minXP: 3000, title: L('🏔️  Dağ', '🏔️  Mountain'),       color: chalk.magenta },
+  { level: 7, minXP: 6000, title: L('⭐ Yıldız', '⭐ Star'),     color: chalk.red.bold },
+  { level: 8, minXP: 12000,title: L('🌌 Galaksi', '🌌 Galaxy'),    color: chalk.hex('#a78bfa').bold },
 ];
 
 function loadXP() {
@@ -77,16 +79,16 @@ function cmdStatus() {
   const current = getLevel(data.xp);
   const next = getNextLevel(data.xp);
 
-  console.log('\n' + tui.styled('  ⭐ NatureCo XP Sistemi', { color: tui.PALETTE.accent, bold: true }));
+  console.log('\n' + tui.styled(L('  ⭐ NatureCo XP Sistemi', '  ⭐ NatureCo XP System'), { color: tui.PALETTE.accent, bold: true }));
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
 
   // Üst metrik kartı
   const w = 50;
   const lines = [];
   lines.push(tui.styled('  ╭' + '─'.repeat(w) + '╮', { color: tui.PALETTE.border }));
-  lines.push(tui.styled('  │', { color: tui.PALETTE.border }) + '  ' + tui.C.muted('Kullanıcı    ') + tui.styled(data.username.padEnd(20), { color: tui.PALETTE.text, bold: true }) + '  ' + tui.styled('│', { color: tui.PALETTE.border }));
+  lines.push(tui.styled('  │', { color: tui.PALETTE.border }) + '  ' + tui.C.muted(L('Kullanıcı    ', 'User         ')) + tui.styled(data.username.padEnd(20), { color: tui.PALETTE.text, bold: true }) + '  ' + tui.styled('│', { color: tui.PALETTE.border }));
   lines.push(tui.styled('  │', { color: tui.PALETTE.border }) + '  ' + tui.C.muted('XP           ') + tui.styled(data.xp.toLocaleString().padStart(8), { color: tui.PALETTE.primary, bold: true }) + '   ' + tui.styled('│', { color: tui.PALETTE.border }));
-  lines.push(tui.styled('  │', { color: tui.PALETTE.border }) + '  ' + tui.C.muted('Seviye       ') + current.color(`Lv.${current.level} ${current.title}`.padEnd(20)) + '  ' + tui.styled('│', { color: tui.PALETTE.border }));
+  lines.push(tui.styled('  │', { color: tui.PALETTE.border }) + '  ' + tui.C.muted(L('Seviye       ', 'Level        ')) + current.color(`Lv.${current.level} ${current.title}`.padEnd(20)) + '  ' + tui.styled('│', { color: tui.PALETTE.border }));
   lines.push(tui.styled('  ╰' + '─'.repeat(w) + '╯', { color: tui.PALETTE.border }));
   console.log(lines.join('\n'));
 
@@ -97,15 +99,15 @@ function cmdStatus() {
     const bar = tui.progressBar(data.xp - current.minXP, next.minXP - current.minXP, {
       width: 40, showPercent: true,
     });
-    console.log('\n  ' + tui.C.muted('Sonraki: ') + next.color(`${next.title}`) + tui.C.muted(` (${needed} XP kaldı)`));
+    console.log('\n  ' + tui.C.muted(L('Sonraki: ', 'Next: ')) + next.color(`${next.title}`) + tui.C.muted(` (${needed} XP ${L('kaldı', 'left')})`));
     console.log('  ' + bar);
   } else {
-    console.log('\n  ' + tui.styled('  🌟 Maksimum seviye!', { color: tui.PALETTE.success, bold: true }));
+    console.log('\n  ' + tui.styled(L('  🌟 Maksimum seviye!', '  🌟 Max level!'), { color: tui.PALETTE.success, bold: true }));
   }
 
   // Son kazanımlar — TUI tablo
   if (data.history.length > 0) {
-    console.log('\n' + tui.styled('  📜 Son XP Kazanımları', { color: tui.PALETTE.secondary, bold: true }));
+    console.log('\n' + tui.styled(L('  📜 Son XP Kazanımları', '  📜 Recent XP Gains'), { color: tui.PALETTE.secondary, bold: true }));
     const rows = data.history.slice(-5).reverse().map(h => ({
       amount: (h.amount > 0 ? '+' : '') + h.amount,
       ts: new Date(h.ts).toLocaleString(),
@@ -113,8 +115,8 @@ function cmdStatus() {
     }));
     console.log('\n' + tui.table(rows, [
       { key: 'amount', label: 'XP', minWidth: 8, render: r => tui.styled(r.amount, { color: r.amount.startsWith('+') ? tui.PALETTE.success : tui.PALETTE.danger, bold: true }) },
-      { key: 'ts', label: 'Zaman', minWidth: 22, render: r => tui.C.muted(r.ts) },
-      { key: 'reason', label: 'Sebep', minWidth: 30, render: r => tui.C.text(r.reason) },
+      { key: 'ts', label: L('Zaman', 'Time'), minWidth: 22, render: r => tui.C.muted(r.ts) },
+      { key: 'reason', label: L('Sebep', 'Reason'), minWidth: 30, render: r => tui.C.text(r.reason) },
     ], { borderStyle: 'round', zebra: true }));
   }
   console.log('');
@@ -122,9 +124,9 @@ function cmdStatus() {
 
 function cmdStats() {
   const data = loadXP();
-  console.log(chalk.bold('\n  📊 XP İstatistikleri\n'));
-  console.log(chalk.gray('  Toplam XP: ') + chalk.cyan(data.xp.toLocaleString()));
-  console.log(chalk.gray('  Toplam kayıt: ') + chalk.cyan(data.history.length));
+  console.log(chalk.bold(L('\n  📊 XP İstatistikleri\n', '\n  📊 XP Statistics\n')));
+  console.log(chalk.gray(L('  Toplam XP: ', '  Total XP: ')) + chalk.cyan(data.xp.toLocaleString()));
+  console.log(chalk.gray(L('  Toplam kayıt: ', '  Total records: ')) + chalk.cyan(data.history.length));
 
   // Reason bazlı
   const byReason = {};
@@ -132,7 +134,7 @@ function cmdStats() {
     byReason[h.reason] = (byReason[h.reason] || 0) + h.amount;
   }
   if (Object.keys(byReason).length > 0) {
-    console.log(chalk.bold('\n  🏷️  Kaynak Bazlı XP:\n'));
+    console.log(chalk.bold(L('\n  🏷️  Kaynak Bazlı XP:\n', '\n  🏷️  XP by Source:\n')));
     for (const [reason, amount] of Object.entries(byReason).sort((a, b) => b[1] - a[1])) {
       console.log(`    ${reason.padEnd(30)} ${chalk.cyan((amount > 0 ? '+' : '') + amount)} XP`);
     }
@@ -141,30 +143,30 @@ function cmdStats() {
 }
 
 function cmdLeaderboard() {
-  console.log(chalk.cyan('\n  🏆 Liderlik Tablosu\n'));
-  console.log(chalk.gray('  Bu özellik api.natureco.me hazır olunca tam çalışacak.\n'));
-  console.log(chalk.gray('  Şimdilik senin sıralaman local XP dosyanda.\n'));
+  console.log(chalk.cyan(L('\n  🏆 Liderlik Tablosu\n', '\n  🏆 Leaderboard\n')));
+  console.log(chalk.gray(L('  Bu özellik api.natureco.me hazır olunca tam çalışacak.\n', '  This feature will fully work once api.natureco.me is ready.\n')));
+  console.log(chalk.gray(L('  Şimdilik senin sıralaman local XP dosyanda.\n', '  For now your ranking is in your local XP file.\n')));
   cmdStatus();
 }
 
 function cmdRewards() {
-  console.log('\n' + tui.styled('  🎁 Aktif Ödüller', { color: tui.PALETTE.accent, bold: true }));
+  console.log('\n' + tui.styled(L('  🎁 Aktif Ödüller', '  🎁 Active Rewards'), { color: tui.PALETTE.accent, bold: true }));
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
 
   const rows = [
-    { level: 'Lv.2', xp: '100 XP', reward: 'NatureCo sticker paketi', color: tui.PALETTE.success },
-    { level: 'Lv.3', xp: '300 XP', reward: 'NatureBot\'ta özel bot erişimi', color: tui.PALETTE.success },
-    { level: 'Lv.4', xp: '700 XP', reward: 'Medium\'da otomatik yayınlama', color: tui.PALETTE.secondary },
-    { level: 'Lv.5', xp: '1500 XP', reward: 'NatureCo Pro ayda 1 ay ücretsiz', color: tui.PALETTE.secondary },
-    { level: 'Lv.6', xp: '3000 XP', reward: 'Özel NatureCo rozeti', color: tui.PALETTE.accent },
-    { level: 'Lv.7', xp: '6000 XP', reward: '@Naturecofficial\'dan mention', color: tui.PALETTE.warning },
-    { level: 'Lv.8', xp: '12000 XP', reward: 'Founder statüsü (sınırlı)', color: tui.PALETTE.danger },
+    { level: 'Lv.2', xp: '100 XP', reward: L('NatureCo sticker paketi', 'NatureCo sticker pack'), color: tui.PALETTE.success },
+    { level: 'Lv.3', xp: '300 XP', reward: L('NatureBot\'ta özel bot erişimi', 'Special bot access on NatureBot'), color: tui.PALETTE.success },
+    { level: 'Lv.4', xp: '700 XP', reward: L('Medium\'da otomatik yayınlama', 'Auto-publishing on Medium'), color: tui.PALETTE.secondary },
+    { level: 'Lv.5', xp: '1500 XP', reward: L('NatureCo Pro ayda 1 ay ücretsiz', '1 free month of NatureCo Pro'), color: tui.PALETTE.secondary },
+    { level: 'Lv.6', xp: '3000 XP', reward: L('Özel NatureCo rozeti', 'Special NatureCo badge'), color: tui.PALETTE.accent },
+    { level: 'Lv.7', xp: '6000 XP', reward: L('@Naturecofficial\'dan mention', 'Mention from @Naturecofficial'), color: tui.PALETTE.warning },
+    { level: 'Lv.8', xp: '12000 XP', reward: L('Founder statüsü (sınırlı)', 'Founder status (limited)'), color: tui.PALETTE.danger },
   ];
 
   console.log('\n' + tui.table(rows, [
-    { key: 'level', label: 'Seviye', minWidth: 8, render: r => tui.styled(r.level, { color: r.color, bold: true }) },
-    { key: 'xp', label: 'Eşik', minWidth: 10, render: r => tui.C.brand(r.xp) },
-    { key: 'reward', label: 'Ödül', minWidth: 35, render: r => tui.C.text(r.reward) },
+    { key: 'level', label: L('Seviye', 'Level'), minWidth: 8, render: r => tui.styled(r.level, { color: r.color, bold: true }) },
+    { key: 'xp', label: L('Eşik', 'Threshold'), minWidth: 10, render: r => tui.C.brand(r.xp) },
+    { key: 'reward', label: L('Ödül', 'Reward'), minWidth: 35, render: r => tui.C.text(r.reward) },
   ], { borderStyle: 'round', zebra: true }));
   console.log('');
 }
@@ -176,15 +178,15 @@ function xp(args) {
   if (action === 'leaderboard') return cmdLeaderboard();
   if (action === 'rewards') return cmdRewards();
   if (action === 'help') {
-    console.log(chalk.yellow('\n  Kullanım:'));
-    console.log(chalk.gray('    natureco xp                  Mevcut durum'));
-    console.log(chalk.gray('    natureco xp stats            İstatistikler'));
-    console.log(chalk.gray('    natureco xp leaderboard     Liderlik'));
-    console.log(chalk.gray('    natureco xp rewards          Aktif ödüller'));
+    console.log(chalk.yellow(L('\n  Kullanım:', '\n  Usage:')));
+    console.log(chalk.gray(L('    natureco xp                  Mevcut durum', '    natureco xp                  Current status')));
+    console.log(chalk.gray(L('    natureco xp stats            İstatistikler', '    natureco xp stats            Statistics')));
+    console.log(chalk.gray(L('    natureco xp leaderboard     Liderlik', '    natureco xp leaderboard     Leaderboard')));
+    console.log(chalk.gray(L('    natureco xp rewards          Aktif ödüller', '    natureco xp rewards          Active rewards')));
     console.log('');
     return;
   }
-  console.log(chalk.red(`\n  Bilinmeyen: ${action}\n`));
+  console.log(chalk.red(`\n  ${L('Bilinmeyen', 'Unknown')}: ${action}\n`));
 }
 
 // Export addXP — diğer modüller XP kazandırabilsin
