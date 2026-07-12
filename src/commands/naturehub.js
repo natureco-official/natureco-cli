@@ -181,7 +181,7 @@ async function cmdConfig() {
   console.log(chalk.cyan(L('\n  ⚙️  NatureCo API Ayarları\n', '\n  ⚙️  NatureCo API Settings\n')));
   console.log(chalk.gray('  API Key: ') + (cfg.apiKey ? chalk.green(L('✓ ayarlı', '✓ set')) : chalk.yellow(L('yok', 'none'))));
   console.log(chalk.gray('  Bot ID:  ') + (cfg.naturecoBotId ? chalk.green(cfg.naturecoBotId) : chalk.yellow(L('ayarlanmamış', 'not set'))));
-  console.log(chalk.gray('\n  Giriş:    ') + chalk.cyan('natureco login'));
+  console.log(chalk.gray(L('\n  Giriş:    ', '\n  Login:    ')) + chalk.cyan('natureco login'));
   console.log(chalk.gray('  Bot ID:   ') + chalk.cyan('natureco config set naturecoBotId <id>'));
   console.log(chalk.gray(L('  Botlar:   ', '  Bots:     ')) + chalk.cyan('natureco naturehub list'));
   console.log('');
