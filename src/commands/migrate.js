@@ -2,6 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const { execSync } = require('child_process');
 const { getConfig, setConfigValue } = require('../utils/config');
 const { normalizeWindowsPaths } = require('../utils/path-utils');
@@ -42,25 +44,25 @@ async function migrate(options) {
     return migrateHermes();
   }
   if (from !== 'openclaw') {
-    console.log(chalk.red('\n❌ Desteklenen kaynaklar: openclaw, claude-code, hermes\n'));
-    console.log(chalk.gray('Kullanım: natureco migrate --from openclaw'));
+    console.log(chalk.red(L('\n❌ Desteklenen kaynaklar: openclaw, claude-code, hermes\n', '\n❌ Supported sources: openclaw, claude-code, hermes\n')));
+    console.log(chalk.gray(L('Kullanım: natureco migrate --from openclaw', 'Usage: natureco migrate --from openclaw')));
     console.log(chalk.gray('         natureco migrate --from claude-code'));
     console.log(chalk.gray('         natureco migrate --from hermes\n'));
     return;
   }
   
-  console.log(chalk.yellow('\n⏳ OpenClaw → NatureCo migration başlıyor...\n'));
+  console.log(chalk.yellow(L('\n⏳ OpenClaw → NatureCo migration başlıyor...\n', '\n⏳ OpenClaw → NatureCo migration starting...\n')));
   
   // OpenClaw directory
   const openclawDir = options.openclawDir || path.join(os.homedir(), '.openclaw');
   
   if (!fs.existsSync(openclawDir)) {
-    console.log(chalk.red(`❌ OpenClaw dizini bulunamadı: ${openclawDir}\n`));
-    console.log(chalk.gray('--openclaw-dir ile farklı bir dizin belirtin.\n'));
+    console.log(chalk.red(`❌ ${L('OpenClaw dizini bulunamadı', 'OpenClaw directory not found')}: ${openclawDir}\n`));
+    console.log(chalk.gray(L('--openclaw-dir ile farklı bir dizin belirtin.\n', 'Specify a different directory with --openclaw-dir.\n')));
     return;
   }
   
-  console.log(chalk.cyan('OpenClaw dizini:'), chalk.white(openclawDir));
+  console.log(chalk.cyan(L('OpenClaw dizini:', 'OpenClaw directory:')), chalk.white(openclawDir));
   console.log('');
   
   const report = {
@@ -209,7 +211,7 @@ async function migrate(options) {
           }
         } catch (err) {
           // Skip file if error
-          console.log(chalk.gray(`⚠️  ${path.basename(file)} okunamadı`));
+          console.log(chalk.gray(`⚠️  ${path.basename(file)} ${L('okunamadı', 'could not be read')}`));
         }
       }
       
@@ -314,12 +316,12 @@ async function migrate(options) {
             fs.writeFileSync(filePath, JSON.stringify(existing, null, 2));
           } catch (err) {
             // Skip file if error
-            console.log(chalk.gray(`⚠️  ${file} güncellenemedi`));
+            console.log(chalk.gray(`⚠️  ${file} ${L('güncellenemedi', 'could not be updated')}`));
           }
         }
         
         if (memoryFiles.length > 0) {
-          console.log(chalk.green(`✅ Memory ${memoryFiles.length} bot dosyasına da kopyalandı`));
+          console.log(chalk.green(`✅ Memory ${memoryFiles.length} ${L('bot dosyasına da kopyalandı', 'files also copied to bots')}`));
         }
       } catch (err) {
         // Silently fail if can't read memory directory
@@ -328,7 +330,7 @@ async function migrate(options) {
       report.memory = memory;
     }
   } catch (err) {
-    console.log(chalk.gray('⚠️  Memory migration atlandı:', err.message));
+    console.log(chalk.gray(L('⚠️  Memory migration atlandı:', '⚠️  Memory migration skipped:'), err.message));
   }
   
   // 1.5. Workspace scripts migration
@@ -394,23 +396,23 @@ async function migrate(options) {
       for (const envSource of envSources) {
         if (fs.existsSync(envSource)) {
           fs.copyFileSync(envSource, envDest);
-          console.log(chalk.green('✅ .env dosyası kopyalandı'));
+          console.log(chalk.green(L('✅ .env dosyası kopyalandı', '✅ .env file copied')));
           break;
         }
       }
       
       // Install npm packages
-      console.log(chalk.yellow('\n📦 Workspace npm paketleri kuruluyor...\n'));
+      console.log(chalk.yellow(L('\n📦 Workspace npm paketleri kuruluyor...\n', '\n📦 Installing workspace npm packages...\n')));
       try {
         execSync('npm install', { cwd: workspaceDir, stdio: 'inherit' });
-        console.log(chalk.green('\n✅ npm paketleri kuruldu\n'));
+        console.log(chalk.green(L('\n✅ npm paketleri kuruldu\n', '\n✅ npm packages installed\n')));
       } catch (err) {
-        console.log(chalk.yellow('\n⚠️  npm install başarısız, manuel olarak çalıştırın:\n'));
+        console.log(chalk.yellow(L('\n⚠️  npm install başarısız, manuel olarak çalıştırın:\n', '\n⚠️  npm install failed, run manually:\n')));
         console.log(chalk.cyan(`  cd ${workspaceDir} && npm install\n`));
       }
     }
   } catch (err) {
-    console.log(chalk.gray('⚠️  Workspace scripts migration atlandı:', err.message));
+    console.log(chalk.gray(L('⚠️  Workspace scripts migration atlandı:', '⚠️  Workspace scripts migration skipped:'), err.message));
   }
   
   // 2. Cron jobs migration
@@ -493,11 +495,11 @@ async function migrate(options) {
       
       // Update report with actual added count
       if (toAdd.length < naturecoCrons.length) {
-        console.log(chalk.yellow(`⚠️  ${naturecoCrons.length - toAdd.length} cron zaten mevcut, atlandı`));
+        console.log(chalk.yellow(`⚠️  ${naturecoCrons.length - toAdd.length} ${L('cron zaten mevcut, atlandı', 'crons already exist, skipped')}`));
       }
     }
   } catch (err) {
-    console.log(chalk.gray('⚠️  Cron migration atlandı:', err.message));
+    console.log(chalk.gray(L('⚠️  Cron migration atlandı:', '⚠️  Cron migration skipped:'), err.message));
   }
   
   // 3. Telegram allowFrom migration
@@ -514,7 +516,7 @@ async function migrate(options) {
       }
     }
   } catch (err) {
-    console.log(chalk.gray('⚠️  Telegram allowFrom migration atlandı:', err.message));
+    console.log(chalk.gray(L('⚠️  Telegram allowFrom migration atlandı:', '⚠️  Telegram allowFrom migration skipped:'), err.message));
   }
   
   // 4. WhatsApp session migration
@@ -534,7 +536,7 @@ async function migrate(options) {
       report.whatsapp = true;
     }
   } catch (err) {
-    console.log(chalk.gray('⚠️  WhatsApp session migration atlandı:', err.message));
+    console.log(chalk.gray(L('⚠️  WhatsApp session migration atlandı:', '⚠️  WhatsApp session migration skipped:'), err.message));
   }
   
   // 5. Skills migration
@@ -560,16 +562,16 @@ async function migrate(options) {
       }
       
       if (report.skills > 0) {
-        console.log(chalk.green(`✅ Skills: ${report.skills} skill migrate edildi`));
-        console.log(chalk.gray(`   Konum: ~/.natureco/skills/`));
+        console.log(chalk.green(`✅ Skills: ${report.skills} ${L('skill migrate edildi', 'skills migrated')}`));
+        console.log(chalk.gray(L('   Konum: ~/.natureco/skills/', '   Location: ~/.natureco/skills/')));
       }
     }
   } catch (err) {
-    console.log(chalk.gray('⚠️  Skills migration atlandı:', err.message));
+    console.log(chalk.gray(L('⚠️  Skills migration atlandı:', '⚠️  Skills migration skipped:'), err.message));
   }
   
   // Print migration report
-  console.log(chalk.green('\n✅ Migration tamamlandı!\n'));
+  console.log(chalk.green(L('\n✅ Migration tamamlandı!\n', '\n✅ Migration complete!\n')));
   
   if (report.memory) {
     // Extract string facts for display (handle both string and object formats)
@@ -583,26 +585,26 @@ async function migrate(options) {
   }
   
   if (report.scripts > 0) {
-    console.log(chalk.green('✅ Scripts:'), chalk.white(`${report.scripts} script kopyalandı ve path'ler güncellendi`));
+    console.log(chalk.green('✅ Scripts:'), chalk.white(`${report.scripts} ${L("script kopyalandı ve path'ler güncellendi", 'scripts copied and paths updated')}`));
   }
   
   if (report.crons.total > 0) {
-    console.log(chalk.green('✅ Cron jobs:'), chalk.white(`${report.crons.total} job bulundu (${report.crons.active} aktif migrate edildi, ${report.crons.inactive} pasif atlandı)`));
+    console.log(chalk.green('✅ Cron jobs:'), chalk.white(`${report.crons.total} ${L('job bulundu', 'jobs found')} (${report.crons.active} ${L('aktif migrate edildi', 'active migrated')}, ${report.crons.inactive} ${L('pasif atlandı', 'inactive skipped')})`));
   }
   
   if (report.telegram && report.telegram.length > 0) {
     console.log(chalk.green('✅ Telegram allowFrom:'), chalk.white(report.telegram.join(', ')));
   } else if (report.telegram !== null) {
-    console.log(chalk.gray('⚠️  Telegram allowFrom: Bulunamadı'));
+    console.log(chalk.gray(L('⚠️  Telegram allowFrom: Bulunamadı', '⚠️  Telegram allowFrom: Not found')));
   }
   
   if (report.whatsapp) {
-    console.log(chalk.green('✅ WhatsApp session kopyalandı'));
+    console.log(chalk.green(L('✅ WhatsApp session kopyalandı', '✅ WhatsApp session copied')));
   }
   
   console.log('');
-  console.log(chalk.yellow('⚠️  Manuel kurulum gerekli:'));
-  console.log(chalk.gray('  - Provider URL ve API key ayarlayın:'));
+  console.log(chalk.yellow(L('⚠️  Manuel kurulum gerekli:', '⚠️  Manual setup required:')));
+  console.log(chalk.gray(L('  - Provider URL ve API key ayarlayın:', '  - Set Provider URL and API key:')));
   console.log(chalk.cyan('    natureco config set providerUrl https://api.groq.com/openai/v1'));
   console.log(chalk.cyan('    natureco config set providerApiKey gsk_xxx'));
   console.log(chalk.cyan('    natureco config set providerModel llama-3.3-70b-versatile'));
@@ -633,18 +635,18 @@ function copyDirRecursive(src, dest) {
 
 // ── Claude Code Migration ──────────────────────────────────────────────────────
 async function migrateClaudeCode() {
-  console.log(chalk.yellow('\n⏳ Claude Code → NatureCo migration başlıyor...\n'));
+  console.log(chalk.yellow(L('\n⏳ Claude Code → NatureCo migration başlıyor...\n', '\n⏳ Claude Code → NatureCo migration starting...\n')));
 
   const claudeDir = path.join(os.homedir(), '.claude');
   const claudeSettings = path.join(claudeDir, 'settings.json');
   const claudeProjects = path.join(os.homedir(), '.claude', 'projects');
 
   if (!fs.existsSync(claudeSettings)) {
-    console.log(chalk.yellow('⚠ Claude Code settings bulunamadı: ~/.claude/settings.json\n'));
+    console.log(chalk.yellow(L('⚠ Claude Code settings bulunamadı: ~/.claude/settings.json\n', '⚠ Claude Code settings not found: ~/.claude/settings.json\n')));
   } else {
     try {
       const settings = JSON.parse(fs.readFileSync(claudeSettings, 'utf-8'));
-      console.log(chalk.gray('  Claude Code ayarları bulundu.\n'));
+      console.log(chalk.gray(L('  Claude Code ayarları bulundu.\n', '  Claude Code settings found.\n')));
 
       // Migrate allowed tools
       if (settings.allowList?.length > 0) {
@@ -652,7 +654,7 @@ async function migrateClaudeCode() {
         if (!config.policies) config.policies = {};
         config.policies.claudeAllowedTools = settings.allowList;
         setConfigValue('policies', config.policies);
-        console.log(chalk.green(`  ✅ ${settings.allowList.length} izinli araç migrate edildi`));
+        console.log(chalk.green(`  ✅ ${settings.allowList.length} ${L('izinli araç migrate edildi', 'allowed tools migrated')}`));
       }
 
       // Migrate permissions
@@ -660,10 +662,10 @@ async function migrateClaudeCode() {
         const config = getConfig();
         config.claudePermissions = settings.permissions;
         setConfigValue('claudePermissions', settings.permissions);
-        console.log(chalk.green('  ✅ Claude izinleri migrate edildi'));
+        console.log(chalk.green(L('  ✅ Claude izinleri migrate edildi', '  ✅ Claude permissions migrated')));
       }
     } catch (err) {
-      console.log(chalk.red(`  ❌ Claude settings okuma hatası: ${err.message}`));
+      console.log(chalk.red(`  ❌ ${L('Claude settings okuma hatası', 'Claude settings read error')}: ${err.message}`));
     }
   }
 
@@ -676,7 +678,7 @@ async function migrateClaudeCode() {
       });
 
       if (projects.length > 0) {
-        console.log(chalk.gray(`\n  Claude projeleri bulundu: ${projects.length}\n`));
+        console.log(chalk.gray(`\n  ${L('Claude projeleri bulundu', 'Claude projects found')}: ${projects.length}\n`));
         const projectsDir = path.join(os.homedir(), '.natureco', 'claude-projects');
         fs.mkdirSync(projectsDir, { recursive: true });
 
@@ -685,14 +687,14 @@ async function migrateClaudeCode() {
           const dst = path.join(projectsDir, project);
           if (!fs.existsSync(dst)) {
             fs.cpSync(src, dst, { recursive: true });
-            console.log(chalk.green(`  ✅ Proje kopyalandı: ${project}`));
+            console.log(chalk.green(`  ✅ ${L('Proje kopyalandı', 'Project copied')}: ${project}`));
           } else {
-            console.log(chalk.yellow(`  ⚠ Proje zaten var, atlandı: ${project}`));
+            console.log(chalk.yellow(`  ⚠ ${L('Proje zaten var, atlandı', 'Project already exists, skipped')}: ${project}`));
           }
         }
       }
     } catch (err) {
-      console.log(chalk.yellow(`  ⚠ Proje migrasyonu atlandı: ${err.message}`));
+      console.log(chalk.yellow(`  ⚠ ${L('Proje migrasyonu atlandı', 'Project migration skipped')}: ${err.message}`));
     }
   }
 
@@ -722,25 +724,25 @@ async function migrateClaudeCode() {
       const memoryDir = path.join(os.homedir(), '.natureco', 'memory');
       fs.mkdirSync(memoryDir, { recursive: true });
       fs.writeFileSync(path.join(memoryDir, 'universal-provider.json'), JSON.stringify(memory, null, 2));
-      console.log(chalk.green('  ✅ Claude MEMORY.md migrate edildi'));
+      console.log(chalk.green(L('  ✅ Claude MEMORY.md migrate edildi', '  ✅ Claude MEMORY.md migrated')));
     } catch (err) {
-      console.log(chalk.yellow(`  ⚠ Memory migrasyonu atlandı: ${err.message}`));
+      console.log(chalk.yellow(`  ⚠ ${L('Memory migrasyonu atlandı', 'Memory migration skipped')}: ${err.message}`));
     }
   }
 
-  console.log(chalk.green('\n✅ Claude Code migration tamamlandı!\n'));
+  console.log(chalk.green(L('\n✅ Claude Code migration tamamlandı!\n', '\n✅ Claude Code migration complete!\n')));
 }
 
 // ── Hermes Migration ──────────────────────────────────────────────────────────
 async function migrateHermes() {
-  console.log(chalk.yellow('\n⏳ Hermes → NatureCo migration başlıyor...\n'));
+  console.log(chalk.yellow(L('\n⏳ Hermes → NatureCo migration başlıyor...\n', '\n⏳ Hermes → NatureCo migration starting...\n')));
 
   const hermesDir = path.join(os.homedir(), '.hermes');
   const hermesConfig = path.join(hermesDir, 'config.json');
   const hermesSessions = path.join(hermesDir, 'sessions');
 
   if (!fs.existsSync(hermesDir)) {
-    console.log(chalk.yellow('⚠ Hermes dizini bulunamadı: ~/.hermes\n'));
+    console.log(chalk.yellow(L('⚠ Hermes dizini bulunamadı: ~/.hermes\n', '⚠ Hermes directory not found: ~/.hermes\n')));
     return;
   }
 
@@ -765,9 +767,9 @@ async function migrateHermes() {
       if (config.temperature !== undefined) setConfigValue('temperature', ncConfig.temperature);
 
       migrated.config = true;
-      console.log(chalk.green('  ✅ Hermes config migrate edildi'));
+      console.log(chalk.green(L('  ✅ Hermes config migrate edildi', '  ✅ Hermes config migrated')));
     } catch (err) {
-      console.log(chalk.red(`  ❌ Config okuma hatası: ${err.message}`));
+      console.log(chalk.red(`  ❌ ${L('Config okuma hatası', 'Config read error')}: ${err.message}`));
     }
   }
 
@@ -788,10 +790,10 @@ async function migrateHermes() {
       }
 
       if (migrated.sessions > 0) {
-        console.log(chalk.green(`  ✅ ${migrated.sessions} Hermes oturumu migrate edildi`));
+        console.log(chalk.green(`  ✅ ${migrated.sessions} ${L('Hermes oturumu migrate edildi', 'Hermes sessions migrated')}`));
       }
     } catch (err) {
-      console.log(chalk.yellow(`  ⚠ Session migrasyonu atlandı: ${err.message}`));
+      console.log(chalk.yellow(`  ⚠ ${L('Session migrasyonu atlandı', 'Session migration skipped')}: ${err.message}`));
     }
   }
 
@@ -820,18 +822,18 @@ async function migrateHermes() {
 
       fs.writeFileSync(path.join(ncMemoryDir, 'hermes-migrated.json'), JSON.stringify(ncMem, null, 2));
       migrated.memory = true;
-      console.log(chalk.green('  ✅ Hermes hafızası migrate edildi'));
+      console.log(chalk.green(L('  ✅ Hermes hafızası migrate edildi', '  ✅ Hermes memory migrated')));
     } catch (err) {
-      console.log(chalk.yellow(`  ⚠ Memory migrasyonu atlandı: ${err.message}`));
+      console.log(chalk.yellow(`  ⚠ ${L('Memory migrasyonu atlandı', 'Memory migration skipped')}: ${err.message}`));
     }
   }
 
   if (!migrated.config && migrated.sessions === 0 && !migrated.memory) {
-    console.log(chalk.yellow('  ⚠ Hiçbir veri migrate edilemedi.\n'));
+    console.log(chalk.yellow(L('  ⚠ Hiçbir veri migrate edilemedi.\n', '  ⚠ No data could be migrated.\n')));
     return;
   }
 
-  console.log(chalk.green('\n✅ Hermes migration tamamlandı!\n'));
+  console.log(chalk.green(L('\n✅ Hermes migration tamamlandı!\n', '\n✅ Hermes migration complete!\n')));
 }
 
 module.exports = migrate;
