@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const { getConfig, saveConfig } = require('../utils/config');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const dns = require('dns');
 const os = require('os');
 
@@ -41,12 +43,12 @@ async function bonjour(args) {
   if (action === 'status') return statusBonjour();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco bonjour [scan|discover|status]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco bonjour [scan|discover|status]\n', '  Usage: natureco bonjour [scan|discover|status]\n')));
   process.exit(1);
 }
 
 async function scanNetwork() {
-  console.log(chalk.cyan('\n  Ağ taranıyor...\n'));
+  console.log(chalk.cyan(L('\n  Ağ taranıyor...\n', '\n  Scanning network...\n')));
 
   const interfaces = os.networkInterfaces();
   const found = [];
@@ -66,14 +68,14 @@ async function scanNetwork() {
   }
 
   if (found.length === 0) {
-    console.log(chalk.gray('  Ağ arayüzü bulunamadı.\n'));
+    console.log(chalk.gray(L('  Ağ arayüzü bulunamadı.\n', '  No network interfaces found.\n')));
     return;
   }
 
   const gateway = await discoverGateway();
 
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(chalk.cyan.bold('\n  Ağ Arayüzleri\n'));
+  console.log(chalk.cyan.bold(L('\n  Ağ Arayüzleri\n', '\n  Network Interfaces\n')));
 
   found.forEach(f => {
     console.log(chalk.white(`  ${f.interface}`));
@@ -82,14 +84,14 @@ async function scanNetwork() {
   });
 
   if (gateway) {
-    console.log(chalk.gray('\n  Varsayılan ağ geçidi: ') + chalk.cyan(gateway));
+    console.log(chalk.gray(L('\n  Varsayılan ağ geçidi: ', '\n  Default gateway: ')) + chalk.cyan(gateway));
   }
 
-  console.log(chalk.gray('\n  Service discovery için: ') + chalk.cyan('natureco bonjour discover\n'));
+  console.log(chalk.gray(L('\n  Service discovery için: ', '\n  For service discovery: ')) + chalk.cyan('natureco bonjour discover\n'));
 }
 
 async function discoverServices() {
-  console.log(chalk.cyan('\n  Servis keşfi başlatılıyor...\n'));
+  console.log(chalk.cyan(L('\n  Servis keşfi başlatılıyor...\n', '\n  Starting service discovery...\n')));
 
   // Try common ports
   const commonServices = [
@@ -138,30 +140,30 @@ async function discoverServices() {
   }
 
   if (results.length === 0) {
-    console.log(chalk.gray('  Servis bulunamadı.\n'));
+    console.log(chalk.gray(L('  Servis bulunamadı.\n', '  No services found.\n')));
     return;
   }
 
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(chalk.cyan.bold('\n  Bulunan Servisler\n'));
+  console.log(chalk.cyan.bold(L('\n  Bulunan Servisler\n', '\n  Discovered Services\n')));
 
   results.forEach(r => {
     console.log(`  ${chalk.green('●')} ${chalk.white(r.service)} ${chalk.gray(`→ ${r.host}:${r.port}`)}`);
   });
 
-  console.log(chalk.gray('\n  Özel port eklemek: ') + chalk.cyan('natureco config set discoveryPorts [3000,4000]\n'));
+  console.log(chalk.gray(L('\n  Özel port eklemek: ', '\n  Add custom port: ')) + chalk.cyan('natureco config set discoveryPorts [3000,4000]\n'));
 }
 
 function statusBonjour() {
-  console.log(chalk.gray('\n  Bonjour/mDNS Servis Keşfi\n'));
+  console.log(chalk.gray(L('\n  Bonjour/mDNS Servis Keşfi\n', '\n  Bonjour/mDNS Service Discovery\n')));
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(chalk.gray('  Ağ keşif aracı — NatureCo servislerini ve gateway\'i bulur.'));
-  console.log(chalk.gray('  Komutlar:'));
-  console.log(chalk.cyan('    scan      ') + chalk.gray('Ağ arayüzlerini ve IP\'leri listele'));
-  console.log(chalk.cyan('    discover  ') + chalk.gray('Yerel ağda NatureCo servislerini ara'));
-  console.log(chalk.gray('\n  Port yapılandırması:'));
-  console.log(chalk.gray('    Varsayılan: 3848 (Gateway), 3849 (Dashboard)'));
-  console.log(chalk.gray('    Özel: ') + chalk.cyan('natureco config set discoveryPorts [3000,4000]\n'));
+  console.log(chalk.gray(L('  Ağ keşif aracı — NatureCo servislerini ve gateway\'i bulur.', '  Network discovery tool — finds NatureCo services and the gateway.')));
+  console.log(chalk.gray(L('  Komutlar:', '  Commands:')));
+  console.log(chalk.cyan('    scan      ') + chalk.gray(L('Ağ arayüzlerini ve IP\'leri listele', 'List network interfaces and IPs')));
+  console.log(chalk.cyan('    discover  ') + chalk.gray(L('Yerel ağda NatureCo servislerini ara', 'Search for NatureCo services on the local network')));
+  console.log(chalk.gray(L('\n  Port yapılandırması:', '\n  Port configuration:')));
+  console.log(chalk.gray(L('    Varsayılan: 3848 (Gateway), 3849 (Dashboard)', '    Default: 3848 (Gateway), 3849 (Dashboard)')));
+  console.log(chalk.gray(L('    Özel: ', '    Custom: ')) + chalk.cyan('natureco config set discoveryPorts [3000,4000]\n'));
 }
 
 module.exports = bonjour;
