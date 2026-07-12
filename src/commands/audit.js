@@ -12,6 +12,8 @@
  */
 
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const tui = require('../utils/tui');
 const F = require('../utils/format');
 const fs = require('fs');
@@ -53,11 +55,11 @@ function formatEntry(entry) {
 
 function showEntries(entries, limit = 50) {
   if (entries.length === 0) {
-    console.log(tui.C.muted('\n  Kayıt yok.\n'));
+    console.log(tui.C.muted(L('\n  Kayıt yok.\n', '\n  No records.\n')));
     return;
   }
   const slice = entries.slice(-limit);
-  console.log(tui.styled(`\n  📋 ${entries.length} kayıt${limit < entries.length ? ` (son ${limit})` : ''}`, { color: tui.PALETTE.primary, bold: true }));
+  console.log(tui.styled(`\n  📋 ${entries.length} ${L('kayıt', 'records')}${limit < entries.length ? ` (${L('son', 'last')} ${limit})` : ''}`, { color: tui.PALETTE.primary, bold: true }));
 
   // Yeni TUI tablo
   const rows = slice.map(e => ({
@@ -69,9 +71,9 @@ function showEntries(entries, limit = 50) {
   }));
 
   console.log('\n' + tui.table(rows, [
-    { key: 'ts', label: 'Saat', minWidth: 10, render: r => tui.C.muted(r.ts) },
+    { key: 'ts', label: L('Saat', 'Time'), minWidth: 10, render: r => tui.C.muted(r.ts) },
     { key: 'action', label: 'Action', minWidth: 22, render: r => colorizeAction(r.action) },
-    { key: 'data', label: 'Veri', minWidth: 30, render: r => tui.C.dim(r.data) },
+    { key: 'data', label: L('Veri', 'Data'), minWidth: 30, render: r => tui.C.dim(r.data) },
   ], { borderStyle: 'round', zebra: true }));
   console.log('');
 }
@@ -88,10 +90,10 @@ function audit_cmd(args) {
 
   if (action === 'stats') {
     const stats = audit.stats24h();
-    console.log('\n' + tui.styled('  📊 Son 24 Saat Audit İstatistiği', { color: tui.PALETTE.primary, bold: true }));
+    console.log('\n' + tui.styled(L('  📊 Son 24 Saat Audit İstatistiği', '  📊 Last 24h Audit Stats'), { color: tui.PALETTE.primary, bold: true }));
     console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
-    console.log('\n  ' + tui.C.muted('Dönem: ') + tui.C.text(stats.period));
-    console.log('  ' + tui.C.muted('Toplam kayıt: ') + tui.styled(String(stats.total), { color: tui.PALETTE.primary, bold: true }));
+    console.log('\n  ' + tui.C.muted(L('Dönem: ', 'Period: ')) + tui.C.text(stats.period));
+    console.log('  ' + tui.C.muted(L('Toplam kayıt: ', 'Total records: ')) + tui.styled(String(stats.total), { color: tui.PALETTE.primary, bold: true }));
     console.log('');
 
     // TUI tablo ile
@@ -106,8 +108,8 @@ function audit_cmd(args) {
     if (rows.length > 0) {
       console.log(tui.table(rows, [
         { key: 'action', label: 'Action', minWidth: 22, render: r => colorizeAction(r.action) },
-        { key: 'count', label: 'Sayı', minWidth: 6, render: r => tui.styled(r.count, { color: tui.PALETTE.secondary, bold: true }) },
-        { key: 'bar', label: 'Dağılım', minWidth: 22, render: r => tui.styled(r.bar, { color: tui.PALETTE.primary }) },
+        { key: 'count', label: L('Sayı', 'Count'), minWidth: 6, render: r => tui.styled(r.count, { color: tui.PALETTE.secondary, bold: true }) },
+        { key: 'bar', label: L('Dağılım', 'Distribution'), minWidth: 22, render: r => tui.styled(r.bar, { color: tui.PALETTE.primary }) },
       ], { borderStyle: 'round', zebra: true }));
     }
     console.log('');
@@ -118,7 +120,7 @@ function audit_cmd(args) {
     const date = params[0] || new Date().toISOString().slice(0, 10);
     const entries = audit.readLog(date);
     if (entries.length === 0) {
-      console.log(chalk.yellow(`\n  ⚠️  ${date} için kayıt yok.\n`));
+      console.log(chalk.yellow(`\n  ⚠️  ${date} ${L('için kayıt yok.', '— no records.')}\n`));
       return;
     }
     showEntries(entries, 9999);
@@ -127,18 +129,18 @@ function audit_cmd(args) {
 
   if (action === 'cleanup') {
     const removed = audit.cleanup();
-    console.log(chalk.green(`\n  ✓ ${removed} eski log dosyası temizlendi (30 gün+).\n`));
+    console.log(chalk.green(`\n  ✓ ${removed} ${L('eski log dosyası temizlendi (30 gün+).', 'old log files cleaned (30 days+).')}\n`));
     return;
   }
 
   if (action === 'tail') {
-    console.log(chalk.cyan('\n  📡 Canlı audit log (Ctrl+C ile çık)...\n'));
+    console.log(chalk.cyan(L('\n  📡 Canlı audit log (Ctrl+C ile çık)...\n', '\n  📡 Live audit log (Ctrl+C to exit)...\n')));
     let lastSize = 0;
     const todayFile = audit.listLogFiles()[0];
     const interval = setInterval(() => {
       const current = audit.listLogFiles()[0];
       if (current !== todayFile) {
-        console.log(chalk.gray(`\n  ── yeni gün: ${current} ──`));
+        console.log(chalk.gray(`\n  ── ${L('yeni gün', 'new day')}: ${current} ──`));
       }
       const file = path.join(audit.AUDIT_DIR, audit.listLogFiles()[0]);
       try {
@@ -167,7 +169,7 @@ function audit_cmd(args) {
   if (action === 'search') {
     const query = params.join(' ').toLowerCase();
     if (!query) {
-      console.log(chalk.red('\n  ❌ Arama terimi gerekli: natureco audit search <query>\n'));
+      console.log(chalk.red(L('\n  ❌ Arama terimi gerekli: natureco audit search <query>\n', '\n  ❌ Search term required: natureco audit search <query>\n')));
       return;
     }
     const today = new Date().toISOString().slice(0, 10);
@@ -183,7 +185,7 @@ function audit_cmd(args) {
 
   if (action === 'files') {
     const files = audit.listLogFiles();
-    console.log(chalk.bold('\n  📁 Audit log dosyaları:\n'));
+    console.log(chalk.bold(L('\n  📁 Audit log dosyaları:\n', '\n  📁 Audit log files:\n')));
     for (const f of files) {
       const stat = fs.statSync(path.join(audit.AUDIT_DIR, f));
       const size = (stat.size / 1024).toFixed(1);
@@ -194,15 +196,15 @@ function audit_cmd(args) {
   }
 
   // Yardım
-  console.log(chalk.yellow('\n  Kullanım:'));
-  console.log(chalk.gray('    natureco audit               Bugünkü logları göster'));
-  console.log(chalk.gray('    natureco audit today         Bugünkü tüm loglar'));
-  console.log(chalk.gray('    natureco audit stats         24 saat istatistik'));
-  console.log(chalk.gray('    natureco audit show <date>   Belirli gün (YYYY-MM-DD)'));
-  console.log(chalk.gray('    natureco audit search <q>    Log ara'));
-  console.log(chalk.gray('    natureco audit files         Dosya listesi'));
-  console.log(chalk.gray('    natureco audit cleanup       30 günden eski logları sil'));
-  console.log(chalk.gray('    natureco audit tail          Canlı akış'));
+  console.log(chalk.yellow(L('\n  Kullanım:', '\n  Usage:')));
+  console.log(chalk.gray(L('    natureco audit               Bugünkü logları göster', '    natureco audit               Show today\'s logs')));
+  console.log(chalk.gray(L('    natureco audit today         Bugünkü tüm loglar', '    natureco audit today         All of today\'s logs')));
+  console.log(chalk.gray(L('    natureco audit stats         24 saat istatistik', '    natureco audit stats         24-hour stats')));
+  console.log(chalk.gray(L('    natureco audit show <date>   Belirli gün (YYYY-MM-DD)', '    natureco audit show <date>   Specific day (YYYY-MM-DD)')));
+  console.log(chalk.gray(L('    natureco audit search <q>    Log ara', '    natureco audit search <q>    Search logs')));
+  console.log(chalk.gray(L('    natureco audit files         Dosya listesi', '    natureco audit files         File list')));
+  console.log(chalk.gray(L('    natureco audit cleanup       30 günden eski logları sil', '    natureco audit cleanup       Delete logs older than 30 days')));
+  console.log(chalk.gray(L('    natureco audit tail          Canlı akış', '    natureco audit tail          Live stream')));
   console.log('');
 }
 
