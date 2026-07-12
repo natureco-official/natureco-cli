@@ -78,7 +78,7 @@
     "irc": "^0.5.2",
     "mattermost": "^3.4.0",
     "node-cron": "^4.2.1",
-    "node-telegram-bot-api": "^0.67.0",
+    "node-telegram-bot-api": "^1.1.2",
     "openai": "^6.45.0",
     "pino": "^8.21.0",
     "qrcode": "^1.5.4",
