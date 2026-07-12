@@ -87,8 +87,8 @@ async function chat(botName, options = {}) {
     console.log('');
     console.log(tui.styled('  🌿 NatureCo Chat v4.6+', { color: tui.PALETTE.primary, bold: true }));
     console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
-    console.log(tui.C.muted('  Chat komutu artık ') + tui.C.brand('repl') + tui.C.muted(' komutunu çağırıyor (Phase 9 TUI engine)'));
-    console.log(tui.C.muted('  Tüm özellikler korundu: memory, sessions, hooks, custom commands'));
+    console.log(tui.C.muted(L('  Chat komutu artık ', '  The chat command now ')) + tui.C.brand('repl') + tui.C.muted(L(' komutunu çağırıyor (Phase 9 TUI engine)', ' command (Phase 9 TUI engine)')));
+    console.log(tui.C.muted(L('  Tüm özellikler korundu: memory, sessions, hooks, custom commands', '  All features preserved: memory, sessions, hooks, custom commands')));
     console.log('');
     return repl(replArgs);
   }
@@ -97,11 +97,11 @@ async function chat(botName, options = {}) {
   if (options.list) {
     const sessions = listSessions('chat');
     if (!sessions.length) {
-      console.log(chalk.gray('\nKayıtlı oturum yok.\n'));
+      console.log(chalk.gray(L('\nKayıtlı oturum yok.\n', '\nNo saved sessions.\n')));
       return;
     }
     sessions.forEach(s => {
-      console.log(`  [${s.id}] ${s.savedAt.slice(0, 10)} — ${s.preview || '(boş)'} (${s.messageCount} mesaj)`);
+      console.log(`  [${s.id}] ${s.savedAt.slice(0, 10)} — ${s.preview || L('(boş)', '(empty)')} (${s.messageCount} ${L('mesaj', 'messages')})`);
     });
     console.log();
     return;
@@ -130,7 +130,7 @@ async function chat(botName, options = {}) {
       const { selectedBot } = await inquirer.prompt([{
         type: 'list',
         name: 'selectedBot',
-        message: 'Bot seçin:',
+        message: L('Bot seçin:', 'Select bot:'),
         choices: botList.bots.map(b => ({ name: b.name, value: b.id })),
       }]);
       bot = botList.bots.find(b => b.id === selectedBot);
@@ -174,7 +174,7 @@ async function chat(botName, options = {}) {
   } else if (options.continue) {
     const last = loadLastSession('chat');
     if (last) {
-      console.log(chalk.cyan(`  ↻ Son oturum yüklendi (${last.messages.length} mesaj)\n`));
+      console.log(chalk.cyan(`  ↻ ${L('Son oturum yüklendi', 'Last session loaded')} (${last.messages.length} ${L('mesaj', 'messages')})\n`));
     }
     session = createSession(bot.id, bot.name);
   } else {
@@ -195,7 +195,7 @@ async function chat(botName, options = {}) {
   console.clear();
   console.log(centerText(ASCII_LOGO.map((line, i) => i < 5 ? chalk.green(line) : chalk.gray(line)).join('\n')));
   console.log();
-  console.log(centerText(chalk.cyan(`(\\_/)  Hoş geldin, ${userName}  ·  ${displayBotName} hazır  ·  v${version}`)));
+  console.log(centerText(chalk.cyan(`(\\_/)  ${L('Hoş geldin', 'Welcome')}, ${userName}  ·  ${displayBotName} ${L('hazır', 'ready')}  ·  v${version}`)));
   console.log(chalk.gray('─'.repeat(process.stdout.columns || 120)));
   console.log();
 
@@ -224,7 +224,7 @@ async function chat(botName, options = {}) {
     });
   }
 
-  console.log(centerText(chalk.gray(`${shortModel}  ·  /help için yardım  ·  Ctrl+C çıkış`)));
+  console.log(centerText(chalk.gray(`${shortModel}  ·  /help ${L('için yardım', 'for help')}  ·  Ctrl+C ${L('çıkış', 'exit')}`)));
   console.log(chalk.gray('─'.repeat(process.stdout.columns || 120)));
   console.log();
 
@@ -273,7 +273,7 @@ async function chat(botName, options = {}) {
               bot = newBot;
               conversationId = null;
               session = createSession(bot.id, bot.name);
-              console.log(chalk.green(`Bot değişti: ${newBot.name}`));
+              console.log(chalk.green(`${L('Bot değişti', 'Bot changed')}: ${newBot.name}`));
             } else {
               console.log(chalk.red(`${L('Bot bulunamadı', 'Bot not found')}: ${newName}`));
             }
@@ -282,18 +282,18 @@ async function chat(botName, options = {}) {
           return;
         case 'skills':
           const skills = getSkills();
-          if (!skills.length) console.log(chalk.gray('Yüklü skill yok.'));
+          if (!skills.length) console.log(chalk.gray(L('Yüklü skill yok.', 'No skills installed.')));
           else skills.forEach(s => console.log(chalk.cyan(`· ${s.name}`) + chalk.gray(`  ${s.description}`)));
           console.log();
           return;
         case 'memory':
           if (args[0] === 'clear') {
             clearMemory(bot.id);
-            console.log(chalk.green('✓ Hafıza temizlendi'));
+            console.log(chalk.green(L('✓ Hafıza temizlendi', '✓ Memory cleared')));
           } else {
             const m = loadMemory(bot.id);
             if (m.botName) console.log(chalk.cyan('Bot: ') + m.botName);
-            if (m.name) console.log(chalk.cyan('İsim: ') + m.name);
+            if (m.name) console.log(chalk.cyan(L('İsim: ', 'Name: ')) + m.name);
             (m.facts || []).slice(0, 8).forEach(f => {
               const v = typeof f === 'string' ? f : f.value;
               console.log(chalk.gray(`· ${v}`));
@@ -317,7 +317,7 @@ async function chat(botName, options = {}) {
           return;
         case 'commands':
           const cmds = getCommands();
-          if (!cmds.length) console.log(chalk.gray('Özel komut yok.'));
+          if (!cmds.length) console.log(chalk.gray(L('Özel komut yok.', 'No custom commands.')));
           else cmds.forEach(c => console.log(chalk.cyan(`/${c.name}`)));
           console.log();
           return;
@@ -406,10 +406,10 @@ async function chat(botName, options = {}) {
       saveSession('chat', historyMessages, { botId: bot.id, botName: bot.name });
     }
     if (filesChanged > 0 || commandsRun > 0 || messagesCount > 0) {
-      console.log(chalk.gray('\n─── Session Özeti ───'));
-      if (filesChanged > 0) console.log(chalk.green(`  ✓ ${filesChanged} dosya değiştirildi`));
-      if (commandsRun > 0) console.log(chalk.green(`  ✓ ${commandsRun} komut çalıştırıldı`));
-      console.log(chalk.cyan(`  ✓ ${messagesCount} mesaj gönderildi`));
+      console.log(chalk.gray(L('\n─── Session Özeti ───', '\n─── Session Summary ───')));
+      if (filesChanged > 0) console.log(chalk.green(`  ✓ ${filesChanged} ${L('dosya değiştirildi', 'files changed')}`));
+      if (commandsRun > 0) console.log(chalk.green(`  ✓ ${commandsRun} ${L('komut çalıştırıldı', 'commands run')}`));
+      console.log(chalk.cyan(`  ✓ ${messagesCount} ${L('mesaj gönderildi', 'messages sent')}`));
       console.log();
     }
     console.log(chalk.gray('👋 Goodbye!\n'));
