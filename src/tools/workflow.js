@@ -300,7 +300,7 @@ async function workflow(params) {
         '- Dosya degistirmeden ONCE read_file ile oku, edit_file ile hedefli degistir. Yerini bilmiyorsan file_search/grep_search ile kesfet.',
         '- Kod yazinca/degistirince bash ile calistir/test et, hata varsa duzelt. Coklu dosya = her biri icin AYRI write_file. Hep TAM yol; "masaustu" = ' + desktop + '.',
         '- Arac sonuclari <tool_results> icinde doner; is bitince arac cagirmadan tek cumlelik ozet yaz. Basit sohbette arac cagirma, dogrudan yanitla.',
-        execFull ? '- Kullanici uygulama ac / tarayici kontrol / muzik cal / ekran / GUI istediyse yukaridaki computer-use araclarini KULLAN — "yapamam/engellendi" DEME, dogrudan ilgili araci cagir.' : '',
+        execFull ? '- Kullanici uygulama ac / tarayici kontrol / muzik cal / ekran / GUI istediyse yukaridaki computer-use araclarini KULLAN — "yapamam/engellendi" DEME, dogrudan ilgili araci cagir. Gorsel geri bildirim gerektiren cok adimli GUI gorevlerinde tekil screenshot/click yerine computer_use_loop kullan; basariyi arac dogrulamadan tamamlandi deme.' : '',
         fullToolsBlock,
         treeDigest ? ('\n\nBILDIGIN KALICI HAFIZA (bu kullaniciya ait, onceki oturumlardan hatirladiklarin; kullaniciya ozel bir sey sorulursa ONCE BUNU KULLAN — dosya arama, uydurma):\n' + treeDigest) : '',
         treeIndex ? ('\n\nHafiza agaci yapisi (yukarida olmayan detay icin memory_tree(action:read/search) ile ilgili kok/dali oku):\n' + treeIndex) : '',
@@ -337,7 +337,7 @@ async function workflow(params) {
       }
 
       // Araç aktivitesi gösterimi (TTY streaming): her araç icin "🔧 label · hint ✓/✗"
-      const TOOL_LABEL = { write_file: 'dosya yaz', read_file: 'oku', edit_file: 'düzenle', bash: 'komut', file_search: 'ara', list_dir: 'listele', skill_view: 'skill', browser: 'tarayıcı', browser_use: 'tarayıcı', mac_app_open: 'uygulama aç', mac_app_quit: 'uygulama kapat', computer_use: 'GUI', social_open: 'medya aç', macos_screenshot: 'ekran görüntüsü' };
+      const TOOL_LABEL = { write_file: 'dosya yaz', read_file: 'oku', edit_file: 'düzenle', bash: 'komut', file_search: 'ara', list_dir: 'listele', skill_view: 'skill', browser: 'tarayıcı', browser_use: 'tarayıcı', mac_app_open: 'uygulama aç', mac_app_quit: 'uygulama kapat', computer_use: 'GUI', computer_use_loop: 'GUI görsel döngü', social_open: 'medya aç', macos_screenshot: 'ekran görüntüsü' };
       function briefHint(args) {
         if (!args || typeof args !== 'object') return '';
         const v = args.appName || args.query || args.name || args.url || args.command || args.pattern || args.path || args.action;
@@ -350,7 +350,10 @@ async function workflow(params) {
           process.stdout.write('\n\x1b[2m  🔧 ' + label + (hint ? ' · ' + hint : '') + '\x1b[0m');
         } else {
           const rec = (ev.records || [])[0] || {};
-          process.stdout.write(rec.status === 'done' ? ' \x1b[32m✓\x1b[0m' : ' \x1b[31m✗\x1b[0m');
+          // Satırı burada bitir. Sonraki model çağrısının thinking göstergesi
+          // mevcut satırı \r + erase-line ile temizlediği için newline yoksa
+          // kullanıcı araç adını ve sonucunu hiç göremiyordu.
+          process.stdout.write((rec.status === 'done' ? ' \x1b[32m✓\x1b[0m' : ' \x1b[31m✗\x1b[0m') + '\n');
         }
       } : null;
 

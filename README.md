@@ -51,6 +51,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.64.2** | **Reliable macOS GUI automation:** tool names stay visible in REPL transcripts, visual tasks use a verified screenshot loop, MiniMax GUI routing avoids duplicate paths, and failed/unverified actions no longer claim success. |
 | **v5.64.1** | **Reliable follow-ups + lower token cost:** `natureco code` now preserves same-session context across workflow calls and caps repeated history by token budget (1,024 / 2,048 / 8,192). Provider labels are rendered correctly. |
 | **v5.64.0** | **Unified secure agent foundation:** one execution gateway, hard-stop guardrails, schema-validated tools, rollback/checkpoints, sourced memory, resilient channel delivery, OS keychains and encrypted sync. |
 | **v5.43.0** | **Security:** 9 vulnerabilities fixed in a 3-round audit (RCE chain, admin-rpc auth, cron persistence, channel access control). See [`SECURITY_AUDIT_SUMMARY.md`](SECURITY_AUDIT_SUMMARY.md). |

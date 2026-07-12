@@ -2,6 +2,18 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.64.2] - 2026-07-13 — Visible and reliable macOS GUI automation
+
+### Fixed
+- REPL workflow tool activity no longer disappears when the next thinking indicator starts; every tool name and its success/failure marker remains visible in the transcript.
+- Multi-step visual desktop tasks are routed to the screenshot-driven `computer_use_loop` instead of blind single click/type calls.
+- The visual loop now uses the canonical provider endpoint builder, avoiding duplicated `/v1/v1` paths with MiniMax configurations.
+- macOS special keys such as Enter, Tab and Escape now use correct AppleScript key codes.
+- Screenshot capture and GUI-loop failures can no longer be reported as successful completion; missing files, failed actions and unverified max-step exits return explicit failures.
+
+### Tests
+- Added regression coverage for GUI-loop action failures and MiniMax endpoint construction with and without a trailing `/v1`.
+
 ## [5.64.1] - 2026-07-13 — Reliable coding context and token-budgeted follow-ups
 
 ### Fixed

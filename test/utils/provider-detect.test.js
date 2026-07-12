@@ -11,6 +11,7 @@ const {
   isGroq,
   isMiniMax,
   isOllama,
+  buildChatEndpoint,
 } = require('../../src/utils/provider-detect');
 
 describe('detectProvider — URL routing', () => {
@@ -46,6 +47,16 @@ describe('detectProvider — URL routing', () => {
   it('case-insensitive on both URL and model', () => {
     expect(detectProvider('HTTPS://API.ANTHROPIC.COM', 'CLAUDE-3')).toBe('anthropic');
     expect(detectProvider('https://API.MINIMAX.IO', '')).toBe('minimax');
+  });
+});
+
+describe('buildChatEndpoint — GUI loop routing', () => {
+  it.each([
+    ['https://api.minimax.io', 'https://api.minimax.io/v1/text/chatcompletion_v2'],
+    ['https://api.minimax.io/v1', 'https://api.minimax.io/v1/text/chatcompletion_v2'],
+    ['https://api.openai.com/v1', 'https://api.openai.com/v1/chat/completions'],
+  ])('builds %p without duplicated path segments', (url, expected) => {
+    expect(buildChatEndpoint(url)).toBe(expected);
   });
 });
 

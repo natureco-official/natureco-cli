@@ -77,7 +77,9 @@ async function computerUse(params) {
     const outputFile = file || path.join(os.tmpdir(), 'natureco_screen_' + Date.now() + '.png');
     try {
       if (PLATFORM === 'darwin') {
-        spawnSync('screencapture', ['-x', outputFile], { timeout: 5000 });
+        const capture = spawnSync('screencapture', ['-x', outputFile], { timeout: 5000, encoding: 'utf8' });
+        if (capture.error) throw capture.error;
+        if (capture.status !== 0) throw new Error(capture.stderr || `screencapture exit ${capture.status}`);
       } else if (PLATFORM === 'win32') {
         spawnSync('powershell', ['-Command',
           'Add-Type -AssemblyName System.Windows.Forms; ' +
@@ -89,7 +91,13 @@ async function computerUse(params) {
       } else {
         spawnSync('import', ['-window', 'root', outputFile], { timeout: 5000 });
       }
-      return { success: true, file: outputFile, platform: PLATFORM, note: 'Ekran goruntusu alindi' };
+      if (!fs.existsSync(outputFile)) throw new Error('Screenshot file was not created');
+      return {
+        success: true,
+        file: outputFile,
+        platform: PLATFORM,
+        note: 'Screenshot saved. This tool returns a file path, not visual analysis; use computer_use_loop for autonomous visual interaction.',
+      };
     } catch (e) {
       return { success: false, error: 'Screenshot hatasi: ' + e.message };
     }
@@ -151,9 +159,10 @@ async function computerUse(params) {
       }
 
       if (KEY_MAP_DARWIN[actualKey]) {
+        const keyCodes = { return: 36, tab: 48, escape: 53, up: 126, down: 125, left: 123, right: 124, delete: 51, forwarddelete: 117, home: 115, end: 119, 'page up': 116, 'page down': 121, space: 49 };
         const keyName = KEY_MAP_DARWIN[actualKey];
         const usingClause = mods.length > 0 ? ' using {' + mods.join(', ') + '}' : '';
-        const r = osaScript('tell application "System Events" to keystroke ' + keyName + usingClause);
+        const r = osaScript('tell application "System Events" to key code ' + keyCodes[keyName] + usingClause);
         if (!r.success) return r;
       } else if (actualKey) {
         const usingClause = mods.length > 0 ? ' using {' + mods.join(', ') + '}' : '';

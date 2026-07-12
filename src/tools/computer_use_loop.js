@@ -9,22 +9,15 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { buildChatEndpoint } = require('../utils/provider-detect');
 
 function loadConfig() {
   try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; }
 }
 
-function isMiniMax(url) { return url && (url.includes('minimax.io') || url.includes('minimaxi.com') || url.includes('minimax.cn')); }
-function isGemini(url) { return url && (url.includes('generativelanguage.googleapis.com') || url.includes('gemini')); }
-
 function apiCall(providerUrl, apiKey, body) {
   return new Promise((resolve, reject) => {
-    const base = providerUrl.replace(/\/+$/, '');
-    const endpoint = isMiniMax(base)
-      ? base + '/v1/text/chatcompletion_v2'
-      : isGemini(base)
-        ? base + '/openai/chat/completions'
-        : base + '/chat/completions';
+    const endpoint = buildChatEndpoint(providerUrl);
     const req = https.request(endpoint, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
@@ -46,6 +39,7 @@ function apiCall(providerUrl, apiKey, body) {
 }
 
 function screenshotBase64() {
+  if (os.platform() !== 'darwin') throw new Error('computer_use_loop currently requires macOS');
   const file = path.join(os.tmpdir(), 'ncloop_' + Date.now() + '.png');
   require('child_process').execSync('screencapture -x "' + file + '"', { timeout: 5000 });
   const buf = fs.readFileSync(file);
@@ -73,7 +67,7 @@ function executeAction(action, params) {
       case 'type':
         return osaScript('tell application "System Events" to keystroke "' + ESC(params.text) + '"');
       case 'keypress': {
-        const KEY_MAP = { enter: 'return', tab: 'tab', escape: 'escape', up: 'up', down: 'down', left: 'left', right: 'right', backspace: 'delete', space: 'space' };
+        const KEY_CODES = { enter: 36, return: 36, tab: 48, escape: 53, up: 126, down: 125, left: 123, right: 124, backspace: 51, delete: 117, space: 49 };
         const MOD_MAP = { cmd: 'command down', command: 'command down', option: 'option down', alt: 'option down', ctrl: 'control down', shift: 'shift down' };
         const parts = params.key.toLowerCase().split('+').map(p => p.trim());
         const mods = [];
@@ -82,9 +76,12 @@ function executeAction(action, params) {
           if (MOD_MAP[p]) mods.push(MOD_MAP[p]);
           else actual = p;
         }
-        const k = KEY_MAP[actual] || actual;
         const using = mods.length > 0 ? ' using {' + mods.join(', ') + '}' : '';
-        return osaScript('tell application "System Events" to keystroke ' + k + using);
+        if (Object.prototype.hasOwnProperty.call(KEY_CODES, actual)) {
+          return osaScript('tell application "System Events" to key code ' + KEY_CODES[actual] + using);
+        }
+        if (!actual) return { success: false, error: 'A key is required with the modifier' };
+        return osaScript('tell application "System Events" to keystroke "' + ESC(actual) + '"' + using);
       }
       case 'mouse_move':
         return osaScript('tell application "System Events" to set position of mouse to {' + params.x + ', ' + params.y + '}');
@@ -122,10 +119,15 @@ async function loop(goal, maxSteps) {
   const model = cfg.providerModel || 'default';
 
   if (!providerUrl || !apiKey) {
-    return JSON.stringify({ success: false, error: 'Provider not configured' });
+    return { success: false, error: 'Provider not configured' };
+  }
+
+  if (os.platform() !== 'darwin') {
+    return { success: false, error: 'computer_use_loop currently requires macOS' };
   }
 
   const steps = [];
+  let completed = false;
   for (let i = 0; i < maxSteps; i++) {
     try {
       // 1. Screenshot
@@ -175,6 +177,7 @@ async function loop(goal, maxSteps) {
       // 3. Execute
       if (decision.action === 'done') {
         steps.push({ step: i + 1, action: 'done', reason: decision.reason || 'Goal achieved' });
+        completed = true;
         break;
       }
 
@@ -187,6 +190,7 @@ async function loop(goal, maxSteps) {
         const retryResult = executeAction(decision.action, decision);
         if (!retryResult.success) {
           steps.push({ step: i + 1, action: 'error', error: execResult.error });
+          return { success: false, error: execResult.error, goal, totalSteps: steps.length, steps };
         }
       }
 
@@ -195,7 +199,7 @@ async function loop(goal, maxSteps) {
 
       // Safety: if too many steps, break
       if (i >= maxSteps - 1) {
-        steps.push({ step: i + 1, action: 'done', reason: 'Max steps reached' });
+        steps.push({ step: i + 1, action: 'error', error: 'Max steps reached before the goal was verified' });
       }
     } catch (e) {
       steps.push({ step: i + 1, action: 'error', error: e.message });
@@ -203,7 +207,10 @@ async function loop(goal, maxSteps) {
     }
   }
 
-  return JSON.stringify({ success: true, goal, totalSteps: steps.length, steps });
+  if (!completed) {
+    return { success: false, error: 'Goal was not verified', goal, totalSteps: steps.length, steps };
+  }
+  return { success: true, goal, totalSteps: steps.length, steps };
 }
 
 const name = 'computer_use_loop';
@@ -221,4 +228,4 @@ async function execute(params) {
   return await loop(params.goal, params.maxSteps || 30);
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, parameters, execute, executeAction };
