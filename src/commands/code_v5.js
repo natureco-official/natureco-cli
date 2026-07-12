@@ -18,6 +18,8 @@ const path = require("path");
 const os = require("os");
 const readline = require("readline");
 const chalk = require("chalk");
+const { getLang: _gl } = require("../utils/i18n");
+const L = (tr, en) => (_gl() === "en" ? en : tr);
 const tui = require("../utils/tui");
 const { getConfig } = require("../utils/config");
 const { loadToolDefinitions, executeTool, toOpenAIFormat } = require("../utils/tools");
@@ -56,7 +58,7 @@ async function apiRequest(url, key, body) {
       res.on("data", c => body += c);
       res.on("end", () => {
         if (res.statusCode === 200) {
-          try { resolve(JSON.parse(body)); } catch (e) { reject(new Error("Parse hatasi")); }
+          try { resolve(JSON.parse(body)); } catch (e) { reject(new Error(L("Parse hatasi", "Parse error"))); }
         } else reject(new Error("HTTP " + res.statusCode + ": " + body.slice(0, 200)));
       });
     });
@@ -92,7 +94,7 @@ async function sendMessageWithTools(providerUrl, providerKey, model, messages, t
   } catch (err) {
     const fb = fallbackChain.recordError(body.model, err);
     if (fb.fallback) {
-      console.log(tui.C.yellow(`\n  ⚠ ${body.model} başarısız → ${fb.nextModel} deneniyor...\n`));
+      console.log(tui.C.yellow(`\n  ⚠ ${body.model} ${L('başarısız', 'failed')} → ${fb.nextModel} ${L('deneniyor...', 'trying...')}\n`));
       return sendMessageWithTools(providerUrl, providerKey, fb.nextModel, messages, toolDefs);
     }
     throw err;
@@ -128,24 +130,24 @@ function assessRisk(tool, args) {
 
     // Dosya/klasör silme
     if (/\brm\s+(-[rf]+\s+)*/.test(cmd) || /rmdir/.test(cmd)) {
-      return { requiresApproval: true, level: "high", reason: `Dosya silme komutu: ${args.command}` };
+      return { requiresApproval: true, level: "high", reason: `${L('Dosya silme komutu', 'File deletion command')}: ${args.command}` };
     }
     if (cmd.includes("sudo ") || cmd.includes("doas ")) {
-      return { requiresApproval: true, level: "high", reason: `Yetki yükseltme: ${args.command}` };
+      return { requiresApproval: true, level: "high", reason: `${L('Yetki yükseltme', 'Privilege escalation')}: ${args.command}` };
     }
     if (cmd.includes("dd if=") || cmd.includes("mkfs") || cmd.includes("fdisk")) {
-      return { requiresApproval: true, level: "high", reason: `Disk işlemi: ${args.command}` };
+      return { requiresApproval: true, level: "high", reason: `${L('Disk işlemi', 'Disk operation')}: ${args.command}` };
     }
     if (cmd.match(/^\s*mv\s+.*\/(?:\.|\.\.)/)) {
-      return { requiresApproval: true, level: "medium", reason: `Üzerine yazma riski: ${args.command}` };
+      return { requiresApproval: true, level: "medium", reason: `${L('Üzerine yazma riski', 'Overwrite risk')}: ${args.command}` };
     }
     // chmod 777 veya chown -R
     if (/chmod\s+(-[rR]+\s+)*777/.test(cmd) || /chown\s+-R/.test(cmd)) {
-      return { requiresApproval: true, level: "medium", reason: `İzin değişikliği: ${args.command}` };
+      return { requiresApproval: true, level: "medium", reason: `${L('İzin değişikliği', 'Permission change')}: ${args.command}` };
     }
     // git push --force
     if (/git\s+push.*--force/.test(cmd) || /git\s+push.*-f\s/.test(cmd)) {
-      return { requiresApproval: true, level: "high", reason: `Zorla push: ${args.command}` };
+      return { requiresApproval: true, level: "high", reason: `${L('Zorla push', 'Force push')}: ${args.command}` };
     }
     // git reset --hard
     if (/git\s+reset\s+--hard/.test(cmd)) {
@@ -153,19 +155,19 @@ function assessRisk(tool, args) {
     }
     // Üretim/kök dizin
     if (cmd.includes("/etc/") || cmd.includes("/usr/") || cmd.includes("/var/") || cmd.includes("/System/")) {
-      return { requiresApproval: true, level: "high", reason: `Sistem dizinine erişim: ${args.command}` };
+      return { requiresApproval: true, level: "high", reason: `${L('Sistem dizinine erişim', 'System directory access')}: ${args.command}` };
     }
     // curl/wget internet download
     if (/curl.*\|\s*(bash|sh)/.test(cmd) || /wget.*\|\s*(bash|sh)/.test(cmd)) {
-      return { requiresApproval: true, level: "high", reason: `İnternet üzerinden script çalıştırma: ${args.command}` };
+      return { requiresApproval: true, level: "high", reason: `${L('İnternet üzerinden script çalıştırma', 'Running a script from the internet')}: ${args.command}` };
     }
     // mac_app_quit veya killall
     if (cmd.includes("killall") || cmd.includes("pkill") || cmd.includes("kill -9")) {
-      return { requiresApproval: true, level: "high", reason: `Süreç sonlandırma: ${args.command}` };
+      return { requiresApproval: true, level: "high", reason: `${L('Süreç sonlandırma', 'Process termination')}: ${args.command}` };
     }
     // .natureco veya önemli dosyalara dokunma
     if (cmd.includes(".natureco") && (cmd.includes("rm") || cmd.includes("mv"))) {
-      return { requiresApproval: true, level: "high", reason: `NatureCo dizininde tehlikeli işlem: ${args.command}` };
+      return { requiresApproval: true, level: "high", reason: `${L('NatureCo dizininde tehlikeli işlem', 'Dangerous operation in the NatureCo directory')}: ${args.command}` };
     }
   }
 
@@ -175,7 +177,7 @@ function assessRisk(tool, args) {
 
   // mac_app_quit - uygulama kapatma
   if (tool === "mac_app_quit") {
-    return { requiresApproval: true, level: "medium", reason: `Uygulama kapatma: ${args.app || args.name || "?"}` };
+    return { requiresApproval: true, level: "medium", reason: `${L('Uygulama kapatma', 'App quit')}: ${args.app || args.name || "?"}` };
   }
 
   // write_file / edit_file - kritik yollara yazma
@@ -183,13 +185,13 @@ function assessRisk(tool, args) {
     const path = (args.path || args.file || "").toLowerCase();
     // Hassas dosyalar
     if (path.includes(".env") || path.includes("credentials") || path.includes("secret")) {
-      return { requiresApproval: true, level: "high", reason: `Hassas dosya: ${args.path}` };
+      return { requiresApproval: true, level: "high", reason: `${L('Hassas dosya', 'Sensitive file')}: ${args.path}` };
     }
     if (path.includes("/etc/") || path.includes("/usr/") || path.includes("~/.ssh/")) {
-      return { requiresApproval: true, level: "high", reason: `Sistem dosyası: ${args.path}` };
+      return { requiresApproval: true, level: "high", reason: `${L('Sistem dosyası', 'System file')}: ${args.path}` };
     }
     if (path.includes(".natureco/config.json") || path.includes(".natureco/soul/")) {
-      return { requiresApproval: true, level: "medium", reason: `NatureCo config dosyası: ${args.path}` };
+      return { requiresApproval: true, level: "medium", reason: `${L('NatureCo config dosyası', 'NatureCo config file')}: ${args.path}` };
     }
   }
 
@@ -216,7 +218,7 @@ function printToolCallSafe(name, args, result) {
   // Result'tan sadece status goster, yol/size gizle
   if (!result) return;
   if (result.error) {
-    console.log(tui.styled("     ✗ Hata: " + result.error.slice(0, 100), { color: tui.PALETTE.danger }));
+    console.log(tui.styled(L("     ✗ Hata: ", "     ✗ Error: ") + result.error.slice(0, 100), { color: tui.PALETTE.danger }));
   } else {
     const success = result.success !== false;
     const resultStr = typeof result.result === "string"
@@ -232,7 +234,7 @@ function printToolCallSafe(name, args, result) {
       .replace(/"fileCount":\d+/g, "");
     const statusIcon = success ? "✓" : "✗";
     const statusColor = success ? tui.PALETTE.success : tui.PALETTE.danger;
-    console.log(tui.styled(`     ${statusIcon} Sonuç: ${cleanResult.trim()}`, { color: statusColor }));
+    console.log(tui.styled(`     ${statusIcon} ${L('Sonuç', 'Result')}: ${cleanResult.trim()}`, { color: statusColor }));
   }
 }
 
@@ -261,10 +263,10 @@ function printToolCall(name, args, result) {
   console.log("  " + tui.styled("     Args: " + argsStr, { color: tui.PALETTE.muted }));
   if (result) {
     if (result.error) {
-      console.log("  " + tui.styled("     ✗ Hata: " + result.error.slice(0, 200), { color: tui.PALETTE.danger }));
+      console.log("  " + tui.styled(L("     ✗ Hata: ", "     ✗ Error: ") + result.error.slice(0, 200), { color: tui.PALETTE.danger }));
     } else if (result.success !== false) {
       const out = typeof result === "string" ? result.slice(0, 200) : JSON.stringify(result).slice(0, 200);
-      console.log("  " + tui.styled("     ✓ Sonuç: " + out, { color: tui.PALETTE.success }));
+      console.log("  " + tui.styled(L("     ✓ Sonuç: ", "     ✓ Result: ") + out, { color: tui.PALETTE.success }));
     }
   }
 }
@@ -298,7 +300,7 @@ function scanProject(cwd) {
 async function codeV5(targetPath) {
   const config = getConfig();
   if (!config.providerUrl || !config.providerApiKey) {
-    console.log(tui.C.red("\n  ❌ Provider ayarlı değil. Önce: natureco setup\n"));
+    console.log(tui.C.red(L("\n  ❌ Provider ayarlı değil. Önce: natureco setup\n", "\n  ❌ Provider not configured. First: natureco setup\n")));
     return;
   }
 
@@ -347,7 +349,7 @@ async function codeV5(targetPath) {
       execute: async (args) => {
         const ok = planMode.exit(args.plan);
         if (!ok) return { error: 'Not in plan mode.' };
-        console.log(tui.C.cyan('\n  📋 Plan sunuldu. Onay için /plan approve yazın, red için /plan reject.\n'));
+        console.log(tui.C.cyan(L('\n  📋 Plan sunuldu. Onay için /plan approve yazın, red için /plan reject.\n', '\n  📋 Plan submitted. Type /plan approve to approve, /plan reject to reject.\n')));
         return { result: `Plan submitted.\n\n${args.plan}` };
       },
     },
@@ -437,22 +439,22 @@ async function codeV5(targetPath) {
 
   // Project context
   if (projectCtx) {
-    console.log("\n  " + tui.C.muted("📂 Proje bağlamı:"));
+    console.log("\n  " + tui.C.muted(L("📂 Proje bağlamı:", "📂 Project context:")));
     if (projectCtx.readme) console.log("    " + tui.C.muted("• README: ") + tui.C.text(projectCtx.readme));
     if (projectCtx.configFiles.length) {
       console.log("    " + tui.C.muted("• Config: ") + tui.C.text(projectCtx.configFiles.join(", ")));
     }
     if (projectCtx.dirs.length) {
-      console.log("    " + tui.C.muted("• Klasörler: ") + tui.C.text(projectCtx.dirs.slice(0, 8).join(", ")));
+      console.log("    " + tui.C.muted(L("• Klasörler: ", "• Folders: ")) + tui.C.text(projectCtx.dirs.slice(0, 8).join(", ")));
     }
-    console.log("    " + tui.C.muted("• Toplam dosya: ") + tui.C.text(String(projectCtx.totalFiles)));
+    console.log("    " + tui.C.muted(L("• Toplam dosya: ", "• Total files: ")) + tui.C.text(String(projectCtx.totalFiles)));
   }
 
-  console.log("\n  " + tui.C.muted("Komutlar:"));
-  console.log("    " + tui.C.amber("/plan on|approve|reject|show") + tui.C.muted(" — Plan modu"));
-  console.log("    " + tui.C.amber("/summary") + tui.C.muted(" — Oturum özeti"));
-  console.log("    " + tui.C.amber("/done") + tui.C.muted("    — Özet + çıkış"));
-  console.log("    " + tui.C.amber("Ctrl+C") + tui.C.muted("  — Çıkış"));
+  console.log("\n  " + tui.C.muted(L("Komutlar:", "Commands:")));
+  console.log("    " + tui.C.amber("/plan on|approve|reject|show") + tui.C.muted(L(" — Plan modu", " — Plan mode")));
+  console.log("    " + tui.C.amber("/summary") + tui.C.muted(L(" — Oturum özeti", " — Session summary")));
+  console.log("    " + tui.C.amber("/done") + tui.C.muted(L("    — Özet + çıkış", "    — Summary + exit")));
+  console.log("    " + tui.C.amber("Ctrl+C") + tui.C.muted(L("  — Çıkış", "  — Exit")));
   console.log("");
 
   // Three-tier system prompt (Hermes-style)
@@ -461,7 +463,7 @@ async function codeV5(targetPath) {
   const projectRules = discoverProjectRules(cwd);
   const promptOpts = {
     botName: 'Code Agent',
-    userName: cfg.userName || 'kullanıcı',
+    userName: cfg.userName || L('kullanıcı', 'user'),
     skillsIndexBlock,
     projectRules,
     hasHistory: false,
@@ -497,19 +499,19 @@ async function codeV5(targetPath) {
         const arg = input.slice(6).trim();
         const pm = getPlanMode();
         if (arg === "on" || arg === "enter") {
-          if (pm.enter()) console.log(tui.C.cyan('\n  📋 Plan modu aktif.\n'));
-          else console.log(tui.C.yellow('  Zaten plan modunda.'));
+          if (pm.enter()) console.log(tui.C.cyan(L('\n  📋 Plan modu aktif.\n', '\n  📋 Plan mode active.\n')));
+          else console.log(tui.C.yellow(L('  Zaten plan modunda.', '  Already in plan mode.')));
         } else if (arg === "approve") {
-          if (pm.inReview()) { pm.approve(); console.log(tui.C.green('  ✓ Plan onaylandı.\n')); }
-          else console.log(tui.C.yellow('  Onay bekleyen plan yok.'));
+          if (pm.inReview()) { pm.approve(); console.log(tui.C.green(L('  ✓ Plan onaylandı.\n', '  ✓ Plan approved.\n'))); }
+          else console.log(tui.C.yellow(L('  Onay bekleyen plan yok.', '  No plan awaiting approval.')));
         } else if (arg === "reject") {
-          if (pm.inReview()) { pm.reject(); console.log(tui.C.amber('  ⨯ Plan reddedildi.\n')); }
-          else console.log(tui.C.yellow('  Onay bekleyen plan yok.'));
+          if (pm.inReview()) { pm.reject(); console.log(tui.C.amber(L('  ⨯ Plan reddedildi.\n', '  ⨯ Plan rejected.\n'))); }
+          else console.log(tui.C.yellow(L('  Onay bekleyen plan yok.', '  No plan awaiting approval.')));
         } else if (arg === "show") {
-          if (pm.planHistory.length > 0) console.log(tui.C.cyan('\n  📋 Son Plan:\n  ' + pm.planHistory[pm.planHistory.length - 1].plan.replace(/\n/g, '\n  ') + '\n'));
-          else console.log(tui.C.yellow('  Henüz plan yok.'));
+          if (pm.planHistory.length > 0) console.log(tui.C.cyan(L('\n  📋 Son Plan:\n  ', '\n  📋 Last Plan:\n  ') + pm.planHistory[pm.planHistory.length - 1].plan.replace(/\n/g, '\n  ') + '\n'));
+          else console.log(tui.C.yellow(L('  Henüz plan yok.', '  No plan yet.')));
         } else {
-          console.log(tui.C.yellow('  Kullanım: /plan on|approve|reject|show'));
+          console.log(tui.C.yellow(L('  Kullanım: /plan on|approve|reject|show', '  Usage: /plan on|approve|reject|show')));
         }
         process.stdout.write("\n  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
         return ask();
@@ -548,12 +550,12 @@ async function codeV5(targetPath) {
           return `  ${s} ${t}: ${summary}`;
         }).join('\n');
         const skillInfo = wf.skillsLoaded && wf.skillsLoaded.length > 0
-          ? `\n\nKullanilan skill'ler: ${wf.skillsLoaded.join(', ')}`
+          ? `\n\n${L("Kullanilan skill'ler", 'Skills used')}: ${wf.skillsLoaded.join(', ')}`
           : '';
         const preWfLen = messages.length;
         messages.push({
           role: 'system',
-          content: `=== WORKFLOW SONUCLARI ===\nSu araclar calisti:\n${report}${skillInfo}\n\nKullaniciya bu sonuclari anlamli bir sekilde ozetle.\n=== SONUC BITTI ===`,
+          content: `=== ${L('WORKFLOW SONUÇLARI', 'WORKFLOW RESULTS')} ===\n${L('Şu araçlar çalıştı', 'These tools ran')}:\n${report}${skillInfo}\n\n${L('Kullanıcıya bu sonuçları anlamlı bir şekilde özetle.', 'Summarize these results for the user in a meaningful way.')}\n=== ${L('SONUÇ BİTTİ', 'END RESULT')} ===`,
         });
 
         process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
@@ -631,10 +633,10 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult)
     if (risk.requiresApproval) {
       process.stdout.write("\n");
       const approved = await confirm(
-        `⚠ ${tc.function.name}: ${risk.reason}\n  Devam edilsin mi? (Y/n) `
+        `⚠ ${tc.function.name}: ${risk.reason}\n  ${L('Devam edilsin mi', 'Continue')}? (Y/n) `
       );
       if (!approved) {
-        console.log("\n  " + tui.C.yellow("⚠ Kullanıcı onayı iptal etti, tool çalıştırılmadı."));
+        console.log("\n  " + tui.C.yellow(L("⚠ Kullanıcı onayı iptal etti, tool çalıştırılmadı.", "⚠ User declined approval, tool not run.")));
         return;
       }
     }
@@ -643,7 +645,7 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult)
     const pm = getPlanMode();
     const planCheck = pm.checkTool(tc.function.name, args);
     if (!planCheck.allowed) {
-      console.log("\n  " + tui.C.red("⛔ Plan modunda engellendi: " + planCheck.reason));
+      console.log("\n  " + tui.C.red(L("⛔ Plan modunda engellendi: ", "⛔ Blocked in plan mode: ") + planCheck.reason));
       return;
     }
     pm.recordTool(tc.function.name, args);
@@ -651,18 +653,18 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult)
     // Permission check
     const perm = checkPermission(tc.function.name, args);
     if (perm.action === 'deny') {
-      console.log("\n  " + tui.C.red("⛔ İzin engelledi: " + perm.reason));
+      console.log("\n  " + tui.C.red(L("⛔ İzin engelledi: ", "⛔ Permission denied: ") + perm.reason));
       return;
     }
     if (perm.action === 'ask') {
       const permKey = `${perm.rule.raw}:${JSON.stringify(args)}`;
       if (!isApproved(permKey)) {
         process.stdout.write("\n");
-        const ok = await confirm(`İzin gerekli: ${formatPermissionPrompt(tc.function.name, args, perm.reason)}\n  İzin ver? [y=once, Y=session, p=persistent, n=no] `);
+        const ok = await confirm(`${L('İzin gerekli', 'Permission required')}: ${formatPermissionPrompt(tc.function.name, args, perm.reason)}\n  ${L('İzin ver', 'Grant')}? [y=once, Y=session, p=persistent, n=no] `);
         if (ok === 'persistent') markApproved(permKey, true);
         else if (ok === 'session' || ok === true) markApproved(permKey, false);
         else {
-          console.log("\n  " + tui.C.yellow("⛔ İzin reddedildi"));
+          console.log("\n  " + tui.C.yellow(L("⛔ İzin reddedildi", "⛔ Permission rejected")));
           return;
         }
       }
@@ -671,13 +673,13 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult)
     // Pre-hook check
     const hook = checkPreHooks(tc.function.name, args);
     if (hook.action === 'deny') {
-      console.log("\n  " + tui.C.red("⛔ Hook engelledi: " + hook.rule.raw));
+      console.log("\n  " + tui.C.red(L("⛔ Hook engelledi: ", "⛔ Hook blocked: ") + hook.rule.raw));
       return;
     }
     if (hook.action === 'ask') {
-      const ok = await confirm(`Hook onayı: ${permissionSummary(hook.rule, tc.function.name, args)}\n  İzin verilsin mi? (y/N) `);
+      const ok = await confirm(`${L('Hook onayı', 'Hook approval')}: ${permissionSummary(hook.rule, tc.function.name, args)}\n  ${L('İzin verilsin mi', 'Grant permission')}? (y/N) `);
       if (!ok) {
-        console.log("\n  " + tui.C.yellow("⛔ Hook reddetti: " + hook.rule.raw));
+        console.log("\n  " + tui.C.yellow(L("⛔ Hook reddetti: ", "⛔ Hook rejected: ") + hook.rule.raw));
         return;
       }
     }
@@ -729,11 +731,11 @@ function printSummary(files, cmds, msgs, startTime) {
   const elapsed = Math.floor((Date.now() - startTime) / 1000);
   const min = Math.floor(elapsed / 60);
   const sec = elapsed % 60;
-  console.log("\n  " + tui.styled("─── Session Özeti ───", { color: tui.PALETTE.primary, bold: true }));
-  console.log("  " + tui.C.green("  ✓ " + files + " dosya değiştirildi"));
-  console.log("  " + tui.C.green("  ✓ " + cmds + " komut çalıştırıldı"));
-  console.log("  " + tui.C.amber("  ✓ " + msgs + " mesaj değişimi"));
-  console.log("  " + tui.C.muted("  ⏱  " + min + "dk " + sec + "sn"));
+  console.log("\n  " + tui.styled(L("─── Session Özeti ───", "─── Session Summary ───"), { color: tui.PALETTE.primary, bold: true }));
+  console.log("  " + tui.C.green("  ✓ " + files + L(" dosya değiştirildi", " files changed")));
+  console.log("  " + tui.C.green("  ✓ " + cmds + L(" komut çalıştırıldı", " commands run")));
+  console.log("  " + tui.C.amber("  ✓ " + msgs + L(" mesaj değişimi", " message exchanges")));
+  console.log("  " + tui.C.muted("  ⏱  " + min + L("dk ", "min ") + sec + L("sn", "s")));
   console.log("");
 }
 
