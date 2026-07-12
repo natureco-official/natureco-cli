@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const inquirer = require('../utils/inquirer-wrapper');
 const qrcode = require('qrcode-terminal');
 const QRCode = require('qrcode');
@@ -33,8 +35,8 @@ async function whatsapp(action, number) {
   
   if (action === 'allow') {
     if (!number) {
-      console.log(chalk.red('\n❌ Numara belirtmelisiniz\n'));
-      console.log(chalk.gray('Kullanım: natureco whatsapp allow <numara>\n'));
+      console.log(chalk.red(L('\n❌ Numara belirtmelisiniz\n', '\n❌ You must specify a number\n')));
+      console.log(chalk.gray(L('Kullanım: natureco whatsapp allow <numara>\n', 'Usage: natureco whatsapp allow <number>\n')));
       process.exit(1);
     }
     return allowNumber(number);
@@ -49,18 +51,18 @@ async function connectWhatsApp() {
   const config = getConfig();
   
   if (!config.providerUrl) {
-    console.log(chalk.red('\n❌ Setup yapılmamış. Önce "natureco setup" çalıştırın.\n'));
+    console.log(chalk.red(L('\n❌ Setup yapılmamış. Önce "natureco setup" çalıştırın.\n', '\n❌ Setup not done. Run "natureco setup" first.\n')));
     process.exit(1);
   }
   
-  console.log(chalk.yellow('\n⏳ WhatsApp bağlantısı hazırlanıyor...\n'));
+  console.log(chalk.yellow(L('\n⏳ WhatsApp bağlantısı hazırlanıyor...\n', '\n⏳ Preparing WhatsApp connection...\n')));
   
   // WhatsApp için bot ID oluştur (timestamp-based)
   const botId = `whatsapp_${Date.now()}`;
   const selectedBot = { name: 'WhatsApp Bot', id: botId };
   
-  console.log(chalk.cyan('\n📱 WhatsApp bağlantısı başlatılıyor...'));
-  console.log(chalk.gray('Telefonunuzda WhatsApp\'ı açın ve QR kodu taratın.\n'));
+  console.log(chalk.cyan(L('\n📱 WhatsApp bağlantısı başlatılıyor...', '\n📱 Starting WhatsApp connection...')));
+  console.log(chalk.gray(L('Telefonunuzda WhatsApp\'ı açın ve QR kodu taratın.\n', 'Open WhatsApp on your phone and scan the QR code.\n')));
   
   // Create session directory
   const sessionDir = path.join(WHATSAPP_SESSION_DIR, botId);
@@ -82,7 +84,7 @@ async function startWhatsAppConnection(sessionDir, botId, selectedBot, config) {
     // Get latest Baileys version
     const { version } = await fetchLatestBaileysVersion();
     
-    console.log(chalk.yellow('⏳ WhatsApp client başlatılıyor...\n'));
+    console.log(chalk.yellow(L('⏳ WhatsApp client başlatılıyor...\n', '⏳ Starting WhatsApp client...\n')));
     
     // Create socket
     const sock = makeWASocket({
@@ -105,7 +107,7 @@ async function startWhatsAppConnection(sessionDir, botId, selectedBot, config) {
       const { connection, lastDisconnect, qr } = update;
       
       if (qr && !qrDisplayed) {
-        console.log(chalk.green('✅ QR kod hazır!\n'));
+        console.log(chalk.green(L('✅ QR kod hazır!\n', '✅ QR code ready!\n')));
         
         // Display QR code in terminal
         qrcode.generate(qr, { small: true });
@@ -119,17 +121,17 @@ async function startWhatsAppConnection(sessionDir, botId, selectedBot, config) {
             margin: 4,
             color: { dark: '#000000', light: '#FFFFFF' }
           });
-          console.log(chalk.green('\n📸 QR PNG kaydedildi: ' + qrPngPath));
-          console.log(chalk.cyan('🔗 Browserda acmak icin: open ' + qrPngPath));
+          console.log(chalk.green(L('\n📸 QR PNG kaydedildi: ', '\n📸 QR PNG saved: ') + qrPngPath));
+          console.log(chalk.cyan(L('🔗 Browserda acmak icin: open ', '🔗 To open in browser: open ') + qrPngPath));
         } catch (e) {
           // Sessizce gec, terminal QR yeterli
         }
 
         console.log('');
-        console.log(chalk.gray('1. WhatsApp\'ı açın'));
-        console.log(chalk.gray('2. Ayarlar > Bağlı Cihazlar > Cihaz Bağla'));
-        console.log(chalk.gray('3. Bu QR kodu taratın\n'));
-        console.log(chalk.yellow('⏳ QR kod taranması bekleniyor...\n'));
+        console.log(chalk.gray(L('1. WhatsApp\'ı açın', '1. Open WhatsApp')));
+        console.log(chalk.gray(L('2. Ayarlar > Bağlı Cihazlar > Cihaz Bağla', '2. Settings > Linked Devices > Link a Device')));
+        console.log(chalk.gray(L('3. Bu QR kodu taratın\n', '3. Scan this QR code\n')));
+        console.log(chalk.yellow(L('⏳ QR kod taranması bekleniyor...\n', '⏳ Waiting for QR code scan...\n')));
         
         qrDisplayed = true;
       }
@@ -139,29 +141,29 @@ async function startWhatsAppConnection(sessionDir, botId, selectedBot, config) {
         
         if (statusCode === 515 || statusCode === 408) {
           // Normal — yeniden bağlan, logout değil
-          console.log(chalk.yellow('🔄 Yeniden bağlanıyor...'));
+          console.log(chalk.yellow(L('🔄 Yeniden bağlanıyor...', '🔄 Reconnecting...')));
           setTimeout(() => startWhatsAppConnection(sessionDir, botId, selectedBot, config), 2000);
           return;
         } else if (statusCode === 401) {
-          console.log(chalk.red('❌ Oturum sonlandı, tekrar bağlanın.'));
+          console.log(chalk.red(L('❌ Oturum sonlandı, tekrar bağlanın.', '❌ Session ended, reconnect.')));
           process.exit(1);
         } else if (statusCode === DisconnectReason.loggedOut) {
-          console.log(chalk.red('\n❌ WhatsApp oturumu kapatıldı\n'));
+          console.log(chalk.red(L('\n❌ WhatsApp oturumu kapatıldı\n', '\n❌ WhatsApp session logged out\n')));
           process.exit(0);
         } else if (!isConnected) {
-          console.log(chalk.red('\n❌ Bağlantı başarısız\n'));
-          console.log(chalk.gray(`Hata kodu: ${statusCode}\n`));
+          console.log(chalk.red(L('\n❌ Bağlantı başarısız\n', '\n❌ Connection failed\n')));
+          console.log(chalk.gray(`${L('Hata kodu', 'Error code')}: ${statusCode}\n`));
           process.exit(1);
         } else {
-          console.log(chalk.red(`❌ Bağlantı kesildi: ${statusCode}\n`));
+          console.log(chalk.red(`❌ ${L('Bağlantı kesildi', 'Connection lost')}: ${statusCode}\n`));
           process.exit(1);
         }
       } else if (connection === 'open') {
         isConnected = true;
-        console.log(chalk.green('✅ WhatsApp bağlandı!\n'));
+        console.log(chalk.green(L('✅ WhatsApp bağlandı!\n', '✅ WhatsApp connected!\n')));
         console.log(chalk.cyan('Bot:'), chalk.white(selectedBot.name));
-        console.log(chalk.cyan('Telefon:'), chalk.white(sock.user?.id || 'Unknown'));
-        console.log(chalk.gray('\nSession kaydedildi: ~/.natureco/whatsapp-sessions/'));
+        console.log(chalk.cyan(L('Telefon:', 'Phone:')), chalk.white(sock.user?.id || 'Unknown'));
+        console.log(chalk.gray(L('\nSession kaydedildi: ~/.natureco/whatsapp-sessions/', '\nSession saved: ~/.natureco/whatsapp-sessions/')));
         
         // Extract own number and add to allowed list
         const ownNumber = sock.user?.id?.split(':')[0].replace('@s.whatsapp.net', '') || '';
@@ -174,12 +176,12 @@ async function startWhatsAppConnection(sessionDir, botId, selectedBot, config) {
         config.whatsappAllowedNumbers = allowedNumbers;
         saveConfig(config);
         
-        console.log(chalk.cyan('\nİzin verilen numara:'), chalk.white(`+${ownNumber} (kendi numaranız)`));
-        console.log(chalk.gray('Başka numara eklemek için: natureco whatsapp allow <numara>'));
+        console.log(chalk.cyan('\nİzin verilen numara:'), chalk.white(`+${ownNumber} ${L('(kendi numaranız)', '(your own number)')}`));
+        console.log(chalk.gray(L('Başka numara eklemek için: natureco whatsapp allow <numara>', 'To add another number: natureco whatsapp allow <number>')));
         
-        console.log(chalk.green('\n✅ Kurulum tamamlandı!\n'));
-        console.log(chalk.yellow('Gateway ile başlatmak için:'), chalk.cyan('natureco gateway start'));
-        console.log(chalk.gray('Gateway, WhatsApp\'ı otomatik olarak başlatacak.\n'));
+        console.log(chalk.green(L('\n✅ Kurulum tamamlandı!\n', '\n✅ Setup complete!\n')));
+        console.log(chalk.yellow(L('Gateway ile başlatmak için:', 'To start with the gateway:')), chalk.cyan('natureco gateway start'));
+        console.log(chalk.gray(L('Gateway, WhatsApp\'ı otomatik olarak başlatacak.\n', 'The gateway will start WhatsApp automatically.\n')));
         
         // Exit after setup
         setTimeout(() => {
@@ -195,7 +197,7 @@ async function startWhatsAppConnection(sessionDir, botId, selectedBot, config) {
     
     // Handle Ctrl+C
     process.on('SIGINT', () => {
-      console.log(chalk.yellow('\n\n⚠️  Bağlantı iptal edildi\n'));
+      console.log(chalk.yellow(L('\n\n⚠️  Bağlantı iptal edildi\n', '\n\n⚠️  Connection cancelled\n')));
       process.exit(0);
     });
     
@@ -203,8 +205,8 @@ async function startWhatsAppConnection(sessionDir, botId, selectedBot, config) {
     const msg = err instanceof NatureCoError ? err.message : err?.message ?? 'Unknown error';
     console.log(chalk.red(`\n❌ Connection failed: ${msg}\n`));
     if (err?.message?.includes('Cannot find module')) {
-      console.log(chalk.yellow('⚠️  Baileys paketi yüklü değil. Yükleniyor...\n'));
-      console.log(chalk.gray('Lütfen şu komutu çalıştırın:\n'));
+      console.log(chalk.yellow(L('⚠️  Baileys paketi yüklü değil. Yükleniyor...\n', '⚠️  Baileys package not installed. Installing...\n')));
+      console.log(chalk.gray(L('Lütfen şu komutu çalıştırın:\n', 'Please run this command:\n')));
       console.log(chalk.cyan('npm install -g @whiskeysockets/baileys pino\n'));
     }
     process.exit(1);
@@ -240,7 +242,7 @@ async function disconnectWhatsApp() {
     const sessionDir = path.join(WHATSAPP_SESSION_DIR, config.whatsappBotId);
     if (fs.existsSync(sessionDir)) {
       fs.rmSync(sessionDir, { recursive: true, force: true });
-      console.log(chalk.green('\n✅ Session dosyaları silindi\n'));
+      console.log(chalk.green(L('\n✅ Session dosyaları silindi\n', '\n✅ Session files deleted\n')));
     }
     
     // Remove from config
@@ -278,9 +280,9 @@ function statusWhatsApp() {
   // Show allowed numbers
   const allowedNumbers = config.whatsappAllowedNumbers || [];
   if (allowedNumbers.length === 0) {
-    console.log(chalk.cyan('İzin listesi:'), chalk.gray('Boş (herkesten mesaj kabul edilir)'));
+    console.log(chalk.cyan(L('İzin listesi:', 'Allowlist:')), chalk.gray(L('Boş (herkesten mesaj kabul edilir)', 'Empty (accepts messages from anyone)')));
   } else {
-    console.log(chalk.cyan('İzin listesi:'));
+    console.log(chalk.cyan(L('İzin listesi:', 'Allowlist:')));
     allowedNumbers.forEach(num => console.log(chalk.white(`  - +${num}`)));
   }
   
@@ -309,15 +311,15 @@ function allowNumber(number) {
   const normalized = number.replace(/[\s\+\-\(\)]/g, '');
   
   if (!/^\d+$/.test(normalized)) {
-    console.log(chalk.red('\n❌ Geçersiz numara formatı\n'));
-    console.log(chalk.gray('Örnek: natureco whatsapp allow 905551234567\n'));
+    console.log(chalk.red(L('\n❌ Geçersiz numara formatı\n', '\n❌ Invalid number format\n')));
+    console.log(chalk.gray(L('Örnek: natureco whatsapp allow 905551234567\n', 'Example: natureco whatsapp allow 905551234567\n')));
     process.exit(1);
   }
   
   const allowedNumbers = config.whatsappAllowedNumbers || [];
   
   if (allowedNumbers.includes(normalized)) {
-    console.log(chalk.yellow('\n⚠️  Bu numara zaten izin listesinde\n'));
+    console.log(chalk.yellow(L('\n⚠️  Bu numara zaten izin listesinde\n', '\n⚠️  This number is already in the allowlist\n')));
     return;
   }
   
@@ -325,10 +327,10 @@ function allowNumber(number) {
   config.whatsappAllowedNumbers = allowedNumbers;
   saveConfig(config);
   
-  console.log(chalk.green('\n✅ Numara izin listesine eklendi\n'));
-  console.log(chalk.cyan('Numara:'), chalk.white(`+${normalized}`));
-  console.log(chalk.cyan('Toplam:'), chalk.white(`${allowedNumbers.length} numara`));
-  console.log(chalk.gray('\nGateway\'i yeniden başlatın: natureco gateway stop && natureco gateway start\n'));
+  console.log(chalk.green(L('\n✅ Numara izin listesine eklendi\n', '\n✅ Number added to allowlist\n')));
+  console.log(chalk.cyan(L('Numara:', 'Number:')), chalk.white(`+${normalized}`));
+  console.log(chalk.cyan(L('Toplam:', 'Total:')), chalk.white(`${allowedNumbers.length} numara`));
+  console.log(chalk.gray(L('\nGateway\'i yeniden başlatın: natureco gateway stop && natureco gateway start\n', '\nRestart the gateway: natureco gateway stop && natureco gateway start\n')));
 }
 
 module.exports = whatsapp;
