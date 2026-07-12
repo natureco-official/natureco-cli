@@ -11,7 +11,6 @@ const { MCPClient } = require('./mcp-client');
 const TB = require('./token-budget');
 const { accumulateToolCallDeltas } = require('./streaming-tools');
 const { ToolGuardrails } = require('./tool-guardrails');
-const guardrails = new ToolGuardrails();
 
 /**
  * v5.5.0: Provider-specific format detection
@@ -672,6 +671,10 @@ async function sendMessageAnthropic(providerConfig, messages, tools) {
  * Send message with tool support (universal)
  */
 async function sendMessageToProvider(apiKey, message, conversationId = null, systemPrompt = null, options = {}) {
+  // Per-request state prevents concurrent conversations from contaminating one
+  // another while preserving failure/no-progress counters across tool rounds.
+  const guardrails = new ToolGuardrails({ hardStopEnabled: true });
+  guardrails.reset();
   const providerConfig = getProviderConfig();
   
   if (!providerConfig) {
@@ -784,7 +787,6 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
       const localCalls = toolCalls.filter(tc => !mcpTools.find(t => t.name === tc.name));
 
       // Guardrails: filter blocked tools
-      guardrails.reset();
       guardrails.startIteration();
       const blockedMcp = mcpCalls.filter(tc => {
         const check = guardrails.check(tc.name, tc.input);
@@ -804,7 +806,8 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
           { toolDefinitions: getToolDefinitions() }
         );
         for (const r of localResults) {
-          guardrails.record(r.name, {}, r.result?.success !== false);
+          const original = localCalls.find(tc => tc.id === r.id);
+          guardrails.record(r.name, original?.input || {}, r.result?.success !== false && !r.result?.error);
         }
       }
 

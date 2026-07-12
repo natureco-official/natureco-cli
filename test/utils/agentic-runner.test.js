@@ -247,6 +247,29 @@ describe('executeCall', () => {
     expect(records.every(r => r.tool === 'write_file' && r.status === 'done')).toBe(true);
   });
 
+  it('GUVENLIK: bulk yazma hassas yol korumasini atlayamaz', async () => {
+    const written = [];
+    const loadTool = () => ({ execute: async (args) => { written.push(args); return { success: true, path: args.path }; } });
+    const call = { tool: 'bulk-file-operations', args: { files: [
+      { path: '~/.ssh/authorized_keys', content: 'evil' },
+      { path: '~/project/safe.txt', content: 'ok' },
+    ] } };
+    const { records, feedback } = await executeCall(call, { loadTool });
+    expect(written).toHaveLength(1);
+    expect(written[0].path).toContain('safe.txt');
+    expect(records[0].status).toBe('error');
+    expect(feedback).toMatch(/hassas|CALISTIRILMADI/i);
+  });
+
+  it('GUVENLIK: bulk yazma write_file allowlist izni olmadan calisamaz', async () => {
+    let loaded = false;
+    const loadTool = () => { loaded = true; return { execute: async () => ({ success: true }) }; };
+    const call = { tool: 'bulk-file-operations', args: { files: [{ path: '/tmp/x', content: 'x' }] } };
+    const { records } = await executeCall(call, { loadTool, allowed: new Set(['read_file']) });
+    expect(loaded).toBe(false);
+    expect(records[0].status).toBe('error');
+  });
+
   it('allowlist disi araclari (orn. discord) engeller — model keyfi arac cagiramaz', async () => {
     let loaded = false;
     const loadTool = () => { loaded = true; return { execute: async () => ({ success: true }) }; };

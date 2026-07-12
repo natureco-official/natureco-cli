@@ -315,15 +315,28 @@ async function executeCall(call, opts = {}) {
   let files = call.args && call.args.files;
   if (typeof files === 'string') { try { files = JSON.parse(files); } catch { files = null; } }
   if (Array.isArray(files) && (/bulk/i.test(rawTool) || /file/i.test(rawTool) || norm === 'write_file')) {
+    // Bulk writes are still write_file operations. Apply the same allowlist and
+    // protected-path policy before loading or executing the tool; otherwise the
+    // early return below would bypass the normal checks later in this function.
+    if (!opts.execFull && !allowed.has('write_file')) {
+      records.push({ tool: rawTool, status: 'error', error: 'Guvenli modda write_file kapali' });
+      return { records, feedback: `${rawTool}: guvenli modda write_file izni yok.` };
+    }
     let wf;
     try { wf = loadTool('write_file'); } catch { wf = null; }
     for (const f of files) {
       if (!wf || !f || !f.path) { records.push({ tool: 'write_file', status: 'error', error: 'gecersiz dosya girisi' }); feedbacks.push('write_file HATA: gecersiz giris'); continue; }
+      const targetPath = expandHome(String(f.path).trim());
+      if (!opts.execFull && sensitivePathBlocked(targetPath, 'write')) {
+        records.push({ tool: 'write_file', status: 'error', args: { path: targetPath }, error: 'Hassas dosya yolu (guvenli modda engellendi)' });
+        feedbacks.push(`write_file: "${targetPath}" hassas bir yol oldugu icin CALISTIRILMADI.`);
+        continue;
+      }
       try {
-        const res = await wf.execute({ path: expandHome(f.path), content: f.content != null ? String(f.content) : '' });
+        const res = await wf.execute({ path: targetPath, content: f.content != null ? String(f.content) : '' });
         const ok = res && res.success !== false;
-        records.push({ tool: 'write_file', status: ok ? 'done' : 'error', args: { path: f.path }, result: res, error: ok ? undefined : (res && res.error) });
-        feedbacks.push(ok ? `write_file OK: ${res.path || f.path} (${res.size != null ? res.size : '?'} bytes)` : `write_file HATA: ${res && res.error}`);
+        records.push({ tool: 'write_file', status: ok ? 'done' : 'error', args: { path: targetPath }, result: res, error: ok ? undefined : (res && res.error) });
+        feedbacks.push(ok ? `write_file OK: ${res.path || targetPath} (${res.size != null ? res.size : '?'} bytes)` : `write_file HATA: ${res && res.error}`);
       } catch (e) {
         records.push({ tool: 'write_file', status: 'error', args: { path: f.path }, error: e.message });
         feedbacks.push(`write_file HATA: ${e.message}`);

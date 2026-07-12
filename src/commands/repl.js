@@ -128,7 +128,7 @@ function rebuildSystemPrompt(opts) {
 }
 
 // ── Tool Guardrails instance (Hermes-style) ─────────────────────────────
-const guardrails = new ToolGuardrails();
+const guardrails = new ToolGuardrails({ hardStopEnabled: true });
 
 // CLI komutları (REPL içinden çalıştırılabilir)
 const CLI_COMMANDS = {
