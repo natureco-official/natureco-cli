@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const dns = require('dns');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const os = require('os');
 
 function dnsCmd(args) {
@@ -10,7 +12,7 @@ function dnsCmd(args) {
   if (action === 'services') return discoverServices();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco dns [discover|resolve <host>|services]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco dns [discover|resolve <host>|services]\n', '  Usage: natureco dns [discover|resolve <host>|services]\n')));
   process.exit(1);
 }
 
@@ -93,7 +95,7 @@ function detectZeroTier() {
 function resolveHost(hostname) {
   if (!hostname) {
     console.log(chalk.red('\n  ❌ Hostname gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco dns resolve <hostname>\n'));
+    console.log(chalk.gray(L('  Kullanım: natureco dns resolve <hostname>\n', '  Usage: natureco dns resolve <hostname>\n')));
     process.exit(1);
   }
 

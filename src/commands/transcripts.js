@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const fs = require('fs');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const path = require('path');
 const os = require('os');
 
@@ -11,7 +13,7 @@ function transcripts(args) {
   if (action === 'delete') return deleteTranscript(params[0]);
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco transcripts [list|show|delete]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco transcripts [list|show|delete]\n', '  Usage: natureco transcripts [list|show|delete]\n')));
   process.exit(1);
 }
 
@@ -53,7 +55,7 @@ function showTranscript(id) {
   if (!fs.existsSync(file)) {
     const alt = path.join(sessionsDir, id);
     if (!fs.existsSync(alt)) {
-      console.log(chalk.red(`\n  ❌ Transcript bulunamadı: ${id}\n`));
+      console.log(chalk.red(`\n  ❌ ${L('Transcript bulunamadı', 'Transcript not found')}: ${id}\n`));
       process.exit(1);
     }
     const content = fs.readFileSync(alt, 'utf8');
@@ -83,13 +85,13 @@ function deleteTranscript(id) {
   if (!fs.existsSync(target)) {
     target = path.join(sessionsDir, id);
     if (!fs.existsSync(target)) {
-      console.log(chalk.red(`\n  ❌ Transcript bulunamadı: ${id}\n`));
+      console.log(chalk.red(`\n  ❌ ${L('Transcript bulunamadı', 'Transcript not found')}: ${id}\n`));
       process.exit(1);
     }
   }
 
   fs.unlinkSync(target);
-  console.log(chalk.green(`\n  🗑️  Transcript silindi: ${id}\n`));
+  console.log(chalk.green(`\n  🗑️  ${L('Transcript silindi', 'Transcript deleted')}: ${id}\n`));
 }
 
 module.exports = transcripts;

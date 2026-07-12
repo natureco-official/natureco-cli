@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const tui = require('../utils/tui');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const F = require('../utils/format');
 const fs = require('fs');
 const path = require('path');
@@ -183,12 +185,12 @@ function listNodes() {
   }));
   console.log('\n' + tui.table(rows, [
     { key: 'id', label: 'ID', minWidth: 14, render: r => tui.C.muted(r.id) },
-    { key: 'name', label: 'İsim', minWidth: 14, render: r => tui.styled(r.name, { color: tui.PALETTE.primary, bold: true }) },
+    { key: 'name', label: L('İsim', 'Name'), minWidth: 14, render: r => tui.styled(r.name, { color: tui.PALETTE.primary, bold: true }) },
     {
       key: 'status', label: 'Durum', minWidth: 12,
       render: r => tui.styled('  ✓ Online ', { bg: tui.PALETTE.success, color: '#000', bold: true })
     },
-    { key: 'lastSeen', label: 'Son Görülme', minWidth: 18, render: r => tui.C.muted(r.lastSeen) },
+    { key: 'lastSeen', label: L('Son Görülme', 'Last Seen'), minWidth: 18, render: r => tui.C.muted(r.lastSeen) },
   ], { borderStyle: 'round', zebra: true }));
   console.log('');
 }

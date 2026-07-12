@@ -4,6 +4,8 @@
  */
 
 const inquirer = require('../utils/inquirer-wrapper');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const chalk = require('chalk');
 
 /**
@@ -23,26 +25,26 @@ async function checkExistingToken(config, channelKey, channelName) {
     ? token.slice(0, 15) + '...' + token.slice(-5)
     : token.slice(0, 3) + '***';
 
-  console.log(chalk.green('\n✓ ' + channelName + ' token zaten kayıtlı: ' + masked));
+  console.log(chalk.green('\n✓ ' + channelName + L(' token zaten kayıtlı: ', ' token already saved: ') + masked));
 
   if (config[channelKey + 'BotId']) {
     console.log(chalk.gray('  Bot ID: ' + config[channelKey + 'BotId']));
   }
   if (config[channelKey.replace('Token', 'AllowedChats')]) {
-    console.log(chalk.gray('  İzinli sohbet: ' + config[channelKey.replace('Token', 'AllowedChats')].join(', ')));
+    console.log(chalk.gray(L('  İzinli sohbet: ', '  Allowed chat: ') + config[channelKey.replace('Token', 'AllowedChats')].join(', ')));
   }
   console.log('');
 
   const ans = await inquirer.prompt([{
     type: 'confirm',
     name: 'change',
-    message: 'Token değiştirmek istiyor musun?',
+    message: L('Token değiştirmek istiyor musun?', 'Change token?'),
     default: false,
   }]);
 
   if (!ans.change) {
-    console.log(chalk.green('\n✅ Mevcut token kullanılacak.\n'));
-    console.log(chalk.gray('Gateway başlatmak için: natureco gateway start\n'));
+    console.log(chalk.green(L('\n✅ Mevcut token kullanılacak.\n', '\n✅ Existing token will be used.\n')));
+    console.log(chalk.gray(L('Gateway başlatmak için: natureco gateway start\n', 'To start the gateway: natureco gateway start\n')));
     return false; // Mevcut kullanilacak
   }
   return true; // Yeni alinacak

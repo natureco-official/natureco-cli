@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const { execSync, spawn } = require('child_process');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -17,7 +19,7 @@ function daemon(args) {
   if (action === 'uninstall') return uninstallDaemon();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco daemon [status|start|stop|restart|install|uninstall]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco daemon [status|start|stop|restart|install|uninstall]\n', '  Usage: natureco daemon [status|start|stop|restart|install|uninstall]\n')));
   process.exit(1);
 }
 

@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const { getConfig, saveConfig } = require('../utils/config');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 
 const VYDRA_ENDPOINTS = {
   'vydra-image': {
@@ -27,7 +29,7 @@ function vydra(args) {
   if (action === 'test') return testVydra();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco vydra [status|configure|test]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco vydra [status|configure|test]\n', '  Usage: natureco vydra [status|configure|test]\n')));
   process.exit(1);
 }
 

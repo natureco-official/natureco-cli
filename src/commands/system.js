@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const os = require('os');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 
 function system(args) {
   const [action, ...params] = args || [];
@@ -9,7 +11,7 @@ function system(args) {
   if (action === 'presence') return systemPresence();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco system [status|events|presence]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco system [status|events|presence]\n', '  Usage: natureco system [status|events|presence]\n')));
   process.exit(1);
 }
 

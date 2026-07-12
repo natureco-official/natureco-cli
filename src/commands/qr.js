@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const crypto = require('crypto');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const qrcode = require('qrcode-terminal');
 
 function qr(args) {
@@ -48,8 +50,8 @@ function showQR(data) {
 
 function generateQR(text) {
   if (!text) {
-    console.log(chalk.red('\n  ❌ QR için veri gerekli\n'));
-    console.log(chalk.gray('  Örnek: natureco qr generate "https://natureco.me/pair?code=ABC"\n'));
+    console.log(chalk.red(L('\n  ❌ QR için veri gerekli\n', '\n  ❌ Data required for QR\n')));
+    console.log(chalk.gray(L('  Örnek: natureco qr generate "https://natureco.me/pair?code=ABC"\n', '  Example: natureco qr generate "https://natureco.me/pair?code=ABC"\n')));
     process.exit(1);
   }
   console.log(chalk.cyan('\n  📱 QR: ') + chalk.white(text) + '\n');

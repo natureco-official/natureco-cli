@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const tui = require('../utils/tui');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const F = require('../utils/format');
 const { getConfig, saveConfig } = require('../utils/config');
 
@@ -16,7 +18,7 @@ function secrets(args) {
   if (action === 'apply') return applySecrets();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco secrets [list|set|get|unset|audit|reload|configure|apply]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco secrets [list|set|get|unset|audit|reload|configure|apply]\n', '  Usage: natureco secrets [list|set|get|unset|audit|reload|configure|apply]\n')));
   process.exit(1);
 }
 
@@ -42,9 +44,9 @@ function listSecrets() {
   });
 
   console.log('\n' + tui.table(rows, [
-    { key: 'key', label: 'İsim', minWidth: 24, render: r => tui.styled(r.key, { color: tui.PALETTE.primary, bold: true }) },
-    { key: 'masked', label: 'Maskelenmiş', minWidth: 16, render: r => tui.styled(r.masked, { color: tui.PALETTE.warning }) },
-    { key: 'updated', label: 'Güncellendi', minWidth: 14, render: r => tui.C.muted(r.updated) },
+    { key: 'key', label: L('İsim', 'Name'), minWidth: 24, render: r => tui.styled(r.key, { color: tui.PALETTE.primary, bold: true }) },
+    { key: 'masked', label: L('Maskelenmiş', 'Masked'), minWidth: 16, render: r => tui.styled(r.masked, { color: tui.PALETTE.warning }) },
+    { key: 'updated', label: L('Güncellendi', 'Updated'), minWidth: 14, render: r => tui.C.muted(r.updated) },
   ], { borderStyle: 'round', zebra: true }));
   console.log('');
 }

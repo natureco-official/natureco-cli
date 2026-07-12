@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const path = require('path');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 
 function openProse(args) {
@@ -9,7 +11,7 @@ function openProse(args) {
   if (action === 'info') return showInfo();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco open-prose [list|info]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco open-prose [list|info]\n', '  Usage: natureco open-prose [list|info]\n')));
   process.exit(1);
 }
 
@@ -37,11 +39,11 @@ function listBundles() {
   }
 
   if (bundles.length === 0) {
-    console.log(chalk.gray('  Yüklü bundle bulunamadı.\n'));
+    console.log(chalk.gray(L('  Yüklü bundle bulunamadı.\n', '  No bundles installed.\n')));
   }
 
   console.log(chalk.gray('\n  OpenProse, NatureCo\'nun prose skills paketidir.\n'));
-  console.log(chalk.gray('  Skills yüklemek için:'));
+  console.log(chalk.gray(L('  Skills yüklemek için:', '  To install skills:')));
   console.log(chalk.cyan('    natureco skills install <name>\n'));
 }
 
