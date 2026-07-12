@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-15]
 
     steps:
       - name: Checkout
@@ -40,7 +40,7 @@ jobs:
         run: npm run lint:errors-only
 
       - name: Unit and regression tests
-        run: npm test
+        run: npm test -- --reporter=dot
 
       - name: CLI smoke test
         run: npm run smoke
