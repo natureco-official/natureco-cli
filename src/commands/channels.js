@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const tui = require('../utils/tui');
 const F = require('../utils/format');
 const { getConfig, saveConfig } = require('../utils/config');
@@ -297,9 +299,9 @@ function listChannels() {
   F.header('Channels');
 
   if (channels.length === 0) {
-    console.log('\n' + tui.styled('  📡 Bağlı Kanal Yok', { color: tui.PALETTE.warning, bold: true }));
+    console.log('\n' + tui.styled(L('  📡 Bağlı Kanal Yok', '  📡 No Connected Channels'), { color: tui.PALETTE.warning, bold: true }));
     console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
-    console.log('\n  ' + tui.C.muted('Bağlamak için:'));
+    console.log('\n  ' + tui.C.muted(L('Bağlamak için:', 'To connect:')));
     const connectCmds = ['telegram', 'whatsapp', 'discord', 'slack', 'signal', 'irc', 'mattermost', 'imessage', 'sms', 'webhooks'];
     for (const c of connectCmds) {
       console.log('   ' + tui.C.brand('natureco ' + c + ' connect'));
@@ -308,23 +310,23 @@ function listChannels() {
     return;
   }
 
-  console.log('\n' + tui.styled('  📡 Bağlı Kanallar (' + channels.length + ')', { color: tui.PALETTE.primary, bold: true }));
+  console.log('\n' + tui.styled(L('  📡 Bağlı Kanallar (', '  📡 Connected Channels (') + channels.length + ')', { color: tui.PALETTE.primary, bold: true }));
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
   console.log('\n' + tui.table(channels, [
     {
-      key: 'name', label: 'Kanal', minWidth: 14,
+      key: 'name', label: L('Kanal', 'Channel'), minWidth: 14,
       render: r => tui.styled(r.type + ' ' + r.name, { color: tui.PALETTE.primary, bold: true })
     },
     {
-      key: 'status', label: 'Durum', minWidth: 14,
+      key: 'status', label: L('Durum', 'Status'), minWidth: 14,
       render: r => r.status === 'connected'
-        ? tui.styled('  ✓ Bağlı ', { bg: tui.PALETTE.success, color: '#000', bold: true })
-        : tui.styled(' ✗ Kopuk ', { bg: tui.PALETTE.muted, color: '#000', bold: true })
+        ? tui.styled(L('  ✓ Bağlı ', '  ✓ Linked '), { bg: tui.PALETTE.success, color: '#000', bold: true })
+        : tui.styled(L(' ✗ Kopuk ', ' ✗ Down '), { bg: tui.PALETTE.muted, color: '#000', bold: true })
     },
-    { key: 'detail', label: 'Detay', minWidth: 30, render: r => tui.C.muted(r.detail) },
+    { key: 'detail', label: L('Detay', 'Detail'), minWidth: 30, render: r => tui.C.muted(r.detail) },
   ], { borderStyle: 'round', zebra: true }));
 
-  console.log('\n  ' + tui.C.muted('Kaldırmak için: ') + tui.C.brand('natureco channels remove <kanal>'));
+  console.log('\n  ' + tui.C.muted(L('Kaldırmak için: ', 'To remove: ')) + tui.C.brand(L('natureco channels remove <kanal>', 'natureco channels remove <channel>')));
   console.log('');
 }
 
