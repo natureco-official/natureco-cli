@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -23,8 +25,8 @@ async function plugins(args) {
     if (action === 'registry') return registryHandler(opts);
     if (action === 'marketplace') return marketplaceHandler(opts);
 
-    console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-    console.log(chalk.gray('  Kullanım: natureco plugins [list|install|uninstall|enable|disable|info|update|search|doctor|registry|marketplace]\n'));
+    console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${action}\n`));
+    console.log(chalk.gray(L('  Kullanım: natureco plugins [list|install|uninstall|enable|disable|info|update|search|doctor|registry|marketplace]\n', '  Usage: natureco plugins [list|install|uninstall|enable|disable|info|update|search|doctor|registry|marketplace]\n')));
     process.exit(1);
   } catch (err) {
     handleError(err);
@@ -79,113 +81,113 @@ function listPlugins(opts) {
   console.log(chalk.cyan.bold('\n  Plugins\n'));
 
   if (filtered.length === 0) {
-    console.log(chalk.gray('  Yüklü plugin yok.\n'));
-    console.log(chalk.gray('  Yüklemek için: ') + chalk.cyan('natureco plugins install <paket-adı|./path|git:url>'));
-    console.log(chalk.gray('  Aramak için: ') + chalk.cyan('natureco plugins search <query>\n'));
+    console.log(chalk.gray(L('  Yüklü plugin yok.\n', '  No plugins installed.\n')));
+    console.log(chalk.gray(L('  Yüklemek için: ', '  To install: ')) + chalk.cyan('natureco plugins install <paket-adı|./path|git:url>'));
+    console.log(chalk.gray(L('  Aramak için: ', '  To search: ')) + chalk.cyan('natureco plugins search <query>\n'));
     return;
   }
 
   filtered.forEach(p => {
-    const status = p.enabled ? chalk.green('✓ aktif') : chalk.gray('○ pasif');
+    const status = p.enabled ? chalk.green(L('✓ aktif', '✓ active')) : chalk.gray(L('○ pasif', '○ inactive'));
     const source = registry.plugins.find(r => r.id === p.slug)?.source || 'local';
     const sourceIcon = source === 'npm' ? '📦' : source === 'git' ? '🌐' : source === 'local' ? '📁' : '❓';
     console.log(`  ${sourceIcon} ${chalk.white(p.name)} ${chalk.gray(`v${p.version}`)}  ${status}`);
     if (p.description) console.log(chalk.gray(`    ${p.description}`));
     if (opts.verbose) {
-      console.log(chalk.gray(`    Kaynak: ${source} | Yol: ${p.installPath}`));
-      if (p.author) console.log(chalk.gray(`    Yazar: ${p.author}`));
+      console.log(chalk.gray(`    ${L('Kaynak', 'Source')}: ${source} | ${L('Yol', 'Path')}: ${p.installPath}`));
+      if (p.author) console.log(chalk.gray(`    ${L('Yazar', 'Author')}: ${p.author}`));
     }
     console.log('');
   });
 
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(chalk.gray(`  Toplam: ${filtered.length} plugin (${allPlugins.length - filtered.length} pasif)`));
-  console.log(chalk.gray('  Detay: ') + chalk.cyan('natureco plugins list --verbose'));
+  console.log(chalk.gray(`  ${L('Toplam', 'Total')}: ${filtered.length} plugin (${allPlugins.length - filtered.length} ${L('pasif', 'inactive')})`));
+  console.log(chalk.gray(L('  Detay: ', '  Details: ')) + chalk.cyan('natureco plugins list --verbose'));
   console.log(chalk.gray('  JSON:  ') + chalk.cyan('natureco plugins list --json\n'));
 }
 
 async function installHandler(spec, opts) {
   if (!spec) {
-    console.log(chalk.red('\n  ❌ Paket adı gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco plugins install <paket-adı|./path|git:url|clawhub:<id>>\n'));
-    console.log(chalk.gray('  Örnekler:'));
+    console.log(chalk.red(L('\n  ❌ Paket adı gerekli\n', '\n  ❌ Package name required\n')));
+    console.log(chalk.gray(L('  Kullanım: natureco plugins install <paket-adı|./path|git:url|clawhub:<id>>\n', '  Usage: natureco plugins install <package-name|./path|git:url|clawhub:<id>>\n')));
+    console.log(chalk.gray(L('  Örnekler:', '  Examples:')));
     console.log(chalk.gray('    natureco plugins install my-plugin'));
     console.log(chalk.gray('    natureco plugins install npm:my-plugin'));
-    console.log(chalk.gray('    natureco plugins install ./yerel-klasor'));
+    console.log(chalk.gray(L('    natureco plugins install ./yerel-klasor', '    natureco plugins install ./local-folder')));
     console.log(chalk.gray('    natureco plugins install git:github.com/user/repo'));
     console.log(chalk.gray('    natureco plugins install clawhub:plugin-id\n'));
     process.exit(1);
   }
 
   if (opts.dryRun) {
-    console.log(chalk.gray(`\n  📋 Kuru çalışma: "${spec}" yüklenecek\n`));
+    console.log(chalk.gray(`\n  📋 ${L('Kuru çalışma', 'Dry run')}: "${spec}" ${L('yüklenecek', 'will be installed')}\n`));
     return;
   }
 
-  console.log(chalk.gray(`\n  "${spec}" yükleniyor...\n`));
+  console.log(chalk.gray(`\n  "${spec}" ${L('yükleniyor...', 'installing...')}\n`));
 
   try {
     const result = await installPlugin(spec);
-    console.log(chalk.green(`  ✓ Plugin yüklendi: ${result.name} v${result.version}\n`));
-    console.log(chalk.gray(`  Kaynak: ${result.source}`));
+    console.log(chalk.green(`  ✓ ${L('Plugin yüklendi', 'Plugin installed')}: ${result.name} v${result.version}\n`));
+    console.log(chalk.gray(`  ${L('Kaynak', 'Source')}: ${result.source}`));
     console.log(chalk.gray(`  Slug: ${result.slug}\n`));
   } catch (err) {
-    console.log(chalk.red(`\n  ❌ Yükleme başarısız: ${err.message}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Yükleme başarısız', 'Installation failed')}: ${err.message}\n`));
     process.exit(1);
   }
 }
 
 async function uninstallHandler(slug, opts) {
   if (!slug) {
-    console.log(chalk.red('\n  ❌ Plugin adı gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco plugins uninstall <slug>\n'));
+    console.log(chalk.red(L('\n  ❌ Plugin adı gerekli\n', '\n  ❌ Plugin name required\n')));
+    console.log(chalk.gray(L('  Kullanım: natureco plugins uninstall <slug>\n', '  Usage: natureco plugins uninstall <slug>\n')));
     process.exit(1);
   }
 
   if (opts.dryRun) {
-    console.log(chalk.gray(`\n  📋 Kuru çalışma: "${slug}" kaldırılacak\n`));
+    console.log(chalk.gray(`\n  📋 ${L('Kuru çalışma', 'Dry run')}: "${slug}" ${L('kaldırılacak', 'will be removed')}\n`));
     return;
   }
 
   try {
     const result = await uninstallPlugin(slug, { keepFiles: opts.keepFiles });
-    console.log(chalk.green(`\n  ✓ Plugin kaldırıldı: ${result.name}\n`));
+    console.log(chalk.green(`\n  ✓ ${L('Plugin kaldırıldı', 'Plugin removed')}: ${result.name}\n`));
   } catch (err) {
-    console.log(chalk.red(`\n  ❌ Kaldırma başarısız: ${err.message}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Kaldırma başarısız', 'Removal failed')}: ${err.message}\n`));
     process.exit(1);
   }
 }
 
 function toggleHandler(slug, enable) {
   if (!slug) {
-    console.log(chalk.red(`\n  ❌ Plugin adı gerekli\n`));
+    console.log(chalk.red(L('\n  ❌ Plugin adı gerekli\n', '\n  ❌ Plugin name required\n')));
     process.exit(1);
   }
   const pluginDir = path.join(PLUGINS_DIR, slug);
   if (!fs.existsSync(pluginDir)) {
-    console.log(chalk.red(`\n  ❌ Plugin bulunamadı: ${slug}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Plugin bulunamadı', 'Plugin not found')}: ${slug}\n`));
     process.exit(1);
   }
   const disabledFile = path.join(pluginDir, '.disabled');
   if (enable) {
     if (fs.existsSync(disabledFile)) fs.unlinkSync(disabledFile);
-    console.log(chalk.green(`\n  ✓ Plugin aktif: ${slug}\n`));
+    console.log(chalk.green(`\n  ✓ ${L('Plugin aktif', 'Plugin enabled')}: ${slug}\n`));
   } else {
     fs.writeFileSync(disabledFile, '');
-    console.log(chalk.gray(`\n  ○ Plugin pasif: ${slug}\n`));
+    console.log(chalk.gray(`\n  ○ ${L('Plugin pasif', 'Plugin disabled')}: ${slug}\n`));
   }
 }
 
 function infoHandler(slug, opts) {
   if (!slug && !opts.all) {
-    console.log(chalk.red('\n  ❌ Plugin adı gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco plugins info <slug>\n'));
+    console.log(chalk.red(L('\n  ❌ Plugin adı gerekli\n', '\n  ❌ Plugin name required\n')));
+    console.log(chalk.gray(L('  Kullanım: natureco plugins info <slug>\n', '  Usage: natureco plugins info <slug>\n')));
     process.exit(1);
   }
 
   if (opts.all) {
     const all = scanInstalled();
-    console.log(chalk.cyan.bold('\n  Plugin Detayları\n'));
+    console.log(chalk.cyan.bold(L('\n  Plugin Detayları\n', '\n  Plugin Details\n')));
     all.forEach(p => {
       showPluginDetail(p);
     });
@@ -194,7 +196,7 @@ function infoHandler(slug, opts) {
 
   const p = getPlugin(slug);
   if (!p) {
-    console.log(chalk.red(`\n  ❌ Plugin bulunamadı: ${slug}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Plugin bulunamadı', 'Plugin not found')}: ${slug}\n`));
     process.exit(1);
   }
 
@@ -216,16 +218,16 @@ function showPluginDetail(p) {
   console.log(chalk.gray('  ' + '─'.repeat(48)));
   console.log(chalk.cyan.bold(`\n  ${p.name}\n`));
   console.log(chalk.gray('  Slug      : ') + chalk.white(p.slug));
-  console.log(chalk.gray('  Versiyon  : ') + chalk.white(p.version));
-  console.log(chalk.gray('  Durum     : ') + (p.enabled ? chalk.green('aktif') : chalk.gray('pasif')));
-  if (p.description) console.log(chalk.gray('  Açıklama  : ') + chalk.white(p.description));
-  if (p.author) console.log(chalk.gray('  Yazar     : ') + chalk.white(p.author));
-  if (p.license) console.log(chalk.gray('  Lisans    : ') + chalk.white(p.license));
-  if (p.keywords?.length) console.log(chalk.gray('  Etiketler : ') + chalk.white(p.keywords.join(', ')));
-  console.log(chalk.gray('  Yol       : ') + chalk.gray(p.installPath));
-  if (p.entry) console.log(chalk.gray('  Giriş     : ') + chalk.white(p.entry));
+  console.log(chalk.gray(L('  Versiyon  : ', '  Version   : ')) + chalk.white(p.version));
+  console.log(chalk.gray(L('  Durum     : ', '  Status    : ')) + (p.enabled ? chalk.green(L('aktif', 'active')) : chalk.gray(L('pasif', 'inactive'))));
+  if (p.description) console.log(chalk.gray(L('  Açıklama  : ', '  Description: ')) + chalk.white(p.description));
+  if (p.author) console.log(chalk.gray(L('  Yazar     : ', '  Author    : ')) + chalk.white(p.author));
+  if (p.license) console.log(chalk.gray(L('  Lisans    : ', '  License   : ')) + chalk.white(p.license));
+  if (p.keywords?.length) console.log(chalk.gray(L('  Etiketler : ', '  Tags      : ')) + chalk.white(p.keywords.join(', ')));
+  console.log(chalk.gray(L('  Yol       : ', '  Path      : ')) + chalk.gray(p.installPath));
+  if (p.entry) console.log(chalk.gray(L('  Giriş     : ', '  Entry     : ')) + chalk.white(p.entry));
   if (p.dependencies && Object.keys(p.dependencies).length > 0) {
-    console.log(chalk.gray('  Bağımlılıklar:'));
+    console.log(chalk.gray(L('  Bağımlılıklar:', '  Dependencies:')));
     Object.entries(p.dependencies).forEach(([k, v]) => {
       const depPath = path.join(p.installPath, 'node_modules', k);
       const installed = fs.existsSync(depPath) ? chalk.green('✓') : chalk.yellow('✗');
@@ -240,15 +242,15 @@ function showPluginDetail(p) {
 
 async function updateHandler(slug, opts) {
   if (!slug && !opts.all) {
-    console.log(chalk.red('\n  ❌ Plugin adı gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco plugins update <slug>'));
-    console.log(chalk.gray('  Tümü: natureco plugins update --all\n'));
+    console.log(chalk.red(L('\n  ❌ Plugin adı gerekli\n', '\n  ❌ Plugin name required\n')));
+    console.log(chalk.gray(L('  Kullanım: natureco plugins update <slug>', '  Usage: natureco plugins update <slug>')));
+    console.log(chalk.gray(L('  Tümü: natureco plugins update --all\n', '  All: natureco plugins update --all\n')));
     process.exit(1);
   }
 
   if (opts.all) {
     const all = scanInstalled();
-    console.log(chalk.cyan('\n  Tüm pluginler güncelleniyor...\n'));
+    console.log(chalk.cyan(L('\n  Tüm pluginler güncelleniyor...\n', '\n  Updating all plugins...\n')));
     for (const p of all) {
       try {
         const result = await updatePlugin(p.slug);
@@ -261,27 +263,27 @@ async function updateHandler(slug, opts) {
   }
 
   if (opts.dryRun) {
-    console.log(chalk.gray(`\n  📋 Kuru çalışma: "${slug}" güncellenecek\n`));
+    console.log(chalk.gray(`\n  📋 ${L('Kuru çalışma', 'Dry run')}: "${slug}" ${L('güncellenecek', 'will be updated')}\n`));
     return;
   }
 
   try {
     const result = await updatePlugin(slug);
-    console.log(chalk.green(`\n  ✓ Plugin güncellendi: ${result.name} → v${result.version}\n`));
+    console.log(chalk.green(`\n  ✓ ${L('Plugin güncellendi', 'Plugin updated')}: ${result.name} → v${result.version}\n`));
   } catch (err) {
-    console.log(chalk.red(`\n  ❌ Güncelleme başarısız: ${err.message}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Güncelleme başarısız', 'Update failed')}: ${err.message}\n`));
     process.exit(1);
   }
 }
 
 async function searchHandler(query, opts) {
   if (!query) {
-    console.log(chalk.red('\n  ❌ Arama sorgusu gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco plugins search <query>\n'));
+    console.log(chalk.red(L('\n  ❌ Arama sorgusu gerekli\n', '\n  ❌ Search query required\n')));
+    console.log(chalk.gray(L('  Kullanım: natureco plugins search <query>\n', '  Usage: natureco plugins search <query>\n')));
     process.exit(1);
   }
 
-  console.log(chalk.gray(`\n  "${query}" aranıyor...\n`));
+  console.log(chalk.gray(`\n  "${query}" ${L('aranıyor...', 'searching...')}\n`));
 
   const results = [];
 
@@ -325,17 +327,17 @@ async function searchHandler(query, opts) {
   }
 
   if (results.length === 0) {
-    console.log(chalk.yellow(`  "${query}" için sonuç bulunamadı.\n`));
+    console.log(chalk.yellow(`  "${query}" ${L('için sonuç bulunamadı.', '— no results found.')}\n`));
     return;
   }
 
-  console.log(chalk.cyan(`  ${results.length} sonuç\n`));
+  console.log(chalk.cyan(`  ${results.length} ${L('sonuç', 'results')}\n`));
   results.slice(0, opts.limit).forEach(p => {
     const sourceIcon = p.source === 'clawhub' ? '🦞' : p.source === 'naturehub' ? '🌿' : '📋';
     console.log(`  ${sourceIcon} ${chalk.white(p.name)} ${chalk.gray(`v${p.version}`)}`);
     if (p.description) console.log(chalk.gray(`    ${p.description.slice(0, 80)}`));
     const installHint = p.source === 'clawhub' ? `clawhub:${p.id}` : p.source === 'naturehub' ? p.id : p.id;
-    console.log(chalk.gray(`    Yüklemek: natureco plugins install ${installHint}\n`));
+    console.log(chalk.gray(`    ${L('Yüklemek', 'Install')}: natureco plugins install ${installHint}\n`));
   });
 }
 
@@ -343,10 +345,10 @@ function doctorHandler() {
   const list = scanInstalled();
   const registry = loadRegistry();
 
-  console.log(chalk.cyan.bold('\n  Plugin Tanılama\n'));
+  console.log(chalk.cyan.bold(L('\n  Plugin Tanılama\n', '\n  Plugin Diagnostics\n')));
 
   if (list.length === 0 && registry.plugins.length === 0) {
-    console.log(chalk.gray('  Yüklü plugin yok.\n'));
+    console.log(chalk.gray(L('  Yüklü plugin yok.\n', '  No plugins installed.\n')));
     return;
   }
 
@@ -358,11 +360,11 @@ function doctorHandler() {
     const manifestErrors = validateManifest(p);
 
     if (!hasPackage) {
-      console.log(chalk.yellow(`  ⚠ ${p.name}: package.json eksik`));
+      console.log(chalk.yellow(`  ⚠ ${p.name}: package.json ${L('eksik', 'missing')}`));
       issues++;
     }
     if (!hasEntry) {
-      console.log(chalk.yellow(`  ⚠ ${p.name}: ${p.entry || 'index.js'} bulunamadı`));
+      console.log(chalk.yellow(`  ⚠ ${p.name}: ${p.entry || 'index.js'} ${L('bulunamadı', 'not found')}`));
       issues++;
     }
     if (manifestErrors.length > 0) {
@@ -371,21 +373,21 @@ function doctorHandler() {
     }
 
     if (hasPackage && hasEntry && manifestErrors.length === 0) {
-      console.log(`  ${chalk.green('✓')} ${p.name} v${p.version} — sağlıklı`);
+      console.log(`  ${chalk.green('✓')} ${p.name} v${p.version} — ${L('sağlıklı', 'healthy')}`);
     }
   });
 
   registry.plugins.forEach(r => {
     if (!list.some(p => p.slug === r.id)) {
-      console.log(chalk.yellow(`  ⚠ Kayıtlı ama diskte yok: ${r.id} (kayıttan temizlenecek)`));
+      console.log(chalk.yellow(`  ⚠ ${L('Kayıtlı ama diskte yok', 'Registered but not on disk')}: ${r.id} (${L('kayıttan temizlenecek', 'will be pruned from registry')})`));
       issues++;
     }
   });
 
   if (issues === 0 && list.length > 0) {
-    console.log(chalk.green('  ✓ Tüm pluginler sağlıklı.\n'));
+    console.log(chalk.green(L('  ✓ Tüm pluginler sağlıklı.\n', '  ✓ All plugins healthy.\n')));
   } else if (issues > 0) {
-    console.log(chalk.yellow(`\n  ⚠ ${issues} sorun bulundu.\n`));
+    console.log(chalk.yellow(`\n  ⚠ ${issues} ${L('sorun bulundu.', 'issue(s) found.')}\n`));
   }
   console.log('');
 }
@@ -398,13 +400,13 @@ function registryHandler(opts) {
     return;
   }
 
-  console.log(chalk.cyan.bold('\n  Plugin Kayıt Defteri\n'));
-  console.log(chalk.gray('  Versiyon : ') + chalk.white(`v${registry.version}`));
-  console.log(chalk.gray('  Güncelleme: ') + chalk.white(registry.updatedAt || 'hiç'));
-  console.log(chalk.gray('  Kayıtlı  : ') + chalk.white(`${registry.plugins.length} plugin`));
+  console.log(chalk.cyan.bold(L('\n  Plugin Kayıt Defteri\n', '\n  Plugin Registry\n')));
+  console.log(chalk.gray(L('  Versiyon : ', '  Version  : ')) + chalk.white(`v${registry.version}`));
+  console.log(chalk.gray(L('  Güncelleme: ', '  Updated   : ')) + chalk.white(registry.updatedAt || L('hiç', 'never')));
+  console.log(chalk.gray(L('  Kayıtlı  : ', '  Registered: ')) + chalk.white(`${registry.plugins.length} plugin`));
 
   if (registry.plugins.length > 0) {
-    console.log(chalk.cyan('\n  Kayıtlı Pluginler\n'));
+    console.log(chalk.cyan(L('\n  Kayıtlı Pluginler\n', '\n  Registered Plugins\n')));
     registry.plugins.forEach(p => {
       const installed = scanInstalled().some(s => s.slug === p.id) ? chalk.green('✓') : chalk.yellow('✗');
       console.log(`  ${installed} ${chalk.white(p.name || p.id)} ${chalk.gray(`v${p.version} [${p.source}]`)}`);
