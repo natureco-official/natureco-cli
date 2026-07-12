@@ -12,6 +12,8 @@
  */
 
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const https = require('https');
 const { URL } = require('url');
 const audit = require('../utils/audit');
@@ -72,26 +74,26 @@ async function apiCall(path, options = {}) {
 async function cmdPost(args) {
   const text = args.join(' ').trim();
   if (!text) {
-    console.log(chalk.red('\n  Kullanım: natureco naturehub post "<mesaj>"\n'));
+    console.log(chalk.red(L('\n  Kullanım: natureco naturehub post "<mesaj>"\n', '\n  Usage: natureco naturehub post "<message>"\n')));
     return;
   }
 
   const token = getApiKey();
   if (!token) {
-    console.log(chalk.yellow('\n  ⚠️  API key tanımlı değil. Önce `natureco login` ile giriş yapın.\n'));
+    console.log(chalk.yellow(L('\n  ⚠️  API key tanımlı değil. Önce `natureco login` ile giriş yapın.\n', '\n  ⚠️  API key not set. Log in first with `natureco login`.\n')));
     saveLocal(text);
     return;
   }
 
   const botId = getBotId();
   if (!botId) {
-    console.log(chalk.yellow('\n  ⚠️  Bot ID tanımlı değil. `natureco naturehub list` ile botlarınızı görün.\n'));
-    console.log(chalk.gray('  Ayarlamak için: natureco config set naturecoBotId <bot_id>\n'));
+    console.log(chalk.yellow(L('\n  ⚠️  Bot ID tanımlı değil. `natureco naturehub list` ile botlarınızı görün.\n', '\n  ⚠️  Bot ID not set. See your bots with `natureco naturehub list`.\n')));
+    console.log(chalk.gray(L('  Ayarlamak için: natureco config set naturecoBotId <bot_id>\n', '  To set: natureco config set naturecoBotId <bot_id>\n')));
     saveLocal(text);
     return;
   }
 
-  console.log(chalk.cyan(`\n  📤 Bota mesaj gönderiliyor (${botId})...\n`));
+  console.log(chalk.cyan(`\n  📤 ${L('Bota mesaj gönderiliyor', 'Sending message to bot')} (${botId})...\n`));
   console.log(chalk.gray(`  "${text.slice(0, 200)}"\n`));
 
   try {
@@ -100,11 +102,11 @@ async function cmdPost(args) {
       token,
       body: { message: text, user_id: 'cli' },
     });
-    console.log(chalk.green('  ✓ Gönderildi!\n'));
+    console.log(chalk.green(L('  ✓ Gönderildi!\n', '  ✓ Sent!\n')));
     if (result.reply) console.log(chalk.cyan(`  💬 Bot: ${result.reply}\n`));
     audit.log(audit.ACTIONS.INFO, { source: 'naturehub', action: 'post', botId });
   } catch (e) {
-    console.log(chalk.red(`  ✗ Hata: ${e.message}\n`));
+    console.log(chalk.red(`  ✗ ${L('Hata', 'Error')}: ${e.message}\n`));
     saveLocal(text);
   }
 }
@@ -117,23 +119,23 @@ function saveLocal(text) {
   const dir = path.dirname(file);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.appendFileSync(file, JSON.stringify({ ts: new Date().toISOString(), text }) + '\n');
-  console.log(chalk.gray(`  Kayıt: ${file}\n`));
+  console.log(chalk.gray(`  ${L('Kayıt', 'Saved')}: ${file}\n`));
 }
 
 async function cmdList() {
   const token = getApiKey();
   if (!token) {
-    console.log(chalk.yellow('\n  ⚠️  API key tanımlı değil.\n'));
+    console.log(chalk.yellow(L('\n  ⚠️  API key tanımlı değil.\n', '\n  ⚠️  API key not set.\n')));
     return;
   }
 
-  console.log(chalk.cyan('\n  🤖 Botlarınız\n'));
+  console.log(chalk.cyan(L('\n  🤖 Botlarınız\n', '\n  🤖 Your Bots\n')));
 
   try {
     const result = await apiCall('/bots', { method: 'GET', token });
     const bots = Array.isArray(result) ? result : (result.bots || result.data || []);
     if (bots.length === 0) {
-      console.log(chalk.gray('  Henüz botunuz yok.\n'));
+      console.log(chalk.gray(L('  Henüz botunuz yok.\n', '  You have no bots yet.\n')));
       return;
     }
     for (const b of bots) {
@@ -141,22 +143,22 @@ async function cmdList() {
       if (b.description) console.log(`    ${chalk.gray(b.description)}`);
       console.log('');
     }
-    console.log(chalk.gray('  Bot ID ayarlamak için: natureco config set naturecoBotId <id>\n'));
+    console.log(chalk.gray(L('  Bot ID ayarlamak için: natureco config set naturecoBotId <id>\n', '  To set Bot ID: natureco config set naturecoBotId <id>\n')));
   } catch (e) {
-    console.log(chalk.red(`  ✗ Hata: ${e.message}\n`));
+    console.log(chalk.red(`  ✗ ${L('Hata', 'Error')}: ${e.message}\n`));
   }
 }
 
 async function cmdInfo(botId) {
   const token = getApiKey();
   if (!token) {
-    console.log(chalk.yellow('\n  ⚠️  API key tanımlı değil.\n'));
+    console.log(chalk.yellow(L('\n  ⚠️  API key tanımlı değil.\n', '\n  ⚠️  API key not set.\n')));
     return;
   }
 
   const id = botId || getBotId();
   if (!id) {
-    console.log(chalk.yellow('\n  Bot ID gerekli: natureco naturehub info <bot_id>\n'));
+    console.log(chalk.yellow(L('\n  Bot ID gerekli: natureco naturehub info <bot_id>\n', '\n  Bot ID required: natureco naturehub info <bot_id>\n')));
     return;
   }
 
@@ -164,35 +166,35 @@ async function cmdInfo(botId) {
   try {
     const result = await apiCall(`/bots/${id}`, { method: 'GET', token });
     console.log(`  ${chalk.bold('ID:')}          ${result.id}`);
-    console.log(`  ${chalk.bold('İsim:')}        ${result.name || '-'}`);
-    console.log(`  ${chalk.bold('Açıklama:')}     ${result.description || '-'}`);
-    console.log(`  ${chalk.bold('Durum:')}        ${result.status || 'active'}`);
+    console.log(`  ${chalk.bold(L('İsim:', 'Name:'))}        ${result.name || '-'}`);
+    console.log(`  ${chalk.bold(L('Açıklama:', 'Description:'))}     ${result.description || '-'}`);
+    console.log(`  ${chalk.bold(L('Durum:', 'Status:'))}        ${result.status || 'active'}`);
     console.log('');
   } catch (e) {
-    console.log(chalk.red(`  ✗ Hata: ${e.message}\n`));
+    console.log(chalk.red(`  ✗ ${L('Hata', 'Error')}: ${e.message}\n`));
   }
 }
 
 async function cmdConfig() {
   const { getConfig } = require('../utils/config');
   const cfg = getConfig();
-  console.log(chalk.cyan('\n  ⚙️  NatureCo API Ayarları\n'));
-  console.log(chalk.gray('  API Key: ') + (cfg.apiKey ? chalk.green('✓ ayarlı') : chalk.yellow('yok')));
-  console.log(chalk.gray('  Bot ID:  ') + (cfg.naturecoBotId ? chalk.green(cfg.naturecoBotId) : chalk.yellow('ayarlanmamış')));
+  console.log(chalk.cyan(L('\n  ⚙️  NatureCo API Ayarları\n', '\n  ⚙️  NatureCo API Settings\n')));
+  console.log(chalk.gray('  API Key: ') + (cfg.apiKey ? chalk.green(L('✓ ayarlı', '✓ set')) : chalk.yellow(L('yok', 'none'))));
+  console.log(chalk.gray('  Bot ID:  ') + (cfg.naturecoBotId ? chalk.green(cfg.naturecoBotId) : chalk.yellow(L('ayarlanmamış', 'not set'))));
   console.log(chalk.gray('\n  Giriş:    ') + chalk.cyan('natureco login'));
   console.log(chalk.gray('  Bot ID:   ') + chalk.cyan('natureco config set naturecoBotId <id>'));
-  console.log(chalk.gray('  Botlar:   ') + chalk.cyan('natureco naturehub list'));
+  console.log(chalk.gray(L('  Botlar:   ', '  Bots:     ')) + chalk.cyan('natureco naturehub list'));
   console.log('');
 }
 
 async function naturehub(args) {
   const [action, ...params] = args || [];
   if (!action || action === 'help') {
-    console.log(chalk.yellow('\n  Kullanım:'));
-    console.log(chalk.gray('    natureco naturehub post "<mesaj>"    Bota mesaj gönder'));
-    console.log(chalk.gray('    natureco naturehub list              Botları listele'));
-    console.log(chalk.gray('    natureco naturehub info [bot_id]     Bot detayı'));
-    console.log(chalk.gray('    natureco naturehub config            Ayarlar'));
+    console.log(chalk.yellow(L('\n  Kullanım:', '\n  Usage:')));
+    console.log(chalk.gray(L('    natureco naturehub post "<mesaj>"    Bota mesaj gönder', '    natureco naturehub post "<message>"  Send message to bot')));
+    console.log(chalk.gray(L('    natureco naturehub list              Botları listele', '    natureco naturehub list              List bots')));
+    console.log(chalk.gray(L('    natureco naturehub info [bot_id]     Bot detayı', '    natureco naturehub info [bot_id]     Bot details')));
+    console.log(chalk.gray(L('    natureco naturehub config            Ayarlar', '    natureco naturehub config            Settings')));
     console.log('');
     return;
   }
@@ -200,7 +202,7 @@ async function naturehub(args) {
   if (action === 'list') return cmdList();
   if (action === 'info') return cmdInfo(params[0]);
   if (action === 'config') return cmdConfig();
-  console.log(chalk.red(`\n  Bilinmeyen action: ${action}\n`));
+  console.log(chalk.red(`\n  ${L('Bilinmeyen action', 'Unknown action')}: ${action}\n`));
 }
 
 module.exports = naturehub;
