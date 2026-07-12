@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -17,8 +19,8 @@ async function security(args) {
 
   if (action === 'secrets') return scanSecrets(args);
 
-  console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco security [audit|allowlist|policy|secrets]\n'));
+  console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${action}\n`));
+  console.log(chalk.gray(L('  Kullanım: natureco security [audit|allowlist|policy|secrets]\n', '  Usage: natureco security [audit|allowlist|policy|secrets]\n')));
   process.exit(1);
 }
 
@@ -58,7 +60,7 @@ async function allowlistAction(args) {
     return;
   }
 
-  console.log(chalk.gray('\n  Kullanım:'));
+  console.log(chalk.gray(L('\n  Kullanım:', '\n  Usage:')));
   console.log(chalk.gray('    natureco security allowlist list'));
   console.log(chalk.gray('    natureco security allowlist add "<command>"'));
   console.log(chalk.gray('    natureco security allowlist remove <id>\n'));
@@ -79,7 +81,7 @@ async function policyAction(args) {
     return;
   }
 
-  console.log(chalk.gray('\n  Kullanım:'));
+  console.log(chalk.gray(L('\n  Kullanım:', '\n  Usage:')));
   console.log(chalk.gray('    natureco security policy set deny|allowlist|full'));
   console.log(chalk.gray('\n  Policy levels:'));
   console.log(chalk.gray('    deny       - Block all command execution'));
@@ -140,11 +142,11 @@ async function audit(args) {
       if (process.platform !== 'win32' && mode !== '600' && mode !== '644') {
         issues.push({
           id: 'config-permissions',
-          msg: `Config dosyası izinleri geniş: ${mode} (önerilen: 600)`,
+          msg: `${L('Config dosyası izinleri geniş', 'Config file permissions too broad')}: ${mode} ${L('(önerilen: 600)', '(recommended: 600)')}`,
           fix: () => fs.chmodSync(CONFIG_FILE, 0o600),
         });
       } else {
-        ok.push('Config dosyası izinleri');
+        ok.push(L('Config dosyası izinleri', 'Config file permissions'));
       }
     } catch {}
   }
@@ -153,7 +155,7 @@ async function audit(args) {
   const config = getConfig();
   if (config.providerApiKey) {
     if (config.providerApiKey.length < 10) {
-      issues.push({ id: 'weak-api-key', msg: 'API key çok kısa görünüyor' });
+      issues.push({ id: 'weak-api-key', msg: L('API key çok kısa görünüyor', 'API key looks too short') });
     } else {
       ok.push('API key formatı');
     }
@@ -161,9 +163,9 @@ async function audit(args) {
 
   // 3. Debug mode
   if (config.debug === true) {
-    warnings.push({ id: 'debug-mode', msg: 'Debug modu açık — API key\'ler loglara yazılabilir' });
+    warnings.push({ id: 'debug-mode', msg: L('Debug modu açık — API key\'ler loglara yazılabilir', 'Debug mode on — API keys may be written to logs') });
   } else {
-    ok.push('Debug modu kapalı');
+    ok.push(L('Debug modu kapalı', 'Debug mode off'));
   }
 
   // 4. WhatsApp session dosyaları
@@ -171,9 +173,9 @@ async function audit(args) {
   if (fs.existsSync(waDir)) {
     const sessions = fs.readdirSync(waDir);
     if (sessions.length > 3) {
-      warnings.push({ id: 'old-wa-sessions', msg: `${sessions.length} WhatsApp session var — eskiler temizlenebilir` });
+      warnings.push({ id: 'old-wa-sessions', msg: `${sessions.length} WhatsApp ${L('session var — eskiler temizlenebilir', 'sessions — old ones can be cleaned')}` });
     } else {
-      ok.push('WhatsApp session sayısı');
+      ok.push(L('WhatsApp session sayısı', 'WhatsApp session count'));
     }
   }
 
@@ -183,9 +185,9 @@ async function audit(args) {
     const stat = fs.statSync(logFile);
     const sizeMB = stat.size / (1024 * 1024);
     if (sizeMB > 50) {
-      warnings.push({ id: 'large-log', msg: `Gateway log dosyası büyük: ${sizeMB.toFixed(1)}MB` });
+      warnings.push({ id: 'large-log', msg: `${L('Gateway log dosyası büyük', 'Gateway log file large')}: ${sizeMB.toFixed(1)}MB` });
     } else {
-      ok.push('Gateway log boyutu');
+      ok.push(L('Gateway log boyutu', 'Gateway log size'));
     }
   }
 
@@ -194,9 +196,9 @@ async function audit(args) {
   if (fs.existsSync(convDir)) {
     const convFiles = fs.readdirSync(convDir).filter(f => f.endsWith('.json'));
     if (convFiles.length > 20) {
-      warnings.push({ id: 'old-conversations', msg: `${convFiles.length} konuşma dosyası var — eskiler temizlenebilir` });
+      warnings.push({ id: 'old-conversations', msg: `${convFiles.length} ${L('konuşma dosyası var — eskiler temizlenebilir', 'conversation files — old ones can be cleaned')}` });
     } else {
-      ok.push('Konuşma dosyası sayısı');
+      ok.push(L('Konuşma dosyası sayısı', 'Conversation file count'));
     }
   }
 
@@ -245,7 +247,7 @@ async function audit(args) {
 
   console.log('');
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(chalk.cyan.bold('\n  Güvenlik Denetimi\n'));
+  console.log(chalk.cyan.bold(L('\n  Güvenlik Denetimi\n', '\n  Security Audit\n')));
 
   ok.forEach(msg => console.log(chalk.green('  ✓ ') + chalk.gray(msg)));
 
@@ -263,11 +265,11 @@ async function audit(args) {
   console.log(chalk.gray('  ' + '─'.repeat(48)));
 
   if (issues.length === 0 && warnings.length === 0) {
-    console.log(chalk.green('  ✓ Güvenlik sorunu bulunamadı\n'));
+    console.log(chalk.green(L('  ✓ Güvenlik sorunu bulunamadı\n', '  ✓ No security issues found\n')));
     return;
   }
 
-  console.log(chalk.gray(`  ${ok.length} geçti · ${warnings.length} uyarı · ${issues.length} sorun`));
+  console.log(chalk.gray(`  ${ok.length} ${L('geçti', 'passed')} · ${warnings.length} ${L('uyarı', 'warnings')} · ${issues.length} ${L('sorun', 'issues')}`));
 
   if (fix && issues.length > 0) {
     console.log('');
@@ -275,14 +277,14 @@ async function audit(args) {
       if (i.fix) {
         try {
           i.fix();
-          console.log(chalk.green(`  ✓ Düzeltildi: ${i.id}`));
+          console.log(chalk.green(`  ✓ ${L('Düzeltildi', 'Fixed')}: ${i.id}`));
         } catch (e) {
-          console.log(chalk.red(`  ❌ Düzeltilemedi: ${i.id} — ${e.message}`));
+          console.log(chalk.red(`  ❌ ${L('Düzeltilemedi', 'Could not fix')}: ${i.id} — ${e.message}`));
         }
       }
     });
   } else if (issues.length > 0) {
-    console.log(chalk.gray('\n  Otomatik düzeltmek için: ') + chalk.cyan('natureco security audit --fix'));
+    console.log(chalk.gray(L('\n  Otomatik düzeltmek için: ', '\n  To auto-fix: ')) + chalk.cyan('natureco security audit --fix'));
   }
   console.log('');
 }
