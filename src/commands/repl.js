@@ -132,22 +132,22 @@ const guardrails = new ToolGuardrails();
 
 // CLI komutları (REPL içinden çalıştırılabilir)
 const CLI_COMMANDS = {
-  '/doctor':    { desc: 'Sistem sağlığı kontrolü', run: ['doctor'] },
-  '/cost':      { desc: 'Maliyet takibi (today|week|month|budget)', run: ['cost', 'today'] },
-  '/audit':     { desc: 'Audit log (today|stats|files)', run: ['audit', 'stats'] },
-  '/team':      { desc: 'Multi-agent (list|status)', run: ['team', 'list'] },
-  '/xp':        { desc: 'XP/Level durumu', run: ['xp'] },
-  '/skills':    { desc: 'Yüklü skill listesi', run: ['skills', 'list'] },
-  '/status':    { desc: 'Sistem durumu', run: ['status'] },
-  '/mcp':       { desc: 'MCP sunucuları', run: ['mcp', 'list'] },
-  '/channels':  { desc: 'Bağlı kanallar', run: ['channels'] },
-  '/crons':     { desc: 'Cron görevleri', run: ['cron', 'list'] },
-  '/bots':      { desc: 'Bot listesi', run: ['bots'] },
-  '/models':    { desc: 'Modeller', run: ['models', 'list'] },
-  '/memory-ls': { desc: 'Memory dosyaları', run: ['memory', 'list'] },
-  '/seo':       { desc: 'SEO denetimi (URL gerek)', needsArg: true, run: ['seo', 'audit'] },
-  '/naturehub': { desc: 'Bota mesaj gönder (text gerek)', needsArg: true, run: ['naturehub', 'post'] },
-  '/dashboard': { desc: 'Web dashboard başlat (port 7421)', run: ['dashboard', 'start'] },
+  '/doctor':    { desc: L('Sistem sağlığı kontrolü', 'System health check'), run: ['doctor'] },
+  '/cost':      { desc: L('Maliyet takibi (today|week|month|budget)', 'Cost tracking (today|week|month|budget)'), run: ['cost', 'today'] },
+  '/audit':     { desc: L('Denetim kaydı (today|stats|files)', 'Audit log (today|stats|files)'), run: ['audit', 'stats'] },
+  '/team':      { desc: L('Çoklu ajan (list|status)', 'Multi-agent (list|status)'), run: ['team', 'list'] },
+  '/xp':        { desc: L('XP/Seviye durumu', 'XP/level status'), run: ['xp'] },
+  '/skills':    { desc: L('Yüklü beceri listesi', 'Installed skills'), run: ['skills', 'list'] },
+  '/status':    { desc: L('Sistem durumu', 'System status'), run: ['status'] },
+  '/mcp':       { desc: L('MCP sunucuları', 'MCP servers'), run: ['mcp', 'list'] },
+  '/channels':  { desc: L('Bağlı kanallar', 'Connected channels'), run: ['channels'] },
+  '/crons':     { desc: L('Zamanlanmış görevler', 'Scheduled tasks'), run: ['cron', 'list'] },
+  '/bots':      { desc: L('Bot listesi', 'Bot list'), run: ['bots'] },
+  '/models':    { desc: L('Modeller', 'Models'), run: ['models', 'list'] },
+  '/memory-ls': { desc: L('Hafıza dosyaları', 'Memory files'), run: ['memory', 'list'] },
+  '/seo':       { desc: L('SEO denetimi (URL gerekli)', 'SEO audit (URL required)'), needsArg: true, run: ['seo', 'audit'] },
+  '/naturehub': { desc: L('Bota mesaj gönder (metin gerekli)', 'Send a message to a bot (text required)'), needsArg: true, run: ['naturehub', 'post'] },
+  '/dashboard': { desc: L('Web panelini başlat (port 7421)', 'Start web dashboard (port 7421)'), run: ['dashboard', 'start'] },
 };
 
 // Profil desteği: --profile <ad> ile ~/.natureco-<ad> kullanılır (config ile tutarlı)
@@ -174,7 +174,7 @@ const { isMiniMax, isGemini, buildChatEndpoint } = require('../utils/provider-de
 
 function loadMemory(username) {
   const uname = (username || 'default').toLowerCase();
-  const base = { name: username || 'Kullanıcı', nickname: null, botName: null, facts: [], preferences: [], history: [] };
+  const base = { name: username || L('Kullanıcı', 'User'), nickname: null, botName: null, facts: [], preferences: [], history: [] };
   const readJson = (f) => { try { return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null; } catch { return null; } };
 
   const userMem = readJson(path.join(MEMORY_DIR, `${uname}.json`));
@@ -201,7 +201,7 @@ function loadMemory(username) {
     }
   }
 
-  if (!merged.botName) merged.botName = 'Asistan';
+  if (!merged.botName) merged.botName = L('Asistan', 'Assistant');
   return merged;
 }
 
@@ -241,7 +241,7 @@ function saveSession(messages, meta) {
   const idx = loadSessionsIndex();
   idx.sessions.unshift({
     id, file, createdAt: data.createdAt, messageCount: messages.length,
-    firstUserMessage: messages.find(m => m.role === 'user')?.content?.slice(0, 60) || '(boş)',
+    firstUserMessage: messages.find(m => m.role === 'user')?.content?.slice(0, 60) || L('(boş)', '(empty)'),
   });
   // Son 50 session tut
   idx.sessions = idx.sessions.slice(0, 50);
@@ -732,7 +732,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
       // Fallback chain: try next model on error
       const fb = fallbackChain.recordError(body.model, err);
       if (fb.fallback) {
-        console.log(tui.C.yellow(`\n  ⚠ ${body.model} başarısız → ${fb.nextModel} deneniyor...\n`));
+        console.log(tui.C.yellow(`\n  ⚠ ${body.model} ${L('başarısız', 'failed')} → ${fb.nextModel} ${L('deneniyor...', 'trying...')}\n`));
         continue; // Retry with next model
       }
       throw err;
@@ -757,12 +757,12 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
       // Plan mode review: plan submitted, wait for user approval
       if (planMode.inReview()) {
         const { plan } = planMode.planHistory[planMode.planHistory.length - 1] || {};
-        console.log('\n' + tui.C.cyan('  📋 Plan sunuldu — onay bekleniyor...'));
+        console.log('\n' + tui.C.cyan(L('  📋 Plan sunuldu — onay bekleniyor...', '  📋 Plan submitted — awaiting approval...')));
         console.log(tui.C.muted('  ' + '─'.repeat(56)));
         console.log(plan ? `\n  ${plan.replace(/\n/g, '\n  ')}` : '');
         console.log('\n' + tui.C.muted('  ─'.repeat(28)));
         const approved = await new Promise(resolve => {
-          stdinPrompt(tui.C.yellow('  Planı onaylıyor musun? [Y=exec, n=reddet, e=düzenle]: '), answer => {
+          stdinPrompt(tui.C.yellow(L('  Planı onaylıyor musun? [Y=exec, n=reddet, e=düzenle]: ', '  Approve the plan? [Y=exec, n=reject, e=edit]: ')), answer => {
             const key = answer.trim().toLowerCase();
             if (key === 'n' || key === 'no') { planMode.reject(); resolve(false); }
             else if (key === 'e' || key === 'edit') { planMode.reject(); resolve('edit'); }
@@ -770,16 +770,16 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
           });
         });
         if (approved === true) {
-          console.log(tui.C.green('  ✓ Plan onaylandı. Plan uygulanıyor...\n'));
+          console.log(tui.C.green(L('  ✓ Plan onaylandı. Plan uygulanıyor...\n', '  ✓ Plan approved. Applying...\n')));
           // Devam — model cevap versin
         } else if (approved === 'edit') {
-          console.log(tui.C.yellow('  📝 Planı düzenleyin ve /plan ile yeniden gönderin.\n'));
+          console.log(tui.C.yellow(L('  📝 Planı düzenleyin ve /plan ile yeniden gönderin.\n', '  📝 Edit the plan and resubmit with /plan.\n')));
           // Plan modunda kal, mesaj ekle
-          currentMessages.push({ role: 'user', content: 'Planı düzenle ve yeniden sun.' });
+          currentMessages.push({ role: 'user', content: L('Planı düzenle ve yeniden sun.', 'Revise the plan and submit it again.') });
           continue;
         } else {
-          console.log(tui.C.amber('  ⨯ Plan reddedildi. Yeniden plan yapılıyor...\n'));
-          currentMessages.push({ role: 'user', content: 'Plan reddedildi. Lütfen farklı bir yaklaşım dene.' });
+          console.log(tui.C.amber(L('  ⨯ Plan reddedildi. Yeniden plan yapılıyor...\n', '  ⨯ Plan rejected. Re-planning...\n')));
+          currentMessages.push({ role: 'user', content: L('Plan reddedildi. Lütfen farklı bir yaklaşım dene.', 'The plan was rejected. Please try a different approach.') });
           continue;
         }
       }
@@ -813,7 +813,7 @@ const { getFallbackChain } = require('../utils/fallback-chain');
  * Returns: true (once), 'session', 'persistent', or false (denied).
  */
 async function askPermissionPrompt(question, hint, prompter) {
-  const full = `${tui.C.yellow('⚠')} ${tui.C.bold('İzin gerekiyor')}: ${question}\n${tui.C.muted(hint)}`;
+  const full = `${tui.C.yellow('⚠')} ${tui.C.bold(L('İzin gerekiyor', 'Permission required'))}: ${question}\n${tui.C.muted(hint)}`;
   return new Promise(resolve => {
     prompter(full, answer => {
       const key = answer.trim();
@@ -1005,22 +1005,22 @@ async function processToolCalls(toolCalls, onToolCall, onAsk) {
 }
 
 function printHelp() {
-  console.log(chalk.cyan('\n  📚 REPL Komutları:\n'));
-  console.log('  ' + chalk.yellow('/help'.padEnd(22)) + chalk.gray('Bu yardım'));
-  console.log('  ' + chalk.yellow('/clear'.padEnd(22)) + chalk.gray('Ekranı temizle'));
-  console.log('  ' + chalk.yellow('/history'.padEnd(22)) + chalk.gray('Bu oturumun geçmişi'));
-  console.log('  ' + chalk.yellow('/memory'.padEnd(22)) + chalk.gray('Memory\'i göster'));
-  console.log('  ' + chalk.yellow('/plan [on|off|show]'.padEnd(22)) + chalk.gray('Plan modu'));
-  console.log('  ' + chalk.yellow('/forget'.padEnd(22)) + chalk.gray('Memory\'i temizle'));
-  console.log('  ' + chalk.yellow('/sessions'.padEnd(22)) + chalk.gray('Geçmiş oturumları listele'));
-  console.log('  ' + chalk.yellow('/resume [id|last]'.padEnd(22)) + chalk.gray('Önceki oturuma dön'));
-  console.log('  ' + chalk.yellow('/system <text>'.padEnd(22)) + chalk.gray('System prompt değiştir'));
-  console.log('  ' + chalk.yellow('/model <name>'.padEnd(22)) + chalk.gray('Model değiştir'));
-  console.log('  ' + chalk.yellow('/identity [ad]'.padEnd(22)) + chalk.gray('Bot adını değiştir'));
-  console.log('  ' + chalk.yellow('/tokens'.padEnd(22)) + chalk.gray('Token kullanımı'));
-  console.log('  ' + chalk.yellow('/save'.padEnd(22)) + chalk.gray('Oturumu manuel kaydet'));
-  console.log('  ' + chalk.yellow('/exit veya /quit'.padEnd(22)) + chalk.gray('Çıkış (Ctrl+C de çalışır)'));
-  console.log(chalk.cyan('\n  🛠️  Tüm CLI Komutları (REPL içinden):\n'));
+  console.log(chalk.cyan(L('\n  📚 REPL Komutları:\n', '\n  📚 REPL Commands:\n')));
+  console.log('  ' + chalk.yellow('/help'.padEnd(22)) + chalk.gray(L('Bu yardım', 'This help')));
+  console.log('  ' + chalk.yellow('/clear'.padEnd(22)) + chalk.gray(L('Ekranı temizle', 'Clear the screen')));
+  console.log('  ' + chalk.yellow('/history'.padEnd(22)) + chalk.gray(L('Bu oturumun geçmişi', 'This session\'s history')));
+  console.log('  ' + chalk.yellow('/memory'.padEnd(22)) + chalk.gray(L('Hafızayı göster', 'Show memory')));
+  console.log('  ' + chalk.yellow('/plan [on|off|show]'.padEnd(22)) + chalk.gray(L('Plan modu', 'Plan mode')));
+  console.log('  ' + chalk.yellow('/forget'.padEnd(22)) + chalk.gray(L('Hafızayı temizle', 'Clear memory')));
+  console.log('  ' + chalk.yellow('/sessions'.padEnd(22)) + chalk.gray(L('Geçmiş oturumları listele', 'List past sessions')));
+  console.log('  ' + chalk.yellow('/resume [id|last]'.padEnd(22)) + chalk.gray(L('Önceki oturuma dön', 'Return to a previous session')));
+  console.log('  ' + chalk.yellow('/system <text>'.padEnd(22)) + chalk.gray(L('System prompt değiştir', 'Change system prompt')));
+  console.log('  ' + chalk.yellow('/model <name>'.padEnd(22)) + chalk.gray(L('Model değiştir', 'Change model')));
+  console.log('  ' + chalk.yellow('/identity [ad]'.padEnd(22)) + chalk.gray(L('Bot adını değiştir', 'Change bot name')));
+  console.log('  ' + chalk.yellow('/tokens'.padEnd(22)) + chalk.gray(L('Token kullanımı', 'Token usage')));
+  console.log('  ' + chalk.yellow('/save'.padEnd(22)) + chalk.gray(L('Oturumu elle kaydet', 'Save session manually')));
+  console.log('  ' + chalk.yellow(L('/exit veya /quit', '/exit or /quit').padEnd(22)) + chalk.gray(L('Çıkış (Ctrl+C de çalışır)', 'Exit (Ctrl+C also works)')));
+  console.log(chalk.cyan(L('\n  🛠️  Tüm CLI Komutları (REPL içinden):\n', '\n  🛠️  All CLI Commands (from REPL):\n')));
   for (const [cmd, info] of Object.entries(CLI_COMMANDS)) {
     console.log('  ' + chalk.yellow(cmd.padEnd(22)) + chalk.gray(info.desc));
   }
@@ -1053,7 +1053,7 @@ async function startRepl(args) {
   }
 
   if (!providerUrl || !providerApiKey) {
-    console.log(chalk.red('\n  ❌ Provider ayarlı değil. Önce: natureco setup\n'));
+    console.log(chalk.red(L('\n  ❌ Provider ayarlı değil. Önce: natureco setup\n', '\n  ❌ Provider not configured. First: natureco setup\n')));
     process.exit(1);
   }
 
@@ -1062,7 +1062,7 @@ async function startRepl(args) {
 
   // v5.6.19: Oncelik config.botName, sonra memory.botName
   if (!memory.botName) {
-    memory.botName = cfg.botName || 'Asistan';
+    memory.botName = cfg.botName || L('Asistan', 'Assistant');
   }
   // BotName'i memory'ye persist et (her oturumda ayni kalsin)
   try {
@@ -1117,7 +1117,7 @@ async function startRepl(args) {
     const session = loadSession(resumeId);
     if (session) {
       messages = session.messages || [];
-      console.log(chalk.green(`\n  ✓ Oturum yüklendi: ${session.id} (${messages.length} mesaj)\n`));
+      console.log(chalk.green(`\n  ✓ ${L('Oturum yüklendi', 'Session loaded')}: ${session.id} (${messages.length} ${L('mesaj', 'messages')})\n`));
     } else {
       console.log(chalk.yellow(`\n  ⚠️  ${L('Oturum bulunamadı', 'Session not found')}: ${resumeId}\n`));
     }
@@ -1125,7 +1125,7 @@ async function startRepl(args) {
 
   // System prompt oluştur (memory + identity + persistent bağlam)
   // v5.6.5: Kucuk model tespiti (Groq, Mistral Small, Ollama) - SOUL injection skip
-  const botName = memory.botName || 'Asistan';
+  const botName = memory.botName || L('Asistan', 'Assistant');
   const userName = memory.name || memory.nickname || cfg.userName;
   const isSmallModel = (cfg.providerUrl || '').includes('groq.com') || 
                        (cfg.providerUrl || '').includes('mistral.ai') ||
@@ -1134,7 +1134,7 @@ async function startRepl(args) {
   // Discover project rules (CLAUDE.md)
   const projectRules = discoverProjectRules(process.cwd());
   if (projectRules) {
-    console.log(chalk.cyan(`  📋 Proje kurallari bulundu (CLAUDE.md)\n`));
+    console.log(chalk.cyan(`  📋 ${L('Proje kurallari bulundu', 'Project rules found')} (CLAUDE.md)\n`));
   }
 
   // Build system prompt with tier caching (stable+context cached, volatile fresh)
@@ -1161,20 +1161,20 @@ async function startRepl(args) {
 
   // Header
   console.log('');
-  console.log(tui.styled('  🌿 NatureCo REPL · Persistent Sohbet', { color: tui.PALETTE.primary, bold: true }));
+  console.log(tui.styled(L('  🌿 NatureCo REPL · Persistent Sohbet', '  🌿 NatureCo REPL · Persistent Chat'), { color: tui.PALETTE.primary, bold: true }));
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
   console.log(tui.C.muted('  Provider: ') + tui.C.brand(providerUrl.replace(/https?:\/\//, '')));
   console.log(tui.C.muted('  Model:    ') + tui.C.brand(model));
-  const displayUser = memory.nickname || cfg.userName || require('os').userInfo().username || 'Kullanıcı';
-  console.log(tui.C.muted('  Kullanıcı: ') + tui.C.brand(displayUser + (memory.nickname && cfg.userName ? ` (${cfg.userName})` : '')));
-  console.log(tui.C.muted('  Bot:      ') + tui.C.brand(memory.botName || 'Asistan'));
+  const displayUser = memory.nickname || cfg.userName || require('os').userInfo().username || L('Kullanıcı', 'User');
+  console.log(tui.C.muted(L('  Kullanıcı: ', '  User: ')) + tui.C.brand(displayUser + (memory.nickname && cfg.userName ? ` (${cfg.userName})` : '')));
+  console.log(tui.C.muted('  Bot:      ') + tui.C.brand(memory.botName || L('Asistan', 'Assistant')));
   if (messages.length > 1) {
-    console.log(tui.C.muted('  Oturum:   ') + tui.C.amber(`${messages.filter(m => m.role === 'user' || m.role === 'assistant').length} mesaj (resume)`));
+    console.log(tui.C.muted(L('  Oturum:   ', '  Session:  ')) + tui.C.amber(`${messages.filter(m => m.role === 'user' || m.role === 'assistant').length} ${L('mesaj', 'messages')} (${L('devam', 'resumed')})`));
   }
-  console.log(tui.C.muted('  Komutlar: ') + tui.C.yellow('/help') + tui.C.muted(' · ') + tui.C.yellow('/memory') + tui.C.muted(' · ') + tui.C.yellow('/sessions') + tui.C.muted(' · ') + tui.C.yellow('/exit'));
+  console.log(tui.C.muted(L('  Komutlar: ', '  Commands: ')) + tui.C.yellow('/help') + tui.C.muted(' · ') + tui.C.yellow('/memory') + tui.C.muted(' · ') + tui.C.yellow('/sessions') + tui.C.muted(' · ') + tui.C.yellow('/exit'));
   console.log('');
   // v5.4.7: Hard-coded kimlik — v5.14.5: memory fact'lerinden kullanici adini tespit et
-  const displayBotName = memory.botName || 'Asistan';
+  const displayBotName = memory.botName || L('Asistan', 'Assistant');
   const nameFromFact = (() => {
     const facts = memory.facts || [];
     for (const f of facts) {
@@ -1186,7 +1186,7 @@ async function startRepl(args) {
     return null;
   })();
   const displayUserName = memory.name || nameFromFact || memory.nickname || cfg.userName;
-  console.log(tui.C.brand('  👋 Ben ' + displayBotName + ', ' + displayUserName + '. Sen nasilsin?'));
+  console.log(tui.C.brand(L(`  👋 Ben ${displayBotName}, ${displayUserName}. Sen nasılsın?`, `  👋 I am ${displayBotName}, ${displayUserName}. How are you?`)));
   console.log('');
 
   // Theseus deseni: oturum basinda "geçen sefer kalanlari" proaktif hatirlat
@@ -1194,7 +1194,7 @@ async function startRepl(args) {
   try {
     const pending = require('../tools/memory_tree')._internal.getPending(cfg.userName);
     if (pending && pending.length) {
-      console.log(tui.C.muted('  📌 Geçen oturumdan kalanlar:'));
+      console.log(tui.C.muted(L('  📌 Geçen oturumdan kalanlar:', '  📌 Left over from last session:')));
       for (const item of pending.slice(0, 6)) console.log(tui.C.muted('     • ' + item));
       console.log('');
     }
@@ -1217,7 +1217,7 @@ async function startRepl(args) {
   const rl = readline.createInterface({
     input: createPasteSafeInput(process.stdin),
     output: createOutputFilter(process.stdout),
-    prompt: tui.styled('  💬 Sen ▸ ', { color: tui.PALETTE.primary, bold: true }),
+    prompt: tui.styled(L('  💬 Sen ▸ ', '  💬 You ▸ '), { color: tui.PALETTE.primary, bold: true }),
     terminal: true,
   });
   // Pipe/script kullanımında EOF, yanıt hâlâ üretilirken gelir —
@@ -1239,10 +1239,10 @@ async function startRepl(args) {
       // Bu, Parton'un "oturum sonunda konusmalar kaydedilmiyor" sikayetini cözüyor
       const persistResult = await persistSessionToMemory(messages, memory, cfg);
       if (persistResult && persistResult.factsAdded > 0) {
-        console.log(chalk.gray(`\n  🧠 ${persistResult.factsAdded} yeni fact memory'ye kaydedildi`));
+        console.log(chalk.gray(`\n  🧠 ${persistResult.factsAdded} ${L("yeni fact memory'ye kaydedildi", 'new facts saved to memory')}`));
       }
       if (persistResult && persistResult.preferencesAdded > 0) {
-        console.log(chalk.gray(`  🎯 ${persistResult.preferencesAdded} yeni tercih kaydedildi`));
+        console.log(chalk.gray(`  🎯 ${persistResult.preferencesAdded} ${L('yeni tercih kaydedildi', 'new preferences saved')}`));
       }
 
       // v5.46: oturum-sonu hafıza-sağlığı ipucu (gürültüsüz). Yinelenen/çelişen kayıt varsa
@@ -1252,19 +1252,19 @@ async function startRepl(args) {
         const { lintUser } = require('../utils/memory-lint');
         const { flatFindings, treeFindings } = lintUser(cfg.userName);
         const n = (flatFindings.length + treeFindings.length);
-        if (n > 0) console.log(chalk.gray(`  💡 Hafızada ${n} olası yinelenen/çelişen kayıt — "natureco memory lint" ile gözden geçir.`));
+        if (n > 0) console.log(chalk.gray(`  💡 ${L('Hafızada', 'In memory')} ${n} ${L('olası yinelenen/çelişen kayıt —', 'possible duplicate/conflicting records —')} "natureco memory lint" ${L('ile gözden geçir.', 'to review.')}`));
       } catch {}
 
       const sessId = saveSession(messages, {
         provider: providerUrl, model, user: cfg.userName,
         bot: memory.botName, factCount: memory.facts?.length || 0,
       });
-      console.log(chalk.gray(`\n  💾 Oturum kaydedildi: ${sessId}`));
+      console.log(chalk.gray(`\n  💾 ${L('Oturum kaydedildi', 'Session saved')}: ${sessId}`));
     }
     // Global buffer temizle
     if (global._fixBuffer) global._fixBuffer = '';
     disableBracketedPaste(process.stdout);
-    console.log(chalk.gray('\n  👋 Görüşürüz!\n'));
+    console.log(chalk.gray(L('\n  👋 Görüşürüz!\n', '\n  👋 See you!\n')));
     process.exit(exitCode);
   };
 
@@ -1392,7 +1392,7 @@ async function startRepl(args) {
         case 'clear': console.clear(); break;
         case 'exit': case 'quit': case 'q': await cleanup(0); return;
         case 'history':
-          console.log(chalk.cyan('\n  📜 Bu oturumun geçmişi:\n'));
+          console.log(chalk.cyan(L('\n  📜 Bu oturumun geçmişi:\n', '\n  📜 This session\'s history:\n')));
           for (const m of messages.filter(m => !m._internal)) {
             const role = m.role === 'user' ? chalk.green('You') : chalk.blue('AI  ');
             const content = (m.content || '').slice(0, 120) + ((m.content || '').length > 120 ? '...' : '');
@@ -1402,16 +1402,16 @@ async function startRepl(args) {
           break;
         case 'memory':
           console.log(chalk.cyan('\n  🧠 Memory:\n'));
-          console.log('  Kullanıcı: ' + chalk.cyan(memory.name));
-          console.log('  Nickname: ' + chalk.cyan(memory.nickname || '(yok)'));
-          console.log('  Bot: ' + chalk.cyan(memory.botName || 'Asistan'));
+          console.log(L('  Kullanıcı: ', '  User: ') + chalk.cyan(memory.name));
+          console.log(L('  Takma ad: ', '  Nickname: ') + chalk.cyan(memory.nickname || L('(yok)', '(none)')));
+          console.log('  Bot: ' + chalk.cyan(memory.botName || L('Asistan', 'Assistant')));
           if (memory.facts && memory.facts.length > 0) {
             console.log('  Facts (' + memory.facts.length + '):');
             for (const f of memory.facts) {
-              console.log('    • ' + chalk.gray((f.value || f) + (f.score ? ' [skor:' + f.score + ']' : '')));
+              console.log('    • ' + chalk.gray((f.value || f) + (f.score ? ` [${L('skor', 'score')}:${f.score}]` : '')));
             }
           } else {
-            console.log(chalk.gray('  (Henüz fact yok)'));
+            console.log(chalk.gray(L('  (Henüz fact yok)', '  (No facts yet)')));
           }
           console.log('');
           break;
@@ -1420,26 +1420,26 @@ async function startRepl(args) {
             if (fs.existsSync(path.join(MEMORY_DIR, `${(cfg.userName || 'default').toLowerCase()}.json`))) {
               fs.unlinkSync(path.join(MEMORY_DIR, `${(cfg.userName || 'default').toLowerCase()}.json`));
             }
-            memory = { name: cfg.userName, nickname: null, botName: 'Asistan', facts: [], preferences: [], history: [] };
+            memory = { name: cfg.userName, nickname: null, botName: L('Asistan', 'Assistant'), facts: [], preferences: [], history: [] };
             // System prompt'u rebuild with cleared memory
             promptOpts.memoryFacts = [];
             memoryStore.clear();
             promptOpts.memorySnapshotBlock = memoryStore.getSystemPromptBlock();
             systemPrompt = rebuildSystemPrompt(promptOpts);
             messages[0] = { role: 'system', content: systemPrompt, _internal: true };
-            console.log(chalk.green('  ✓ Memory temizlendi'));
+            console.log(chalk.green(L('  ✓ Memory temizlendi', '  ✓ Memory cleared')));
           } catch (e) {
             console.log(chalk.red('  ❌ ' + e.message));
           }
           break;
         case 'sessions':
           const idx = loadSessionsIndex();
-          console.log(chalk.cyan('\n  📚 Geçmiş Oturumlar (' + idx.sessions.length + ')\n'));
+          console.log(chalk.cyan(L('\n  📚 Geçmiş Oturumlar (', '\n  📚 Past Sessions (') + idx.sessions.length + ')\n'));
           for (let i = 0; i < Math.min(10, idx.sessions.length); i++) {
             const s = idx.sessions[i];
             console.log(`  ${chalk.gray((i + 1).toString().padStart(2) + '.')} ${chalk.cyan(s.id)} ${chalk.muted('— ' + s.firstUserMessage)}`);
           }
-          console.log(chalk.gray('\n  Devam etmek için: /resume <id> veya /resume last\n'));
+          console.log(chalk.gray(L('\n  Devam etmek için: /resume <id> veya /resume last\n', '\n  To continue: /resume <id> or /resume last\n')));
           break;
         case 'resume':
           if (!arg) { console.log(chalk.yellow(L('  Kullanım: /resume <id> veya /resume last', '  Usage: /resume <id> or /resume last'))); break; }
@@ -1449,7 +1449,7 @@ async function startRepl(args) {
             const sysIdx = messages.findIndex(m => m._internal);
             if (sysIdx >= 0) messages[sysIdx] = { role: 'system', content: systemPrompt, _internal: true };
             else messages.unshift({ role: 'system', content: systemPrompt, _internal: true });
-            console.log(chalk.green(`  ✓ Oturum yüklendi: ${session.id} (${messages.length} mesaj)`));
+            console.log(chalk.green(`  ✓ ${L('Oturum yüklendi', 'Session loaded')}: ${session.id} (${messages.length} ${L('mesaj', 'messages')})`));
           } else {
             console.log(chalk.yellow(`  ⚠️  ${L('Oturum bulunamadı', 'Session not found')}: ${arg}`));
           }
@@ -1466,7 +1466,7 @@ async function startRepl(args) {
           const volTiers = buildTiers(volOpts);
           systemPrompt = assemble(_cachedStable, _cachedContext, volTiers.volatile);
           messages[0] = { role: 'system', content: systemPrompt, _internal: true };
-          console.log(chalk.green('  ✓ System prompt güncellendi'));
+          console.log(chalk.green(L('  ✓ System prompt güncellendi', '  ✓ System prompt updated')));
           break;
         case 'model':
           if (!arg) { console.log(chalk.yellow(L('  Kullanım: /model <name>', '  Usage: /model <name>'))); break; }
@@ -1474,7 +1474,7 @@ async function startRepl(args) {
           console.log(chalk.green('  ✓ Model: ') + chalk.cyan(model));
           break;
         case 'identity':
-          if (!arg) { console.log(chalk.yellow(`  Mevcut: ${memory.botName || 'Asistan'}`)); break; }
+          if (!arg) { console.log(chalk.yellow(`  ${L('Mevcut', 'Current')}: ${memory.botName || L('Asistan', 'Assistant')}`)); break; }
           memory.botName = arg;
           saveMemory(cfg.userName, memory);
           // Rebuild stable tier with new botName
@@ -1485,29 +1485,29 @@ async function startRepl(args) {
           promptOpts.memoryFacts = memory.facts || [];
           systemPrompt = rebuildSystemPrompt(promptOpts);
           messages[0] = { role: 'system', content: systemPrompt, _internal: true };
-          console.log(chalk.green('  ✓ Bot adı: ') + chalk.cyan(arg));
+          console.log(chalk.green(L('  ✓ Bot adı: ', '  ✓ Bot name: ')) + chalk.cyan(arg));
           break;
         case 'tokens':
           console.log(chalk.gray(`  Token: ~${totalInputTokens} in / ~${totalOutputTokens} out`));
           break;
         case 'plan':
           if (arg === 'on' || arg === 'enter') {
-            if (getPlanMode().enter()) console.log(tui.C.cyan('\n  📋 Plan modu aktif. Plan yapın ve /plan off ile çıkın.\n'));
-            else console.log(tui.C.yellow('  Zaten plan modunda.'));
+            if (getPlanMode().enter()) console.log(tui.C.cyan(L('\n  📋 Plan modu aktif. Plan yapın ve /plan off ile çıkın.\n', '\n  📋 Plan mode active. Plan and exit with /plan off.\n')));
+            else console.log(tui.C.yellow(L('  Zaten plan modunda.', '  Already in plan mode.')));
           } else if (arg === 'off' || arg === 'exit') {
             if (getPlanMode().isPlanning()) {
-              console.log(tui.C.yellow('  Plan modundan çıkılıyor. Plan yazılıp ExitPlanMode ile sunulmalı.'));
+              console.log(tui.C.yellow(L('  Plan modundan çıkılıyor. Plan yazılıp ExitPlanMode ile sunulmalı.', '  Exiting plan mode. Write a plan and submit with ExitPlanMode.')));
               getPlanMode().approve();
             } else {
-              console.log(tui.C.yellow('  Plan modunda değil.'));
+              console.log(tui.C.yellow(L('  Plan modunda değil.', '  Not in plan mode.')));
             }
           } else if (arg === 'show') {
             if (getPlanMode().planHistory.length > 0) {
               const last = getPlanMode().planHistory[getPlanMode().planHistory.length - 1];
-              console.log(tui.C.cyan('\n  📋 Son Plan:\n'));
+              console.log(tui.C.cyan(L('\n  📋 Son Plan:\n', '\n  📋 Last Plan:\n')));
               console.log(`  ${last.plan.replace(/\n/g, '\n  ')}`);
             } else {
-              console.log(tui.C.yellow('  Henüz plan yok.'));
+              console.log(tui.C.yellow(L('  Henüz plan yok.', '  No plan yet.')));
             }
           } else {
             console.log(tui.C.yellow(L('  Kullanım: /plan on|off|show', '  Usage: /plan on|off|show')));
@@ -1517,16 +1517,16 @@ async function startRepl(args) {
           const sessId = saveSession(messages, {
             provider: providerUrl, model, user: cfg.userName, bot: memory.botName,
           });
-          console.log(chalk.green('  ✓ Kaydedildi: ') + chalk.cyan(sessId));
+          console.log(chalk.green(L('  ✓ Kaydedildi: ', '  ✓ Saved: ')) + chalk.cyan(sessId));
           break;
         default:
           // CLI komutları (REPL içinden)
           if (CLI_COMMANDS['/' + cmd]) {
             const cliCmd = CLI_COMMANDS['/' + cmd];
             if (cliCmd.needsArg && !arg) {
-              console.log(chalk.yellow(`  ${cmd} bir argüman gerekli: ${cliCmd.desc}`));
+              console.log(chalk.yellow(`  ${cmd} ${L('bir argüman gerekli', 'requires an argument')}: ${cliCmd.desc}`));
             } else {
-              console.log(chalk.gray(`  → ${cmd} çalıştırılıyor...`));
+              console.log(chalk.gray(`  → ${cmd} ${L('çalıştırılıyor...', 'running...')}`));
               const args2 = [...cliCmd.run];
               if (arg && (cmd === 'seo' || cmd === 'naturehub')) args2.push(arg);
               await runCliCommand(args2);
@@ -1544,19 +1544,19 @@ async function startRepl(args) {
 
     // Çok satırlı (paste) mesajları gönderildikten sonra ekranda göster
     if (line.indexOf('\n') !== -1) {
-      process.stdout.write(tui.styled('  💬 Sen ▸ ', { color: tui.PALETTE.primary, bold: true }));
+      process.stdout.write(tui.styled(L('  💬 Sen ▸ ', '  💬 You ▸ '), { color: tui.PALETTE.primary, bold: true }));
       process.stdout.write(line + '\n');
     }
 
     // v5.6.8: Hard-coded fallback - "sen kimsin?" sorulari icin dinamik botName
     const trimmed = (line || '').toLowerCase();
-    const isIdentityQuestion = /(sen\s+kim|adin\s+ne|kendini\s+tan|kendin\s+tanit|kimsin|ne\s+adindasin)/.test(trimmed);
+    const isIdentityQuestion = /(sen\s+kim|adin\s+ne|kendini\s+tan|kendin\s+tanit|kimsin|ne\s+adindasin|who\s+are\s+you|what(?:'s|\s+is)\s+your\s+name|introduce\s+yourself)/.test(trimmed);
     if (isIdentityQuestion) {
       // v5.6.10: Hard-coded prefix minimal - model cevabini bozuyordu
       // Once sadece isim yaz, modelin devamini getirsin
-      const displayName = memory.botName || 'Asistan';
+      const displayName = memory.botName || L('Asistan', 'Assistant');
       process.stdout.write(tui.styled('\n  AI   ', { color: tui.PALETTE.secondary, bold: true }));
-      process.stdout.write('Merhaba! Ben ' + displayName + '. ');
+      process.stdout.write(L('Merhaba! Ben ', 'Hello! I am ') + displayName + '. ');
     }
 
     // AI cevabı — v5.13.0: workflow orchestrator ALWAYS first
@@ -1591,7 +1591,7 @@ async function startRepl(args) {
       if (wf.passthrough && wf.reply !== undefined && wf.reply !== null) {
         // Simple chat — workflow handled it directly
         const fullReply = String(wf.reply);
-        const displayBotName = memory.botName || 'Asistan';
+        const displayBotName = memory.botName || L('Asistan', 'Assistant');
         let fixedReply = String(fullReply);
         fixedReply = fixedReply.replace(/\bMiniMax[-\s\w\.\d]*/gi, displayBotName);
         fixedReply = fixedReply.replace(/\bM2\.5[-\s\w\.\d]*/gi, displayBotName);
@@ -1624,12 +1624,15 @@ async function startRepl(args) {
           return `  ${s} ${t}: ${summary}`;
         }).join('\n');
         const skillInfo = wf.skillsLoaded && wf.skillsLoaded.length > 0
-          ? `\n\nKullanilan skill'ler: ${wf.skillsLoaded.join(', ')}`
+          ? `\n\n${L('Kullanılan beceriler', 'Skills used')}: ${wf.skillsLoaded.join(', ')}`
           : '';
         const preWfLen = messages.length;
         messages.push({
           role: 'system',
-          content: `=== WORKFLOW SONUCLARI ===\nSu araclar calisti:\n${report}${skillInfo}\n\nKullaniciya bu sonuclari anlamli bir sekilde ozetle.\n=== SONUC BITTI ===`,
+          content: L(
+            `=== İŞ AKIŞI SONUÇLARI ===\nŞu araçlar çalıştı:\n${report}${skillInfo}\n\nBu sonuçları kullanıcı için anlamlı biçimde özetle.\n=== SONUÇ BİTTİ ===`,
+            `=== WORKFLOW RESULTS ===\nThe following tools ran:\n${report}${skillInfo}\n\nSummarize these results clearly for the user.\n=== END RESULTS ===`,
+          ),
         });
         const reply = await sendStreaming(
         providerUrl,
@@ -1657,7 +1660,7 @@ async function startRepl(args) {
         // v5.6.12: Tam metin 'reply' olarak zaten geldi (non-stream mode)
         const fullReply = String(reply || '');
         // Bot adini al
-        const displayBotName = memory.botName || 'Asistan';
+        const displayBotName = memory.botName || L('Asistan', 'Assistant');
         // v5.6.9: Tum model adlarini ve varyasyonlari temizle
         let fixedReply = String(fullReply);
         fixedReply = fixedReply.replace(/\bMiniMax[-\s\w\.\d]*/gi, displayBotName);
@@ -1678,8 +1681,8 @@ async function startRepl(args) {
         totalOutputTokens += Math.ceil((fullReply || '').length / 4);
       } else {
         // Workflow failed or returned unexpected format
-        const fullReply = wf.error || JSON.stringify(wf).slice(0, 400) || 'Workflow islenemedi.';
-        const displayBotName = memory.botName || 'Asistan';
+        const fullReply = wf.error || JSON.stringify(wf).slice(0, 400) || L('İş akışı işlenemedi.', 'Workflow could not be processed.');
+        const displayBotName = memory.botName || L('Asistan', 'Assistant');
         let fixedReply = fullReply.replace(/\bMiniMax[-\s\w\.\d]*/gi, displayBotName);
         process.stdout.write('\n' + fixedReply + '\n');
         messages.push({ role: 'assistant', content: fixedReply });
@@ -1707,3 +1710,4 @@ async function startRepl(args) {
 module.exports = startRepl;
 // v5.40: test icin — cross-session hafiza bozulma regresyonu (kod adı ≠ kullanici adi)
 module.exports.extractPreferenceFacts = extractPreferenceFacts;
+module.exports._internal = { printHelp, CLI_COMMANDS };
