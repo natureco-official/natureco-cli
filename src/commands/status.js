@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const F = require('../utils/format');
 const tui = require('../utils/tui');
 const fs = require('fs');
@@ -40,8 +42,8 @@ function cmdRun() {
   const pidFile = path.join(os.homedir(), '.natureco', 'gateway.pid');
   const gatewayRunning = fs.existsSync(pidFile);
   const gatewayStatus = gatewayRunning
-    ? tui.styled('  ✓ Çalışıyor ', { bg: tui.PALETTE.success, color: '#000', bold: true })
-    : tui.styled('  ✗ Durmuş   ', { bg: tui.PALETTE.muted, color: '#000', bold: true });
+    ? tui.styled(L('  ✓ Çalışıyor ', '  ✓ Running   '), { bg: tui.PALETTE.success, color: '#000', bold: true })
+    : tui.styled(L('  ✗ Durmuş   ', '  ✗ Stopped  '), { bg: tui.PALETTE.muted, color: '#000', bold: true });
   lines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Gateway          ') + gatewayStatus + ' '.repeat(23) + tui.styled(' │', { color: tui.PALETTE.border }));
 
   if (cfg.providerUrl) {
@@ -70,7 +72,7 @@ function cmdRun() {
       const all = getSkills();
       const builtin = all.filter(s => s.source === 'builtin').length;
       const user = all.length - builtin;
-      skillInfo = `${all.length} (${builtin} yerleşik` + (user > 0 ? ` + ${user} kullanıcı` : '') + ')';
+      skillInfo = `${all.length} (${builtin} ${L('yerleşik', 'built-in')}` + (user > 0 ? ` + ${user} ${L('kullanıcı', 'user')}` : '') + ')';
     }
   } catch {}
   lines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Skills           ') + tui.styled(skillInfo.padEnd(36), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
@@ -83,7 +85,7 @@ function cmdRun() {
   lines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Tools            ') + tui.styled(String(toolCount).padEnd(36), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
 
   lines.push(tui.styled('  ╰' + '─'.repeat(cardW) + '╯', { color: tui.PALETTE.border }));
-  console.log('\n' + tui.styled('  🩺 Sistem Durumu', { color: tui.PALETTE.primary, bold: true }));
+  console.log('\n' + tui.styled(L('  🩺 Sistem Durumu', '  🩺 System Status'), { color: tui.PALETTE.primary, bold: true }));
   console.log(lines.join('\n'));
   console.log('');
 }
@@ -113,7 +115,7 @@ function cmdUsage() {
   const cfg = config ? config.getConfig() : {};
 
   if (!cfg.providerUrl) {
-    console.log('\n' + tui.C.muted('  Provider tanımlı değil.'));
+    console.log('\n' + tui.C.muted(L('  Provider tanımlı değil.', '  Provider not set.')));
     return;
   }
 
@@ -126,10 +128,10 @@ function cmdUsage() {
     { key: 'session', label: 'Session', value: String(usage.sessionTokens || '—') },
   ];
 
-  console.log('\n' + tui.styled('  📊 Provider Kullanımı', { color: tui.PALETTE.primary, bold: true }));
+  console.log('\n' + tui.styled(L('  📊 Provider Kullanımı', '  📊 Provider Usage'), { color: tui.PALETTE.primary, bold: true }));
   console.log('\n' + tui.table(rows, [
-    { key: 'key', label: 'Anahtar', minWidth: 12, render: r => tui.C.muted(r.key) },
-    { key: 'value', label: 'Değer', minWidth: 30, render: r => tui.C.text(r.value) },
+    { key: 'key', label: L('Anahtar', 'Key'), minWidth: 12, render: r => tui.C.muted(r.key) },
+    { key: 'value', label: L('Değer', 'Value'), minWidth: 30, render: r => tui.C.text(r.value) },
   ], { borderStyle: 'round', zebra: true }));
   console.log('');
 }
