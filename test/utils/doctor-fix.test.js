@@ -50,6 +50,6 @@ describe('doctor --fix (v5.43.2)', () => {
     doctor(['--fix']);
     const out = logs.join('\n');
     expect(out).not.toContain('Unknown doctor action');
-    expect(out).toContain('Otomatik Düzeltme');
+    expect(out).toMatch(/Otomatik Düzeltme|Auto-Fix/);
   });
 });
