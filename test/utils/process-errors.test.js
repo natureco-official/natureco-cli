@@ -51,11 +51,15 @@ describe('install', () => {
     const before = {
       r: process.listenerCount('unhandledRejection'),
       e: process.listenerCount('uncaughtException'),
+      out: process.stdout.listenerCount('error'),
+      err: process.stderr.listenerCount('error'),
     };
     uninstall();
     uninstall = null;
     expect(process.listenerCount('unhandledRejection')).toBe(before.r - 1);
     expect(process.listenerCount('uncaughtException')).toBe(before.e - 1);
+    expect(process.stdout.listenerCount('error')).toBe(before.out - 1);
+    expect(process.stderr.listenerCount('error')).toBe(before.err - 1);
   });
 });
 

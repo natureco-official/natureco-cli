@@ -21,7 +21,17 @@ const os = require('os');
 const ERROR_LOG_PATH = path.join(os.homedir(), '.natureco', 'logs', 'crash.log');
 
 let _installed = false;
-let _registered = { rejection: null, exception: null, warning: null };
+let _registered = { rejection: null, exception: null, streamError: null };
+
+function _removeRegisteredHandlers() {
+  if (_registered.rejection) process.off('unhandledRejection', _registered.rejection);
+  if (_registered.exception) process.off('uncaughtException', _registered.exception);
+  if (_registered.streamError) {
+    process.stdout.off('error', _registered.streamError);
+    process.stderr.off('error', _registered.streamError);
+  }
+  _registered = { rejection: null, exception: null, streamError: null };
+}
 
 function _defaultAudit() {
   try {
@@ -63,8 +73,7 @@ function install(opts = {}) {
   const stderr = opts.stderr || ((msg) => process.stderr.write(msg));
 
   // Replace any previous handlers (idempotency for tests).
-  if (_registered.rejection) process.off('unhandledRejection', _registered.rejection);
-  if (_registered.exception) process.off('uncaughtException', _registered.exception);
+  _removeRegisteredHandlers();
 
   const onRejection = (reason) => {
     const payload = { kind: 'unhandledRejection', error: _serializeError(reason) };
@@ -106,13 +115,11 @@ function install(opts = {}) {
 
   process.on('unhandledRejection', onRejection);
   process.on('uncaughtException', onException);
-  _registered = { rejection: onRejection, exception: onException, warning: null };
+  _registered = { rejection: onRejection, exception: onException, streamError: onStreamError };
   _installed = true;
 
   return function uninstall() {
-    if (_registered.rejection) process.off('unhandledRejection', _registered.rejection);
-    if (_registered.exception) process.off('uncaughtException', _registered.exception);
-    _registered = { rejection: null, exception: null, warning: null };
+    _removeRegisteredHandlers();
     _installed = false;
   };
 }
