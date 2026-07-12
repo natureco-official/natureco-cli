@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const tui = require('../utils/tui');
 const path = require('path');
 const fs = require('fs');
@@ -20,7 +22,7 @@ async function skills(args) {
   if (action === 'install') {
     const slug = params[0];
     if (!slug) {
-      console.log(chalk.red('\n❌ Kullanım: natureco skills install <slug>\n'));
+      console.log(chalk.red(L('\n❌ Kullanım: natureco skills install <slug>\n', '\n❌ Usage: natureco skills install <slug>\n')));
       process.exit(1);
     }
     await installSkillCommand(slug);
@@ -30,7 +32,7 @@ async function skills(args) {
   if (action === 'remove') {
     const slug = params[0];
     if (!slug) {
-      console.log(chalk.red('\n❌ Kullanım: natureco skills remove <slug>\n'));
+      console.log(chalk.red(L('\n❌ Kullanım: natureco skills remove <slug>\n', '\n❌ Usage: natureco skills remove <slug>\n')));
       process.exit(1);
     }
     await removeSkillCommand(slug);
@@ -42,7 +44,7 @@ async function skills(args) {
     if (flag === '--all') {
       await updateAllSkillsCommand();
     } else {
-      console.log(chalk.red('\n❌ Kullanım: natureco skills update --all\n'));
+      console.log(chalk.red(L('\n❌ Kullanım: natureco skills update --all\n', '\n❌ Usage: natureco skills update --all\n')));
       process.exit(1);
     }
     return;
@@ -51,7 +53,7 @@ async function skills(args) {
   if (action === 'create') {
     const name = params[0];
     if (!name) {
-      console.log(chalk.red('\n❌ Kullanım: natureco skills create <ad>\n'));
+      console.log(chalk.red(L('\n❌ Kullanım: natureco skills create <ad>\n', '\n❌ Usage: natureco skills create <name>\n')));
       process.exit(1);
     }
     await createSkillCommand(name);
@@ -88,7 +90,7 @@ async function skills(args) {
   if (action === 'accept') {
     const proposalId = params[0];
     if (!proposalId) {
-      console.log(chalk.red('\n❌ Kullanım: natureco skills accept <proposal-id>\n'));
+      console.log(chalk.red(L('\n❌ Kullanım: natureco skills accept <proposal-id>\n', '\n❌ Usage: natureco skills accept <proposal-id>\n')));
       process.exit(1);
     }
     await acceptProposalCommand(proposalId);
@@ -98,7 +100,7 @@ async function skills(args) {
   if (action === 'reject') {
     const proposalId = params[0];
     if (!proposalId) {
-      console.log(chalk.red('\n❌ Kullanım: natureco skills reject <proposal-id>\n'));
+      console.log(chalk.red(L('\n❌ Kullanım: natureco skills reject <proposal-id>\n', '\n❌ Usage: natureco skills reject <proposal-id>\n')));
       process.exit(1);
     }
     detector.rejectProposal(proposalId);
@@ -108,7 +110,7 @@ async function skills(args) {
 
   if (action === 'forget') {
     detector.reset();
-    console.log(chalk.yellow('\n🧹 Tüm pattern hafızası ve proposal\'lar silindi.\n'));
+    console.log(chalk.yellow(L('\n🧹 Tüm pattern hafızası ve proposal\'lar silindi.\n', '\n🧹 All pattern memory and proposals cleared.\n')));
     return;
   }
 
@@ -120,27 +122,27 @@ async function skills(args) {
 
   if (action === 'install-mp') {
     const skillName = params[0];
-    if (!skillName) { console.log(chalk.red('\n❌ Kullanım: natureco skills install-mp <name>\n')); process.exit(1); }
+    if (!skillName) { console.log(chalk.red(L('\n❌ Kullanım: natureco skills install-mp <name>\n', '\n❌ Usage: natureco skills install-mp <name>\n'))); process.exit(1); }
     await installFromMarketplace(skillName);
     return;
   }
 
   if (action === 'search-mp') {
     const query = params[0];
-    if (!query) { console.log(chalk.red('\n❌ Kullanım: natureco skills search-mp <query>\n')); process.exit(1); }
+    if (!query) { console.log(chalk.red(L('\n❌ Kullanım: natureco skills search-mp <query>\n', '\n❌ Usage: natureco skills search-mp <query>\n'))); process.exit(1); }
     await searchMarketplace(query);
     return;
   }
 
   if (action === 'remove-mp' || action === 'uninstall-mp') {
     const skillName = params[0];
-    if (!skillName) { console.log(chalk.red('\n❌ Kullanım: natureco skills remove-mp <name>\n')); process.exit(1); }
+    if (!skillName) { console.log(chalk.red(L('\n❌ Kullanım: natureco skills remove-mp <name>\n', '\n❌ Usage: natureco skills remove-mp <name>\n'))); process.exit(1); }
     uninstallMarketplace(skillName);
     return;
   }
 
-  console.log(chalk.red(`\n❌ Geçersiz action: ${action}\n`));
-  console.log(chalk.gray('Kullanım: natureco skills [list|install|remove|update|create|search|browse|info|check|suggest|accept|reject|forget|marketplace|install-mp|search-mp|remove-mp]\n'));
+  console.log(chalk.red(`\n❌ ${L('Geçersiz action', 'Invalid action')}: ${action}\n`));
+  console.log(chalk.gray(L('Kullanım: natureco skills [list|install|remove|update|create|search|browse|info|check|suggest|accept|reject|forget|marketplace|install-mp|search-mp|remove-mp]\n', 'Usage: natureco skills [list|install|remove|update|create|search|browse|info|check|suggest|accept|reject|forget|marketplace|install-mp|search-mp|remove-mp]\n')));
   process.exit(1);
 }
 
@@ -157,7 +159,7 @@ async function listMarketplace() {
     for (const s of result.skills) {
       console.log('  ' + chalk.cyan(s.name.padEnd(22)) + chalk.gray((s.description || '').slice(0, 50)));
     }
-    console.log('\n  ' + chalk.gray('Kur: ') + chalk.cyan('natureco skills install-mp <name>'));
+    console.log('\n  ' + chalk.gray(L('Kur: ', 'Install: ')) + chalk.cyan('natureco skills install-mp <name>'));
     console.log('');
   }
 }
@@ -169,7 +171,7 @@ async function installFromMarketplace(skillName) {
   if (!mp) return;
   const result = await mp.execute({ action: 'install', skillName });
   if (result.success) {
-    console.log(chalk.green('\n  ✓ ' + skillName + ' kuruldu: ' + result.path + '\n'));
+    console.log(chalk.green('\n  ✓ ' + skillName + L(' kuruldu: ', ' installed: ') + result.path + '\n'));
   } else {
     console.log(chalk.red('\n  ✗ ' + result.error + '\n'));
   }
@@ -182,7 +184,7 @@ async function searchMarketplace(query) {
   if (!mp) return;
   const result = await mp.execute({ action: 'search', query });
   if (result.success) {
-    console.log(chalk.cyan.bold('\n  🔍 "' + query + '" icin sonuclar\n'));
+    console.log(chalk.cyan.bold('\n  🔍 "' + query + L('" icin sonuclar\n', '" results\n')));
     for (const s of result.results) {
       console.log('  ' + chalk.cyan(s.name.padEnd(22)) + chalk.gray((s.description || '').slice(0, 50)));
     }
@@ -194,9 +196,9 @@ function uninstallMarketplace(skillName) {
   const skillDir = path.join(os.homedir(), '.natureco', 'skills', skillName);
   if (fs.existsSync(skillDir)) {
     fs.rmSync(skillDir, { recursive: true });
-    console.log(chalk.green('\n  ✓ ' + skillName + ' kaldirildi\n'));
+    console.log(chalk.green('\n  ✓ ' + skillName + L(' kaldirildi\n', ' removed\n')));
   } else {
-    console.log(chalk.yellow('\n  ' + skillName + ' zaten yok\n'));
+    console.log(chalk.yellow('\n  ' + skillName + L(' zaten yok\n', ' already gone\n')));
   }
 }
 
@@ -206,41 +208,41 @@ async function listSkills() {
   const userCount = allSkills.filter(s => s.source === 'user').length;
 
   console.log(chalk.gray('\n  ' + '─'.repeat(48)));
-  console.log(chalk.cyan.bold('\n  Yüklü Skill\'ler') + chalk.gray(`  —  toplam ${allSkills.length} (${builtinCount} yerleşik${userCount ? `, ${userCount} kişisel` : ''})`));
-  console.log(chalk.gray('  Yerleşikler: ~/.natureco/skills-builtin · Kişiseller: ~/.natureco/skills · Araçlar: ~/.natureco/tools\n'));
+  console.log(chalk.cyan.bold(L('\n  Yüklü Skill\'ler', '\n  Installed Skills')) + chalk.gray(`  —  ${L('toplam', 'total')} ${allSkills.length} (${builtinCount} ${L('yerleşik', 'built-in')}${userCount ? `, ${userCount} ${L('kişisel', 'personal')}` : ''})`));
+  console.log(chalk.gray(L('  Yerleşikler: ~/.natureco/skills-builtin · Kişiseller: ~/.natureco/skills · Araçlar: ~/.natureco/tools\n', '  Built-in: ~/.natureco/skills-builtin · Personal: ~/.natureco/skills · Tools: ~/.natureco/tools\n')));
 
   if (allSkills.length === 0) {
     // Yerleşikler pakette gelir; bu duruma normalde ancak paket bozulursa düşülür
-    console.log(chalk.red('  ⚠ Hiç skill bulunamadı — kurulum bozuk olabilir.'));
-    console.log(chalk.gray('  Onarmak için: ') + chalk.cyan('npm install -g natureco-cli') + chalk.gray(' (yeniden kurar)\n'));
+    console.log(chalk.red(L('  ⚠ Hiç skill bulunamadı — kurulum bozuk olabilir.', '  ⚠ No skills found — installation may be broken.')));
+    console.log(chalk.gray(L('  Onarmak için: ', '  To repair: ')) + chalk.cyan('npm install -g natureco-cli') + chalk.gray(L(' (yeniden kurar)\n', ' (reinstalls)\n')));
     return;
   }
 
   allSkills.forEach((skill, index) => {
-    const sourceLabel = skill.source === 'builtin' ? chalk.blue('[yerleşik]') :
-                        skill.source === 'user' ? chalk.cyan('[kişisel]') :
-                        chalk.magenta('[proje]');
+    const sourceLabel = skill.source === 'builtin' ? chalk.blue(L('[yerleşik]', '[built-in]')) :
+                        skill.source === 'user' ? chalk.cyan(L('[kişisel]', '[personal]')) :
+                        chalk.magenta(L('[proje]', '[project]'));
     console.log(chalk.white(`  ${index + 1}. ${skill.name} `) + sourceLabel);
     console.log(chalk.gray(`     ${skill.description}`));
     if (skill.metadata?.requires?.bins) {
-      console.log(chalk.gray(`     Gerekli: ${skill.metadata.requires.bins.join(', ')}`));
+      console.log(chalk.gray(`     ${L('Gerekli', 'Required')}: ${skill.metadata.requires.bins.join(', ')}`));
     }
     console.log('');
   });
 
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(chalk.gray(`  Toplam: ${allSkills.length} skill`));
-  console.log(chalk.gray('  Kaldırmak için: ') + chalk.cyan('natureco skills remove <slug>\n'));
+  console.log(chalk.gray(`  ${L('Toplam', 'Total')}: ${allSkills.length} skill`));
+  console.log(chalk.gray(L('  Kaldırmak için: ', '  To remove: ')) + chalk.cyan('natureco skills remove <slug>\n'));
 }
 
 async function installSkillCommand(slug) {
-  console.log(chalk.yellow(`\n⏳ "${slug}" skill'i yükleniyor...\n`));
+  console.log(chalk.yellow(`\n⏳ "${slug}" ${L("skill'i yükleniyor...", 'installing...')}\n`));
 
   try {
     await installSkill(slug);
-    console.log(chalk.green(`✅ "${slug}" başarıyla yüklendi!\n`));
+    console.log(chalk.green(`✅ "${slug}" ${L('başarıyla yüklendi', 'installed successfully')}!\n`));
   } catch (err) {
-    console.log(chalk.red(`\n❌ Hata: ${err.message}\n`));
+    console.log(chalk.red(`\n❌ ${L('Hata', 'Error')}: ${err.message}\n`));
     process.exit(1);
   }
 }
@@ -250,53 +252,53 @@ async function removeSkillCommand(slug) {
     {
       type: 'confirm',
       name: 'confirm',
-      message: `"${slug}" skill'ini silmek istediğinizden emin misiniz?`,
+      message: `"${slug}" ${L("skill'ini silmek istediğinizden emin misiniz?", '— delete this skill?')}`,
       default: false,
     },
   ]);
 
   if (!confirm) {
-    console.log(chalk.gray('\nİptal edildi.\n'));
+    console.log(chalk.gray(L('\nİptal edildi.\n', '\nCancelled.\n')));
     return;
   }
 
   try {
     removeSkill(slug);
-    console.log(chalk.green(`\n✅ "${slug}" silindi.\n`));
+    console.log(chalk.green(`\n✅ "${slug}" ${L('silindi.', 'deleted.')}\n`));
   } catch (err) {
-    console.log(chalk.red(`\n❌ Hata: ${err.message}\n`));
+    console.log(chalk.red(`\n❌ ${L('Hata', 'Error')}: ${err.message}\n`));
     process.exit(1);
   }
 }
 
 async function updateAllSkillsCommand() {
-  console.log(chalk.yellow('\n⏳ Tüm skill\'ler güncelleniyor...\n'));
+  console.log(chalk.yellow(L('\n⏳ Tüm skill\'ler güncelleniyor...\n', '\n⏳ Updating all skills...\n')));
 
   try {
     const updated = await updateAllSkills();
     if (updated.length === 0) {
-      console.log(chalk.gray('Güncellenecek skill bulunamadı.\n'));
+      console.log(chalk.gray(L('Güncellenecek skill bulunamadı.\n', 'No skills to update.\n')));
     } else {
-      console.log(chalk.green(`✅ ${updated.length} skill güncellendi:\n`));
+      console.log(chalk.green(`✅ ${updated.length} skill ${L('güncellendi', 'updated')}:\n`));
       updated.forEach(s => console.log(chalk.cyan(`  - ${s}`)));
       console.log('');
     }
   } catch (err) {
-    console.log(chalk.red(`\n❌ Hata: ${err.message}\n`));
+    console.log(chalk.red(`\n❌ ${L('Hata', 'Error')}: ${err.message}\n`));
     process.exit(1);
   }
 }
 
 async function createSkillCommand(name) {
-  console.log(chalk.yellow(`\n⏳ "${name}" skill şablonu oluşturuluyor...\n`));
+  console.log(chalk.yellow(`\n⏳ "${name}" skill ${L('şablonu oluşturuluyor...', 'template being created...')}\n`));
 
   try {
     const skillPath = createSkillTemplate(name);
-    console.log(chalk.green(`✅ Skill şablonu oluşturuldu:\n`));
+    console.log(chalk.green(`✅ ${L('Skill şablonu oluşturuldu', 'Skill template created')}:\n`));
     console.log(chalk.cyan(`   ${skillPath}\n`));
-    console.log(chalk.gray('SKILL.md dosyasını düzenleyerek skill\'i özelleştirin.\n'));
+    console.log(chalk.gray(L('SKILL.md dosyasını düzenleyerek skill\'i özelleştirin.\n', 'Customize the skill by editing SKILL.md.\n')));
   } catch (err) {
-    console.log(chalk.red(`\n❌ Hata: ${err.message}\n`));
+    console.log(chalk.red(`\n❌ ${L('Hata', 'Error')}: ${err.message}\n`));
     process.exit(1);
   }
 }
@@ -305,22 +307,22 @@ async function searchSkillsCommand(query) {
   if (!query || query.trim().length === 0) {
     try {
       const popularSkills = await getPopularSkills();
-      console.log(chalk.yellow('\nPopüler Skill\'ler:\n'));
+      console.log(chalk.yellow(L('\nPopüler Skill\'ler:\n', '\nPopular Skills:\n')));
       popularSkills.forEach(skill => {
         console.log(chalk.cyan(`  ${skill.name.padEnd(15)}`), chalk.gray(skill.description));
       });
     } catch (err) {
-      console.log(chalk.red(`\n  ❌ Popüler skill'ler alınamadı: ${err.message}\n`));
+      console.log(chalk.red(`\n  ❌ ${L("Popüler skill'ler alınamadı", 'Could not fetch popular skills')}: ${err.message}\n`));
     }
     console.log('');
-    console.log(chalk.gray('Kurmak için: '), chalk.cyan('natureco skills install <slug>'));
-    console.log(chalk.gray('Örnek: '), chalk.cyan('natureco skills install github'));
+    console.log(chalk.gray(L('Kurmak için: ', 'To install: ')), chalk.cyan('natureco skills install <slug>'));
+    console.log(chalk.gray(L('Örnek: ', 'Example: ')), chalk.cyan('natureco skills install github'));
     console.log(chalk.gray('ClawHub: '), chalk.cyan('natureco skills install clawhub:github'));
     console.log('');
     return;
   }
 
-  console.log(chalk.yellow(`\n⏳ "${query}" aranıyor...\n`));
+  console.log(chalk.yellow(`\n⏳ "${query}" ${L('aranıyor...', 'searching...')}\n`));
 
   try {
     // ClawHub search API
@@ -328,30 +330,30 @@ async function searchSkillsCommand(query) {
     const response = await fetch(searchUrl);
     
     if (!response.ok) {
-      throw new SkillError('ClawHub API\'ye erişilemedi', 'fetch', `https://clawhub.ai/api/skills?q=${encodeURIComponent(query)}`);
+      throw new SkillError(L('ClawHub API\'ye erişilemedi', 'Could not reach the ClawHub API'), 'fetch', `https://clawhub.ai/api/skills?q=${encodeURIComponent(query)}`);
     }
 
     let data;
     try {
       data = await response.json();
     } catch {
-      throw new SkillError('ClawHub geçersiz yanıt döndü (JSON bekleniyordu)', 'parse', searchUrl);
+      throw new SkillError(L('ClawHub geçersiz yanıt döndü (JSON bekleniyordu)', 'ClawHub returned an invalid response (JSON expected)'), 'parse', searchUrl);
     }
     const results = data.skills || [];
 
     if (results.length === 0) {
-      console.log(chalk.yellow(`"${query}" için sonuç bulunamadı.\n`));
+      console.log(chalk.yellow(`"${query}" ${L('için sonuç bulunamadı.', '— no results found.')}\n`));
       return;
     }
 
-    console.log(chalk.yellow(`"${query}" için ${results.length} sonuç:\n`));
+    console.log(chalk.yellow(`"${query}" ${L('için', 'for')} ${results.length} ${L('sonuç', 'results')}:\n`));
     results.forEach(skill => {
-      console.log(chalk.cyan(`  ${skill.name.padEnd(15)}`), chalk.gray(skill.description || 'Açıklama yok'));
-      console.log(chalk.gray(`    Kurmak için: natureco skills install clawhub:${skill.slug}`));
+      console.log(chalk.cyan(`  ${skill.name.padEnd(15)}`), chalk.gray(skill.description || L('Açıklama yok', 'No description')));
+      console.log(chalk.gray(`    ${L('Kurmak için', 'To install')}: natureco skills install clawhub:${skill.slug}`));
     });
     console.log('');
   } catch (err) {
-    console.log(chalk.red(`\n  ❌ Arama başarısız: ${err.message}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Arama başarısız', 'Search failed')}: ${err.message}\n`));
   }
 }
 
@@ -360,18 +362,18 @@ async function browseSkillsCommand() {
   try {
     popularSkills = await getPopularSkills();
   } catch (err) {
-    console.log(chalk.red(`\n  ❌ Popüler skill'ler alınamadı: ${err.message}\n`));
+    console.log(chalk.red(`\n  ❌ ${L("Popüler skill'ler alınamadı", 'Could not fetch popular skills')}: ${err.message}\n`));
     return;
   }
   
-  console.log(chalk.green.bold('\n╭─ Popüler Skill\'ler ─╮\n'));
+  console.log(chalk.green.bold(L('\n╭─ Popüler Skill\'ler ─╮\n', '\n╭─ Popular Skills ─╮\n')));
 
   process.stdin.resume();
   const { selectedSkills } = await inquirer.prompt([
     {
       type: 'checkbox',
       name: 'selectedSkills',
-      message: 'Kurmak istediğiniz skill\'leri seçin:',
+      message: L('Kurmak istediğiniz skill\'leri seçin:', 'Select the skills you want to install:'),
       choices: popularSkills.map(skill => ({
         name: `${skill.name} - ${skill.description}`,
         value: skill.source === 'clawhub' ? `clawhub:${skill.slug}` : skill.slug,
@@ -381,22 +383,22 @@ async function browseSkillsCommand() {
   process.stdin.pause();
 
   if (selectedSkills.length === 0) {
-    console.log(chalk.gray('\nHiçbir skill seçilmedi.\n'));
+    console.log(chalk.gray(L('\nHiçbir skill seçilmedi.\n', '\nNo skills selected.\n')));
     return;
   }
 
-  console.log(chalk.yellow(`\n⏳ ${selectedSkills.length} skill kuruluyor...\n`));
+  console.log(chalk.yellow(`\n⏳ ${selectedSkills.length} skill ${L('kuruluyor...', 'installing...')}\n`));
 
   for (const slug of selectedSkills) {
     try {
       await installSkill(slug);
-      console.log(chalk.green(`✅ ${slug} kuruldu`));
+      console.log(chalk.green(`✅ ${slug} ${L('kuruldu', 'installed')}`));
     } catch (err) {
-      console.log(chalk.red(`❌ ${slug} kurulamadı: ${err.message}`));
+      console.log(chalk.red(`❌ ${slug} ${L('kurulamadı', 'could not be installed')}: ${err.message}`));
     }
   }
 
-  console.log(chalk.green('\n✅ Kurulum tamamlandı!\n'));
+  console.log(chalk.green(L('\n✅ Kurulum tamamlandı!\n', '\n✅ Installation complete!\n')));
 }
 
 async function infoSkill(slug) {
@@ -457,11 +459,11 @@ async function listProposals() {
 
   console.log('\n' + tui.styled('  🧠 Self-Evolving Skill Proposals', { color: tui.PALETTE.primary, bold: true }));
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
-  console.log('  ' + tui.C.muted('Kullanımın tekrar eden pattern\'lerinden otomatik skill önerileri.\n'));
+  console.log('  ' + tui.C.muted(L('Kullanımın tekrar eden pattern\'lerinden otomatik skill önerileri.\n', 'Automatic skill suggestions from your recurring usage patterns.\n')));
 
   if (pending.length === 0) {
-    console.log('  ' + tui.C.muted('Şu an öneri yok. Daha fazla tool çağrısı yap, sistem öğrensin.'));
-    console.log('  ' + tui.C.muted('Pattern\'leri sıfırla: ') + tui.C.brand('natureco skills forget\n'));
+    console.log('  ' + tui.C.muted(L('Şu an öneri yok. Daha fazla tool çağrısı yap, sistem öğrensin.', 'No suggestions right now. Make more tool calls so the system can learn.')));
+    console.log('  ' + tui.C.muted(L('Pattern\'leri sıfırla: ', 'Reset patterns: ')) + tui.C.brand('natureco skills forget\n'));
     return;
   }
 
@@ -474,26 +476,26 @@ async function listProposals() {
   }));
 
   console.log(tui.table(rows, [
-    { key: 'name', label: 'Öneri', minWidth: 25, render: r => tui.styled(r.name, { color: tui.PALETTE.primary, bold: true }) },
-    { key: 'count', label: 'Tekrar', minWidth: 7, render: r => tui.styled(r.count, { color: tui.PALETTE.accent, bold: true }) },
+    { key: 'name', label: L('Öneri', 'Suggestion'), minWidth: 25, render: r => tui.styled(r.name, { color: tui.PALETTE.primary, bold: true }) },
+    { key: 'count', label: L('Tekrar', 'Repeats'), minWidth: 7, render: r => tui.styled(r.count, { color: tui.PALETTE.accent, bold: true }) },
     { key: 'pattern', label: 'Pattern', minWidth: 30, render: r => tui.C.muted(r.pattern) },
-    { key: 'first', label: 'İlk', minWidth: 18, render: r => tui.C.muted(r.first) },
+    { key: 'first', label: L('İlk', 'First'), minWidth: 18, render: r => tui.C.muted(r.first) },
   ], { borderStyle: 'round', zebra: true }));
 
-  console.log('\n  ' + tui.C.muted('Kabul et: ') + tui.C.brand('natureco skills accept <id>'));
-  console.log('  ' + tui.C.muted('Reddet:  ') + tui.C.brand('natureco skills reject <id>\n'));
+  console.log('\n  ' + tui.C.muted(L('Kabul et: ', 'Accept: ')) + tui.C.brand('natureco skills accept <id>'));
+  console.log('  ' + tui.C.muted(L('Reddet:  ', 'Reject:  ')) + tui.C.brand('natureco skills reject <id>\n'));
 }
 
 async function acceptProposalCommand(proposalId) {
-  console.log(chalk.yellow('\n⏳ Skill oluşturuluyor...\n'));
+  console.log(chalk.yellow(L('\n⏳ Skill oluşturuluyor...\n', '\n⏳ Creating skill...\n')));
   const result = detector.acceptProposal(proposalId);
   if (!result.success) {
     console.log(chalk.red(`\n❌ ${result.reason}\n`));
     process.exit(1);
   }
-  console.log(chalk.green(`✅ Yeni skill oluşturuldu: ${result.skillName}\n`));
-  console.log(chalk.gray(`   Yol: ${result.path}\n`));
-  console.log(chalk.gray('   SKILL.md dosyasını düzenleyerek özelleştirebilirsin.\n'));
+  console.log(chalk.green(`✅ ${L('Yeni skill oluşturuldu', 'New skill created')}: ${result.skillName}\n`));
+  console.log(chalk.gray(`   ${L('Yol', 'Path')}: ${result.path}\n`));
+  console.log(chalk.gray(L('   SKILL.md dosyasını düzenleyerek özelleştirebilirsin.\n', '   You can customize it by editing SKILL.md.\n')));
   audit.log(audit.ACTIONS.SKILL_AUTO, { proposalId, skillName: result.skillName });
 }
 
