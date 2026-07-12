@@ -176,7 +176,7 @@ async function startWhatsAppConnection(sessionDir, botId, selectedBot, config) {
         config.whatsappAllowedNumbers = allowedNumbers;
         saveConfig(config);
         
-        console.log(chalk.cyan('\nİzin verilen numara:'), chalk.white(`+${ownNumber} ${L('(kendi numaranız)', '(your own number)')}`));
+        console.log(chalk.cyan(L('\nİzin verilen numara:', '\nAllowed number:')), chalk.white(`+${ownNumber} ${L('(kendi numaranız)', '(your own number)')}`));
         console.log(chalk.gray(L('Başka numara eklemek için: natureco whatsapp allow <numara>', 'To add another number: natureco whatsapp allow <number>')));
         
         console.log(chalk.green(L('\n✅ Kurulum tamamlandı!\n', '\n✅ Setup complete!\n')));
