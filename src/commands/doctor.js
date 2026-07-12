@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const F = require('../utils/format');
 const tui = require('../utils/tui');
 const fs = require('fs');
@@ -98,19 +100,19 @@ function cmdCheck(name) {
 }
 
 function cmdRun(opts = {}) {
-  F.header(opts.fix ? 'System Doctor · Otomatik Düzeltme (--fix)' : 'System Doctor · Tüm Sistem Kontrolleri', { icon: opts.fix ? '🔧' : '🩺' });
+  F.header(opts.fix ? L('System Doctor · Otomatik Düzeltme (--fix)', 'System Doctor · Auto-Fix (--fix)') : L('System Doctor · Tüm Sistem Kontrolleri', 'System Doctor · All System Checks'), { icon: opts.fix ? '🔧' : '🩺' });
 
   // v5.43.2: --fix modunda önce düzeltilebilir sorunları onar, sonra kontrolleri çalıştır.
   if (opts.fix) {
     const { applied, failed } = applyFixes();
     if (applied.length) {
-      console.log('\n' + tui.C.green('  🔧 Düzeltildi:'));
+      console.log('\n' + tui.C.green(L('  🔧 Düzeltildi:', '  🔧 Fixed:')));
       applied.forEach(a => console.log('     ' + tui.C.text('• ' + a)));
     } else {
-      console.log('\n' + tui.C.muted('  🔧 Düzeltilecek bir şey yok — sistem zaten düzgün.'));
+      console.log('\n' + tui.C.muted(L('  🔧 Düzeltilecek bir şey yok — sistem zaten düzgün.', '  🔧 Nothing to fix — system is already fine.')));
     }
     if (failed.length) {
-      console.log('\n' + tui.C.amber('  ⚠️  Otomatik düzeltilemedi:'));
+      console.log('\n' + tui.C.amber(L('  ⚠️  Otomatik düzeltilemedi:', '  ⚠️  Could not auto-fix:')));
       failed.forEach(f => console.log('     ' + tui.C.muted('• ' + f)));
     }
     console.log('');
@@ -133,14 +135,14 @@ function cmdRun(opts = {}) {
 
   // Yeni TUI tablo
   console.log('\n' + tui.table(rows, [
-    { key: 'check', label: 'Kontrol', minWidth: 28 },
+    { key: 'check', label: L('Kontrol', 'Check'), minWidth: 28 },
     {
-      key: 'status', label: 'Durum', minWidth: 9,
+      key: 'status', label: L('Durum', 'Status'), minWidth: 9,
       render: r => r.status
         ? tui.styled('  ✓ PASS ', { bg: tui.PALETTE.success, color: '#000000', bold: true })
         : tui.styled('  ✗ FAIL ', { bg: tui.PALETTE.danger, color: '#000000', bold: true }),
     },
-    { key: 'message', label: 'Mesaj', minWidth: 20 },
+    { key: 'message', label: L('Mesaj', 'Message'), minWidth: 20 },
   ], { borderStyle: 'round', zebra: true }));
 
   const total = passed + failed;
@@ -148,17 +150,17 @@ function cmdRun(opts = {}) {
 
   // Özet kartı
   console.log('\n' + tui.box(60, 5, {
-    title: 'Özet',
+    title: L('Özet', 'Summary'),
     borderColor: failed > 0 ? tui.PALETTE.warning : tui.PALETTE.success,
   }).split('\n').map((line, i) => {
-    if (i === 2) return line.replace(' '.repeat(58), `  ${tui.C.text(`${passed}/${total} kontrol geçti`)} · ${tui.C.muted(duration + 'ms')}`);
+    if (i === 2) return line.replace(' '.repeat(58), `  ${tui.C.text(`${passed}/${total} ${L('kontrol geçti', 'checks passed')}`)} · ${tui.C.muted(duration + 'ms')}`);
     return line;
   }).join('\n'));
 
   if (failed > 0) {
-    console.log('\n' + tui.C.amber('  ⚠️  Bazı kontroller başarısız. Detay için: ') + tui.C.brand('natureco doctor check <name>'));
+    console.log('\n' + tui.C.amber(L('  ⚠️  Bazı kontroller başarısız. Detay için: ', '  ⚠️  Some checks failed. For details: ')) + tui.C.brand('natureco doctor check <name>'));
   } else {
-    console.log('\n' + tui.C.green('  ✨ Tüm kontroller geçti! Sistem sağlıklı.'));
+    console.log('\n' + tui.C.green(L('  ✨ Tüm kontroller geçti! Sistem sağlıklı.', '  ✨ All checks passed! System healthy.')));
   }
   console.log('');
 }
@@ -209,7 +211,7 @@ function runCheck(name) {
         }
         return {
           pass: freeGB > 0.5,
-          message: freeGB > 0.5 ? `${freeGB.toFixed(1)} GB free` : `Sadece ${(freeGB * 1024).toFixed(0)} MB kaldı — gerekli: 500 MB`,
+          message: freeGB > 0.5 ? `${freeGB.toFixed(1)} GB free` : `${L('Sadece', 'Only')} ${(freeGB * 1024).toFixed(0)} ${L('MB kaldı — gerekli: 500 MB', 'MB left — need: 500 MB')}`,
         };
       } catch (e) {
         return { pass: true, message: 'Unable to check disk space' };
@@ -233,9 +235,9 @@ function runCheck(name) {
         if (!fs.existsSync(CONFIG_FILE)) return { pass: false, message: 'Config missing — run `natureco setup`' };
         const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
         const key = cfg.providerApiKey || cfg.apiKey;
-        if (!key) return { pass: false, message: 'API key tanımlı değil' };
-        if (key.length < 10) return { pass: false, message: 'API key çok kısa — yanlış kopyalanmış olabilir' };
-        return { pass: true, message: `Key uzunluğu: ${key.length} karakter` };
+        if (!key) return { pass: false, message: L('API key tanımlı değil', 'API key not set') };
+        if (key.length < 10) return { pass: false, message: L('API key çok kısa — yanlış kopyalanmış olabilir', 'API key too short — may be copied wrong') };
+        return { pass: true, message: `${L('Key uzunluğu', 'Key length')}: ${key.length} ${L('karakter', 'chars')}` };
       } catch (e) {
         return { pass: false, message: e.message };
       }
@@ -246,10 +248,10 @@ function runCheck(name) {
         if (!fs.existsSync(CONFIG_FILE)) return { pass: false, message: 'Config missing' };
         const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
         const url = cfg.providerUrl;
-        if (!url) return { pass: false, message: 'Provider URL tanımlı değil' };
+        if (!url) return { pass: false, message: L('Provider URL tanımlı değil', 'Provider URL not set') };
         // URL format geçerli mi?
         const parsed = new URL(url);
-        return { pass: true, message: `URL geçerli: ${parsed.host}` };
+        return { pass: true, message: `${L('URL geçerli', 'URL valid')}: ${parsed.host}` };
       } catch (e) {
         return { pass: false, message: e.message };
       }
@@ -261,13 +263,13 @@ function runCheck(name) {
         const REQUIRED = ['sources', 'concepts', 'cache', 'skills', 'memory', 'sessions', 'backups', 'hooks', 'audit'];
         const missing = REQUIRED.filter(d => !fs.existsSync(path.join(BASE_DIR, d)));
         if (missing.length === 0) {
-          return { pass: true, message: `${REQUIRED.length} dizin hazır` };
+          return { pass: true, message: `${REQUIRED.length} ${L('dizin hazır', 'directories ready')}` };
         }
         // Otomatik oluştur
         for (const d of missing) {
           try { fs.mkdirSync(path.join(BASE_DIR, d), { recursive: true }); } catch {}
         }
-        return { pass: true, message: `Eksik dizinler oluşturuldu: ${missing.join(', ')}` };
+        return { pass: true, message: `${L('Eksik dizinler oluşturuldu', 'Created missing directories')}: ${missing.join(', ')}` };
       } catch (e) {
         return { pass: false, message: e.message };
       }
@@ -278,7 +280,7 @@ function runCheck(name) {
         // Audit log yazma testi
         audit.logSync(audit.ACTIONS.INFO, { source: 'doctor', check: 'auditLog' });
         const files = audit.listLogFiles();
-        return { pass: true, message: `${files.length} log dosyası, en son: ${files[0] || 'yok'}` };
+        return { pass: true, message: `${files.length} ${L('log dosyası, en son', 'log files, latest')}: ${files[0] || L('yok', 'none')}` };
       } catch (e) {
         return { pass: false, message: e.message };
       }
@@ -307,12 +309,12 @@ function runCheck(name) {
           return false;
         });
         if (realSecrets.length === 0) {
-          return { pass: true, message: 'Çalışma dizininde gerçek secret bulunamadı ✓' };
+          return { pass: true, message: L('Çalışma dizininde gerçek secret bulunamadı ✓', 'No real secrets found in working directory ✓') };
         }
         const sample = realSecrets.slice(0, 3).map(f => `${f.type}@${path.basename(f.file || '?')}`).join(', ');
         return {
           pass: false,
-          message: `${realSecrets.length} gerçek secret: ${sample}${realSecrets.length > 3 ? '...' : ''}`,
+          message: `${realSecrets.length} ${L('gerçek secret', 'real secrets')}: ${sample}${realSecrets.length > 3 ? '...' : ''}`,
         };
       } catch (e) {
         return { pass: false, message: e.message };
