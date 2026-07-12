@@ -6,6 +6,8 @@ const { execSync } = require('child_process');
 const inquirer = require('../utils/inquirer-wrapper');
 const TB = require('../utils/token-budget');
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const { getApiKey, getConfig } = require('../utils/config');
 const { getBots, getProviderConfig, startMcpServers, sendMessageOpenAICompatible, streamProviderCompletion } = require('../utils/api');
 const { getMemoryPrompt, loadMemory } = require('../utils/memory');
@@ -18,9 +20,9 @@ let rl = null;
 
 async function confirmAction(message) {
   return new Promise(resolve => {
-    rl.question(chalk.yellow(`⚠ ${message}\n[? Devam edilsin mi? (Y/n) `), answer => {
+    rl.question(chalk.yellow(`⚠ ${message}\n[? ${L('Devam edilsin mi', 'Continue')}? (Y/n) `), answer => {
       const confirmed = !answer || answer.toLowerCase() === 'y';
-      console.log(chalk.gray(`  ✓ Devam edilsin mi? ${confirmed ? 'Yes' : 'No'}`));
+      console.log(chalk.gray(`  ✓ ${L('Devam edilsin mi', 'Continue')}? ${confirmed ? 'Yes' : 'No'}`));
       resolve(confirmed);
     });
   });
@@ -169,24 +171,24 @@ function loadProjectMemory(workDir) {
 
 async function generateSummary(messages, providerConfig) {
   const recent = messages.filter(m => m.role !== 'system').slice(-12);
-  if (!recent.length) return 'Bu session boş geçti.';
-  const prompt = `Bu kod session'ını 3-5 madde halinde Türkçe özetle. Ne yapıldı, hangi dosyalar değiştirildi, hangi sorunlar çözüldü:\n${JSON.stringify(recent).slice(0, 3000)}`;
+  if (!recent.length) return L('Bu session boş geçti.', 'This session was empty.');
+  const prompt = `${L("Bu kod session'ını 3-5 madde halinde Türkçe özetle. Ne yapıldı, hangi dosyalar değiştirildi, hangi sorunlar çözüldü", 'Summarize this code session in 3-5 bullet points in English. What was done, which files changed, which issues were solved')}:\n${JSON.stringify(recent).slice(0, 3000)}`;
   try {
     const result = await sendMessageOpenAICompatible(providerConfig, [{ role: 'user', content: prompt }], []);
-    return result.content || 'Özet oluşturulamadı.';
+    return result.content || L('Özet oluşturulamadı.', 'Could not generate summary.');
   } catch {
-    return 'Özet oluşturulamadı.';
+    return L('Özet oluşturulamadı.', 'Could not generate summary.');
   }
 }
 
 async function saveProjectMemory(messages, providerConfig, workDir) {
-  const sp = startSpinner('Proje hafızası güncelleniyor...');
+  const sp = startSpinner(L('Proje hafızası güncelleniyor...', 'Updating project memory...'));
   const summary = await generateSummary(messages, providerConfig);
-  stopSpinner(sp, 'Proje hafızası güncellendi', true);
+  stopSpinner(sp, L('Proje hafızası güncellendi', 'Project memory updated'), true);
   const memPath = getProjectMemoryPath(workDir);
   const dir = path.dirname(memPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const existing = fs.existsSync(memPath) ? fs.readFileSync(memPath, 'utf8') : '# Proje Hafızası\n';
+  const existing = fs.existsSync(memPath) ? fs.readFileSync(memPath, 'utf8') : L('# Proje Hafızası\n', '# Project Memory\n');
   const entry = `\n## ${new Date().toLocaleDateString('tr-TR')} — ${new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}\n${summary}\n`;
   fs.writeFileSync(memPath, existing + entry);
 }
@@ -195,8 +197,8 @@ async function saveProjectMemory(messages, providerConfig, workDir) {
 async function generateCommitMessage(diff, providerConfig) {
   try {
     const result = await sendMessageOpenAICompatible(providerConfig, [
-      { role: 'system', content: 'Sen bir git commit mesajı üreticisin. Conventional Commits formatında (feat/fix/refactor/chore vb.) kısa ve açıklayıcı bir commit mesajı yaz. Sadece mesajı yaz, başka hiçbir şey yazma.' },
-      { role: 'user', content: `Bu diff için commit mesajı üret:\n\n${diff}` },
+      { role: 'system', content: L('Sen bir git commit mesajı üreticisin. Conventional Commits formatında (feat/fix/refactor/chore vb.) kısa ve açıklayıcı bir commit mesajı yaz. Sadece mesajı yaz, başka hiçbir şey yazma.', 'You are a git commit message generator. Write a short, descriptive commit message in Conventional Commits format (feat/fix/refactor/chore etc.). Write only the message, nothing else.') },
+      { role: 'user', content: `${L('Bu diff için commit mesajı üret', 'Generate a commit message for this diff')}:\n\n${diff}` },
     ], []);
     return (result.content || 'chore: update files').trim().replace(/^["']|["']$/g, '');
   } catch {
@@ -243,19 +245,19 @@ async function runToolCall(toolCall, stats, dryRun = false) {
     oldLines.forEach(line => {
       if (line && !newLines.includes(line)) console.log(chalk.red('  - ' + line));
     });
-    console.log(chalk.yellow('\n  ⚠️  DRY RUN — dosya değiştirilmedi\n'));
+    console.log(chalk.yellow(L('\n  ⚠️  DRY RUN — dosya değiştirilmedi\n', '\n  ⚠️  DRY RUN — no file changed\n')));
     stats.filesChanged++;
     stats.changedFiles.push(toolCall.input.path || '?');
     stats.toolCallCount++;
-    return { success: true, output: '[DRY RUN] Değişiklik gösterildi, uygulanmadı' };
+    return { success: true, output: L('[DRY RUN] Değişiklik gösterildi, uygulanmadı', '[DRY RUN] Change shown, not applied') };
   }
 
   if (needsConfirm) {
     console.log(chalk.yellow(`\n  ⚠️  ${toolCall.name}: ${inputPreview}`));
-    const ok = await confirmAction('Devam edilsin mi?');
+    const ok = await confirmAction(L('Devam edilsin mi?', 'Continue?'));
     if (!ok) {
-      console.log(chalk.gray('  İptal edildi.\n'));
-      return { success: false, output: 'Kullanıcı iptal etti.' };
+      console.log(chalk.gray(L('  İptal edildi.\n', '  Cancelled.\n')));
+      return { success: false, output: L('Kullanıcı iptal etti.', 'User cancelled.') };
     }
   }
 
@@ -267,9 +269,9 @@ async function runToolCall(toolCall, stats, dryRun = false) {
     if (toolCall.name === 'write_file') {
       stats.filesChanged++;
       stats.changedFiles.push(toolCall.input.path || '?');
-      console.log(chalk.green(`  ✓ ${toolCall.input.path} güncellendi`));
+      console.log(chalk.green(`  ✓ ${toolCall.input.path} ${L('güncellendi', 'updated')}`));
       if (stats.changedFiles.length === 1) {
-        console.log(chalk.gray(`  💡 git add . && /commit ile kaydet`));
+        console.log(chalk.gray(`  💡 git add . && /commit ${L('ile kaydet', 'to save')}`));
       }
     }
     if (toolCall.name === 'bash') stats.commandsRun++;
@@ -284,24 +286,24 @@ async function runTests(projectIndex, conversationMessages, tools, providerConfi
   const testScript = projectIndex.packageJson?.scripts?.test;
   if (!testScript || testScript.includes('no test')) return;
 
-  const confirmed = await confirmAction('🧪 Testleri çalıştıralım mı?');
+  const confirmed = await confirmAction(L('🧪 Testleri çalıştıralım mı?', '🧪 Run the tests?'));
   if (!confirmed) return;
 
-  console.log(chalk.gray('\n  npm test çalışıyor...\n'));
+  console.log(chalk.gray(L('\n  npm test çalışıyor...\n', '\n  npm test running...\n')));
   try {
     const output = execSync('npm test', {
       cwd: workDir, timeout: 30000, stdio: 'pipe',
     }).toString();
-    console.log(chalk.green('  ✅ Testler geçti!\n'));
+    console.log(chalk.green(L('  ✅ Testler geçti!\n', '  ✅ Tests passed!\n')));
   } catch (err) {
     const errOutput = (err.stdout?.toString() || err.message || '').slice(0, 500);
-    console.log(chalk.red('  ❌ Test hatası:\n'));
+    console.log(chalk.red(L('  ❌ Test hatası:\n', '  ❌ Test error:\n')));
     console.log(chalk.gray('  ' + errOutput.split('\n').join('\n  ')));
     console.log();
 
-    const fix = await confirmAction('Agent test hatasını düzeltsin mi?');
+    const fix = await confirmAction(L('Agent test hatasını düzeltsin mi?', 'Let the agent fix the test error?'));
     if (fix) {
-      return `Test hatası oluştu:\n${errOutput}\nBu hatayı düzelt.`;
+      return `${L('Test hatası oluştu', 'A test error occurred')}:\n${errOutput}\n${L('Bu hatayı düzelt.', 'Fix this error.')}`;
     }
   }
   return null;
@@ -335,7 +337,7 @@ async function code(targetFile, options = {}) {
   if (!bot) {
     process.stdin.resume();
     const { selectedBot } = await inquirer.prompt([{
-      type: 'list', name: 'selectedBot', message: 'Bot seçin:',
+      type: 'list', name: 'selectedBot', message: L('Bot seçin:', 'Select bot:'),
       choices: botList.bots.map(b => ({ name: b.name, value: b.id })),
     }]);
     bot = botList.bots.find(b => b.id === selectedBot);
@@ -347,29 +349,35 @@ async function code(targetFile, options = {}) {
   const providerConfig = getProviderConfig();
 
   if (!providerConfig) {
-    console.log(chalk.red('\n❌ Provider yapılandırılmamış. natureco config set providerUrl ...\n'));
+    console.log(chalk.red(L('\n❌ Provider yapılandırılmamış. natureco config set providerUrl ...\n', '\n❌ Provider not configured. natureco config set providerUrl ...\n')));
     process.exit(1);
   }
 
   const shortModel = providerConfig.model.split('/').pop().split('-').slice(0, 3).join('-');
 
   // ── Proje indexing ───────────────────────────────────────────────────────────
-  const indexSpinner = startSpinner('Proje indexleniyor...');
+  const indexSpinner = startSpinner(L('Proje indexleniyor...', 'Indexing project...'));
   const projectIndex = await indexProject(workDir);
-  stopSpinner(indexSpinner, `${projectIndex.type.toUpperCase()} projesi — ${projectIndex.files.length} dosya`, true);
+  stopSpinner(indexSpinner, `${projectIndex.type.toUpperCase()} ${L('projesi', 'project')} — ${projectIndex.files.length} ${L('dosya', 'files')}`, true);
 
   // ── Sistem prompt ────────────────────────────────────────────────────────────
   const agentsPrompt = getAgentsPrompt();
   const memoryPrompt = getMemoryPrompt(bot.id);
   const indexPrompt = buildIndexPrompt(projectIndex);
 
-  let systemPrompt = `Sen NatureCo Code Agent'sın — güçlü bir AI coding asistanı.
+  let systemPrompt = (_gl() === 'en' ? `You are the NatureCo Code Agent — a powerful AI coding assistant.
+Actually work in the user's project: read files, change them, run commands.
+ALWAYS explain every step in English. Say what you'll do before making changes.
+Catch and fix errors. Give a summary when done.
+User: ${userName}
+
+${indexPrompt}` : `Sen NatureCo Code Agent'sın — güçlü bir AI coding asistanı.
 Kullanıcının projesinde gerçekten çalış: dosyaları oku, değiştir, komutları çalıştır.
 Her adımı Türkçe açıkla. Değişiklik yapmadan önce ne yapacağını söyle.
 Hataları yakala ve düzelt. İş bitince özet sun.
 Kullanıcı: ${userName}
 
-${indexPrompt}`;
+${indexPrompt}`);
 
   if (agentsPrompt) systemPrompt += `\n\n## Project Instructions\n${agentsPrompt}`;
   if (memoryPrompt) systemPrompt += '\n\n' + memoryPrompt;
@@ -384,9 +392,9 @@ ${indexPrompt}`;
   if (targetFile) {
     try {
       const content = fs.readFileSync(path.resolve(targetFile), 'utf-8');
-      systemPrompt += `\n\n## Odak Dosyası: ${targetFile}\n\`\`\`\n${TB.trimFileContent(content)}\n\`\`\``;
+      systemPrompt += `\n\n## ${L('Odak Dosyası', 'Focus File')}: ${targetFile}\n\`\`\`\n${TB.trimFileContent(content)}\n\`\`\``;
     } catch {
-      console.log(chalk.yellow(`  ⚠️  ${targetFile} okunamadı\n`));
+      console.log(chalk.yellow(`  ⚠️  ${targetFile} ${L('okunamadı', 'could not be read')}\n`));
     }
   }
 
@@ -422,16 +430,16 @@ ${indexPrompt}`;
   ].join('\n');
   console.log(centerText(chalk.green(codeLogo)));
   console.log();
-  console.log(centerText(chalk.cyan(`(\\_/)  ${displayBotName} hazır`) + chalk.gray(`  ·  v${version}`)));
+  console.log(centerText(chalk.cyan(`(\\_/)  ${displayBotName} ${L('hazır', 'ready')}`) + chalk.gray(`  ·  v${version}`)));
   console.log(sep());
-  console.log(centerText(chalk.gray(`📁 ${projectIndex.type.toUpperCase()} projesi  ·  ${projectIndex.files.length} dosya`)));
+  console.log(centerText(chalk.gray(`📁 ${projectIndex.type.toUpperCase()} ${L('projesi', 'project')}  ·  ${projectIndex.files.length} ${L('dosya', 'files')}`)));
   if (projectIndex.gitBranch) {
     const changes = projectIndex.gitStatus?.length || 0;
-    console.log(centerText(chalk.gray(`🌿 ${projectIndex.gitBranch}  ·  ${changes} değişiklik`)));
+    console.log(centerText(chalk.gray(`🌿 ${projectIndex.gitBranch}  ·  ${changes} ${L('değişiklik', 'changes')}`)));
   }
   if (targetFile) console.log(centerText(chalk.gray(`📄 ${targetFile}`)));
-  if (projectMemory) console.log(centerText(chalk.gray(`📋 Proje hafızası yüklendi`)));
-  console.log(centerText(chalk.gray(`${shortModel}  ·  /help  ·  Ctrl+C çıkış`)));
+  if (projectMemory) console.log(centerText(chalk.gray(`📋 ${L('Proje hafızası yüklendi', 'Project memory loaded')}`)));
+  console.log(centerText(chalk.gray(`${shortModel}  ·  /help  ·  Ctrl+C ${L('çıkış', 'exit')}`)));
   console.log(sep());
   console.log();
 
@@ -439,16 +447,16 @@ ${indexPrompt}`;
   function showSummary() {
     const w = process.stdout.columns || 120;
     console.log(chalk.gray('\n' + '─'.repeat(w)));
-    console.log(chalk.gray('  Agent Session Özeti'));
-    if (options.dryRun) console.log(chalk.yellow('  ⚠️  DRY RUN — hiçbir dosya değiştirilmedi'));
+    console.log(chalk.gray(L('  Agent Session Özeti', '  Agent Session Summary')));
+    if (options.dryRun) console.log(chalk.yellow(L('  ⚠️  DRY RUN — hiçbir dosya değiştirilmedi', '  ⚠️  DRY RUN — no files changed')));
     console.log(chalk.gray('─'.repeat(w)));
-    console.log(`  ${chalk.green('✓')} ${stats.filesChanged} dosya değiştirildi`);
-    console.log(`  ${chalk.green('✓')} ${stats.commandsRun} komut çalıştırıldı`);
-    console.log(`  ${chalk.green('✓')} ${stats.toolCallCount} tool çağrısı yapıldı`);
-    console.log(`  ${chalk.cyan('◉')} ${stats.messageCount} mesaj`);
+    console.log(`  ${chalk.green('✓')} ${stats.filesChanged} ${L('dosya değiştirildi', 'files changed')}`);
+    console.log(`  ${chalk.green('✓')} ${stats.commandsRun} ${L('komut çalıştırıldı', 'commands run')}`);
+    console.log(`  ${chalk.green('✓')} ${stats.toolCallCount} ${L('tool çağrısı yapıldı', 'tool calls made')}`);
+    console.log(`  ${chalk.cyan('◉')} ${stats.messageCount} ${L('mesaj', 'messages')}`);
     if (stats.changedFiles.length > 0) {
       console.log();
-      console.log(chalk.cyan(`  📝 Değiştirilen dosyalar (${stats.changedFiles.length}):`));
+      console.log(chalk.cyan(`  📝 ${L('Değiştirilen dosyalar', 'Changed files')} (${stats.changedFiles.length}):`));
       stats.changedFiles.forEach(f => console.log(chalk.white(`     ${f}`)));
     }
     console.log(chalk.gray('─'.repeat(w)));
@@ -457,24 +465,24 @@ ${indexPrompt}`;
 
   // ── Komut çalıştır + hata döngüsü ───────────────────────────────────────────
   async function runAndFix(cmd) {
-    console.log(chalk.gray(`\n  ▶ ${cmd} çalıştırılıyor...\n`));
+    console.log(chalk.gray(`\n  ▶ ${cmd} ${L('çalıştırılıyor...', 'running...')}\n`));
     try {
       const output = execSync(cmd, {
         cwd: workDir, timeout: 30000, stdio: 'pipe',
       }).toString();
-      console.log(chalk.green('  ✓ Başarılı:'));
+      console.log(chalk.green(L('  ✓ Başarılı:', '  ✓ Success:')));
       console.log(chalk.gray('  ' + output.slice(0, 500).split('\n').join('\n  ')));
       console.log();
     } catch (err) {
       const errorOutput = (err.stderr?.toString() || err.stdout?.toString() || err.message || '').slice(0, 500);
-      console.log(chalk.red('  ✗ Hata:'));
+      console.log(chalk.red(L('  ✗ Hata:', '  ✗ Error:')));
       console.log(chalk.gray('  ' + errorOutput.split('\n').join('\n  ')));
       console.log();
 
-      const fix = await confirmAction('Hatayı otomatik düzeltmemi ister misin?');
+      const fix = await confirmAction(L('Hatayı otomatik düzeltmemi ister misin?', 'Want me to auto-fix the error?'));
       if (fix) {
-        const fixMessage = `Şu komut çalıştırıldı: ${cmd}\nHata oluştu:\n${errorOutput}\nBu hatayı analiz et ve düzelt.`;
-        console.log(chalk.cyan('\n  Düzeltiliyor...\n'));
+        const fixMessage = `${L('Şu komut çalıştırıldı', 'This command was run')}: ${cmd}\n${L('Hata oluştu', 'An error occurred')}:\n${errorOutput}\n${L('Bu hatayı analiz et ve düzelt.', 'Analyze and fix this error.')}`;
+        console.log(chalk.cyan(L('\n  Düzeltiliyor...\n', '\n  Fixing...\n')));
         await handleMessage(fixMessage);
       }
     }
@@ -489,20 +497,20 @@ ${indexPrompt}`;
       const [cmd] = userMessage.slice(1).split(' ');
       switch (cmd.toLowerCase()) {
         case 'help':
-          console.log(chalk.yellow('Code Agent Komutları:'));
+          console.log(chalk.yellow(L('Code Agent Komutları:', 'Code Agent Commands:')));
           [
-            ['/clear',   'Ekranı temizle'],
-            ['/summary', 'Session özetini göster ve kaydet'],
-            ['/memory',  'Proje hafızasını göster'],
-            ['/done',    'Bitir ve özet göster'],
-            ['/index',   'Projeyi yeniden indexle'],
-            ['/run <cmd>','Komutu çalıştır, hata varsa düzelt'],
-            ['/test',    'Testleri çalıştır, hata varsa düzelt'],
-            ['/git',     'Git durumu ve son commitler'],
-            ['/commit',  'Staged değişiklikleri AI ile commit et'],
-            ['/help',    'Bu yardım'],
+            ['/clear',   L('Ekranı temizle', 'Clear the screen')],
+            ['/summary', L('Session özetini göster ve kaydet', 'Show and save session summary')],
+            ['/memory',  L('Proje hafızasını göster', 'Show project memory')],
+            ['/done',    L('Bitir ve özet göster', 'Finish and show summary')],
+            ['/index',   L('Projeyi yeniden indexle', 'Re-index the project')],
+            ['/run <cmd>',L('Komutu çalıştır, hata varsa düzelt', 'Run command, fix errors if any')],
+            ['/test',    L('Testleri çalıştır, hata varsa düzelt', 'Run tests, fix errors if any')],
+            ['/git',     L('Git durumu ve son commitler', 'Git status and recent commits')],
+            ['/commit',  L('Staged değişiklikleri AI ile commit et', 'Commit staged changes with AI')],
+            ['/help',    L('Bu yardım', 'This help')],
           ].forEach(([c, d]) => console.log('  ' + chalk.cyan(c.padEnd(12)) + chalk.gray(d)));
-          console.log(chalk.gray('  Ctrl+C'.padEnd(14) + 'Çıkış'));
+          console.log(chalk.gray('  Ctrl+C'.padEnd(14) + L('Çıkış', 'Exit')));
           console.log();
           return;
         case 'clear':
@@ -511,7 +519,7 @@ ${indexPrompt}`;
         case 'summary':
         case 'done': {
           const sum = await generateSummary(conversationMessages, providerConfig);
-          console.log(chalk.yellow('\n  📝 Session Özeti:'));
+          console.log(chalk.yellow(L('\n  📝 Session Özeti:', '\n  📝 Session Summary:')));
           console.log(chalk.white('  ' + sum.split('\n').join('\n  ')));
           console.log();
           showSummary();
@@ -521,17 +529,17 @@ ${indexPrompt}`;
         case 'memory': {
           const mem = loadProjectMemory();
           if (mem) {
-            console.log(chalk.yellow('\n  📋 Proje Hafızası:'));
+            console.log(chalk.yellow(L('\n  📋 Proje Hafızası:', '\n  📋 Project Memory:')));
             console.log(chalk.gray('  ' + mem.slice(0, 1500).split('\n').join('\n  ')));
           } else {
-            console.log(chalk.gray('\n  Henüz proje hafızası yok. /done ile kaydet.\n'));
+            console.log(chalk.gray(L('\n  Henüz proje hafızası yok. /done ile kaydet.\n', '\n  No project memory yet. Save with /done.\n')));
           }
           return;
         }
         case 'index': {
-          const sp = startSpinner('Proje yeniden indexleniyor...');
+          const sp = startSpinner(L('Proje yeniden indexleniyor...', 'Re-indexing project...'));
           const newIndex = await indexProject(workDir);
-          stopSpinner(sp, `${newIndex.files.length} dosya indexlendi`, true);
+          stopSpinner(sp, `${newIndex.files.length} ${L('dosya indexlendi', 'files indexed')}`, true);
           // Sistem prompt'u güncelle
           conversationMessages[0].content = conversationMessages[0].content.replace(
             /Proje Bilgisi:[\s\S]*?(?=\n\n|$)/,
@@ -549,7 +557,7 @@ ${indexPrompt}`;
             ? 'npm test'
             : projectIndex.type === 'python' ? 'python -m pytest' : null;
           if (!testCmd) {
-            console.log(chalk.red('  Test komutu bulunamadı.\n'));
+            console.log(chalk.red(L('  Test komutu bulunamadı.\n', '  Test command not found.\n')));
             return;
           }
           await runAndFix(testCmd);
@@ -559,13 +567,13 @@ ${indexPrompt}`;
           try {
             const status = execSync('git status --short', { cwd: workDir, stdio: 'pipe' }).toString().trim();
             const log = execSync('git log --oneline -5', { cwd: workDir, stdio: 'pipe' }).toString().trim();
-            console.log(chalk.yellow('\n  Git Durumu:'));
-            console.log(status ? chalk.gray('  ' + status.split('\n').join('\n  ')) : chalk.gray('  temiz'));
-            console.log(chalk.yellow('\n  Son Commitler:'));
+            console.log(chalk.yellow(L('\n  Git Durumu:', '\n  Git Status:')));
+            console.log(status ? chalk.gray('  ' + status.split('\n').join('\n  ')) : chalk.gray(L('  temiz', '  clean')));
+            console.log(chalk.yellow(L('\n  Son Commitler:', '\n  Recent Commits:')));
             console.log(chalk.gray('  ' + log.split('\n').join('\n  ')));
             console.log();
           } catch (e) {
-            console.log(chalk.red('  Git bulunamadı veya bu dizin bir git repo değil.\n'));
+            console.log(chalk.red(L('  Git bulunamadı veya bu dizin bir git repo değil.\n', '  Git not found or this is not a git repo.\n')));
           }
           return;
         }
@@ -573,28 +581,28 @@ ${indexPrompt}`;
           try {
             const diff = execSync('git diff --staged', { cwd: workDir, stdio: 'pipe' }).toString();
             if (!diff.trim()) {
-              console.log(chalk.red('\n  Staged değişiklik yok.'));
-              console.log(chalk.gray('  Önce: git add .\n'));
+              console.log(chalk.red(L('\n  Staged değişiklik yok.', '\n  No staged changes.')));
+              console.log(chalk.gray(L('  Önce: git add .\n', '  First: git add .\n')));
               return;
             }
-            const sp = startSpinner('Commit mesajı üretiliyor...');
+            const sp = startSpinner(L('Commit mesajı üretiliyor...', 'Generating commit message...'));
             const commitMsg = await generateCommitMessage(diff.slice(0, 2000), providerConfig);
-            stopSpinner(sp, 'Commit mesajı hazır', true);
-            console.log(chalk.cyan(`\n  Önerilen: ${chalk.white(commitMsg)}\n`));
-            const ok = await confirmAction('Commit edilsin mi?');
+            stopSpinner(sp, L('Commit mesajı hazır', 'Commit message ready'), true);
+            console.log(chalk.cyan(`\n  ${L('Önerilen', 'Suggested')}: ${chalk.white(commitMsg)}\n`));
+            const ok = await confirmAction(L('Commit edilsin mi?', 'Commit?'));
             if (ok) {
               execSync(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`, { cwd: workDir, stdio: 'pipe' });
-              console.log(chalk.green('  ✓ Commit yapıldı!\n'));
+              console.log(chalk.green(L('  ✓ Commit yapıldı!\n', '  ✓ Committed!\n')));
             } else {
-              console.log(chalk.gray('  İptal edildi.\n'));
+              console.log(chalk.gray(L('  İptal edildi.\n', '  Cancelled.\n')));
             }
           } catch (e) {
-            console.log(chalk.red(`  Git hatası: ${e.message}\n`));
+            console.log(chalk.red(`  ${L('Git hatası', 'Git error')}: ${e.message}\n`));
           }
           return;
         }
         default:
-          console.log(chalk.red(`Bilinmeyen komut: /${cmd}\n`));
+          console.log(chalk.red(`${L('Bilinmeyen komut', 'Unknown command')}: /${cmd}\n`));
           return;
       }
     }
@@ -638,19 +646,19 @@ ${indexPrompt}`;
 
       if (!streamResult.toolCalls?.length) {
         if (!streamResult.text) {
-          console.log(chalk.yellow('\n  ⚠️ Model cevap vermedi, tekrar deneyin.\n'));
+          console.log(chalk.yellow(L('\n  ⚠️ Model cevap vermedi, tekrar deneyin.\n', '\n  ⚠️ Model did not respond, try again.\n')));
         }
         break;
       }
 
-      console.log(chalk.yellow(`\n🔧 ${streamResult?.toolCalls?.length ?? 0} tool çalıştırılıyor...\n`));
+      console.log(chalk.yellow(`\n🔧 ${streamResult?.toolCalls?.length ?? 0} ${L('tool çalıştırılıyor...', 'running tools...')}\n`));
 
       for (let ti = 0; ti < streamResult.toolCalls.length; ti++) {
         const toolCall = streamResult.toolCalls[ti];
         const result = await runToolCall(toolCall, stats, options.dryRun);
         const resultStr = result.success !== false
           ? (result.output || JSON.stringify(result))
-          : `Hata: ${result.error}`;
+          : `${L('Hata', 'Error')}: ${result.error}`;
 
         const matchedId = assistantMsg.tool_calls?.[ti]?.id || toolCall.id;
         conversationMessages.push({
@@ -678,7 +686,7 @@ ${indexPrompt}`;
         }
       }
     } catch (err) {
-      console.log(chalk.red(`\n  ❌ Kayıt hatası: ${err.message}\n`));
+      console.log(chalk.red(`\n  ❌ ${L('Kayıt hatası', 'Save error')}: ${err.message}\n`));
     }
   }
 
@@ -699,7 +707,7 @@ ${indexPrompt}`;
       rl.pause();
       if (conversationMessages.filter(m => m.role === 'user').length > 0) {
         try {
-          const save = await confirmAction("Bu session'ı proje hafızasına kaydet?");
+          const save = await confirmAction(L("Bu session'ı proje hafızasına kaydet?", 'Save this session to project memory?'));
           if (save) await saveProjectMemory(conversationMessages, providerConfig, workDir);
         } catch {}
       }
