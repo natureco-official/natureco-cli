@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -109,7 +111,7 @@ const PROVIDER_PRESETS = {
     default: 'gemini-2.0-flash',
   },
   groq: {
-    name: 'Groq (hızlı + ücretsiz)',
+    name: L('Groq (hızlı + ücretsiz)', 'Groq (fast + free)'),
     url: 'https://api.groq.com/openai/v1',
     models: [
       { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B Versatile', tier: 'flagship', desc: 'En güçlü açık', cost: 'FREE' },
@@ -305,8 +307,8 @@ async function cmdWizard() {
   // Tam NatureCo logosu — brand kimliği
   for (const line of FULL_LOGO) console.log(COLORS.primary(line));
   console.log('');
-  console.log(COLORS.secondary.bold('  ⚡ Setup Wizard — 60 saniyede hazır'));
-  console.log(COLORS.muted('  Provider seç, API key gir, hemen başla.\n'));
+  console.log(COLORS.secondary.bold(L('  ⚡ Setup Wizard — 60 saniyede hazır', '  ⚡ Setup Wizard — ready in 60 seconds')));
+  console.log(COLORS.muted(L('  Provider seç, API key gir, hemen başla.\n', '  Pick a provider, enter an API key, start now.\n')));
 
   // Ensure directories
   if (!fs.existsSync(BASE_DIR)) fs.mkdirSync(BASE_DIR, { recursive: true });
@@ -350,46 +352,46 @@ async function cmdWizard() {
     const { modelId } = await inquirer.prompt([{
       type: 'list',
       name: 'modelId',
-      message: `  Model sec (${preset.models.length} secenek):`,
+      message: `  ${L('Model sec', 'Select model')} (${preset.models.length} ${L('secenek', 'options')}):`,
       choices: [
         { name: '─────────────────────', disabled: true },
-        { name: '🟢 GÜÇLÜ / REASONING (en iyi)', disabled: true },
+        { name: L('🟢 GÜÇLÜ / REASONING (en iyi)', '🟢 POWERFUL / REASONING (best)'), disabled: true },
         ...preset.models.filter(m => m.tier === 'flagship' || m.tier === 'reasoning').map(m => ({
           name: `  ${m.label} (${m.cost})`,
           value: m.id,
         })),
         { name: '─────────────────────', disabled: true },
-        { name: '🟡 ORTA (dengeli)', disabled: true },
+        { name: L('🟡 ORTA (dengeli)', '🟡 MID (balanced)'), disabled: true },
         ...preset.models.filter(m => m.tier === 'balanced').map(m => ({
           name: `  ${m.label} (${m.cost})`,
           value: m.id,
         })),
         { name: '─────────────────────', disabled: true },
-        { name: '🔵 HIZLI / UCUZ', disabled: true },
+        { name: L('🔵 HIZLI / UCUZ', '🔵 FAST / CHEAP'), disabled: true },
         ...preset.models.filter(m => m.tier === 'fast').map(m => ({
           name: `  ${m.label} (${m.cost})`,
           value: m.id,
         })),
         { name: '─────────────────────', disabled: true },
-        { name: '⚪ KLASİK (legacy)', disabled: true },
+        { name: L('⚪ KLASİK (legacy)', '⚪ CLASSIC (legacy)'), disabled: true },
         ...preset.models.filter(m => m.tier === 'classic').map(m => ({
           name: `  ${m.label} (${m.cost})`,
           value: m.id,
         })),
         { name: '─────────────────────', disabled: true },
-        { name: '🔊 ÖZEL (audio/vision/embedding)', disabled: true },
+        { name: L('🔊 ÖZEL (audio/vision/embedding)', '🔊 SPECIAL (audio/vision/embedding)'), disabled: true },
         ...preset.models.filter(m => ['audio', 'vision', 'embedding', 'custom'].includes(m.tier)).map(m => ({
           name: `  ${m.label} (${m.cost})`,
           value: m.id,
         })),
         { name: '─────────────────────', disabled: true },
-        { name: '✏️  Custom model adı (ileri düzey)', value: '__custom__' },
+        { name: L('✏️  Custom model adı (ileri düzey)', '✏️  Custom model name (advanced)'), value: '__custom__' },
       ],
       pageSize: 20,
     }]);
 
     if (modelId === '__custom__') {
-      providerModel = await rlQuestion(`  Model adı: `) || preset.default;
+      providerModel = await rlQuestion(`  ${L('Model adı', 'Model name')}: `) || preset.default;
     } else {
       providerModel = modelId;
     }
@@ -407,11 +409,11 @@ async function cmdWizard() {
   const currentKey = cfg.providerApiKey || '';
   if (currentKey) {
     console.log('');
-    console.log(chalk.yellow('  ⚠️  Mevcut API key tespit edildi (son 4 karakter: ' + currentKey.slice(-4) + ')'));
+    console.log(chalk.yellow(L('  ⚠️  Mevcut API key tespit edildi (son 4 karakter: ', '  ⚠️  Existing API key detected (last 4 chars: ') + currentKey.slice(-4) + ')'));
     const reset = await inquirer.prompt([{
       type: 'confirm',
       name: 'fresh',
-      message: 'Sıfırdan yeni kurulum mu yapacaksın? (N = mevcut korunur)',
+      message: L('Sıfırdan yeni kurulum mu yapacaksın? (N = mevcut korunur)', 'Start a fresh setup? (N = keep existing)'),
       default: false,
     }]);
     if (reset.fresh) {
@@ -424,39 +426,39 @@ async function cmdWizard() {
       delete cfg.mattermostBot;
       delete cfg.smsTwilioSid;
       delete cfg.webhooks;
-      console.log(chalk.green('  ✓ Eski ayarlar temizlendi'));
+      console.log(chalk.green(L('  ✓ Eski ayarlar temizlendi', '  ✓ Old settings cleared')));
     }
   }
   const apiKey = await rlQuestion(`  API Key ${currentKey ? '(leave blank to keep current)' : ''}: `);
   if (apiKey) {
     cfg.providerApiKey = apiKey;
     // v5.6.0: API key dogrula
-    console.log('\n  Doğrulanıyor...');
+    console.log(L('\n  Doğrulanıyor...', '\n  Validating...'));
     const isValid = await validateApiKey(providerUrl, apiKey);
     if (!isValid) {
-      console.log('  ❌ API key gecersiz! Lutfen kontrol edin.');
+      console.log(L('  ❌ API key gecersiz! Lutfen kontrol edin.', '  ❌ API key invalid! Please check.'));
       const retry = await inquirer.prompt([{
         type: 'confirm',
         name: 'continue',
-        message: 'Yine de devam etmek istiyor musunuz? (key sonra duzeltilebilir)',
+        message: L('Yine de devam etmek istiyor musunuz? (key sonra duzeltilebilir)', 'Continue anyway? (you can fix the key later)'),
         default: false,
       }]);
       if (!retry.continue) {
-        console.log('  Setup iptal edildi. Tekrar deneyin: natureco setup');
+        console.log(L('  Setup iptal edildi. Tekrar deneyin: natureco setup', '  Setup cancelled. Try again: natureco setup'));
         process.exit(1);
       }
     } else {
-      console.log('  ✓ API key gecerli!');
+      console.log(L('  ✓ API key gecerli!', '  ✓ API key valid!'));
     }
   }
 
   // Step 3: Bot & User identity
   console.log('');
-  console.log(chalk.white('  Step 3: Bot & Kullanıcı'));
+  console.log(chalk.white(L('  Step 3: Bot & Kullanıcı', '  Step 3: Bot & User')));
   console.log(chalk.gray('  ─────────────────────────────────────────────'));
-  const userName = await rlQuestion(`  Sizin adınız: `);
+  const userName = await rlQuestion(`  ${L('Sizin adınız', 'Your name')}: `);
   if (userName) cfg.userName = userName;
-  const botName = await rlQuestion(`  Bot adı: `);
+  const botName = await rlQuestion(`  ${L('Bot adı', 'Bot name')}: `);
   if (botName) cfg.botName = botName;
 
   // v5.6.7: Memory dosyasi yoksa olustur, varsa guncelle
@@ -475,43 +477,43 @@ async function cmdWizard() {
       if (!fs.existsSync(BASE_DIR)) fs.mkdirSync(BASE_DIR, { recursive: true });
       if (!fs.existsSync(path.dirname(memFile))) fs.mkdirSync(path.dirname(memFile), { recursive: true });
       fs.writeFileSync(memFile, JSON.stringify(mem, null, 2), 'utf8');
-      console.log(chalk.gray('  ✓ Memory ' + (memExists ? 'guncellendi' : 'olusturuldu') + ': ' + memFile));
+      console.log(chalk.gray('  ✓ Memory ' + (memExists ? L('guncellendi', 'updated') : L('olusturuldu', 'created')) + ': ' + memFile));
     }
   } catch (e) {
-    console.log(chalk.gray('  ! Memory yazilamadi: ' + e.message));
+    console.log(chalk.gray(L('  ! Memory yazilamadi: ', '  ! Could not write memory: ') + e.message));
   }
 
   // Step 4: Kanal Entegrasyonları (isteğe bağlı, isteyen atlayabilir)
   console.log('');
-  console.log(chalk.white('  Step 4: Kanal Entegrasyonları (opsiyonel)'));
+  console.log(chalk.white(L('  Step 4: Kanal Entegrasyonları (opsiyonel)', '  Step 4: Channel Integrations (optional)')));
   console.log(chalk.gray('  ─────────────────────────────────────────────'));
-  console.log(chalk.gray('  Telegram, WhatsApp, Discord, Slack bağlamak ister misiniz?'));
-  console.log(chalk.gray('  Atlamak için hepsini boş bırakın, sonra: natureco <kanal> connect\n'));
+  console.log(chalk.gray(L('  Telegram, WhatsApp, Discord, Slack bağlamak ister misiniz?', '  Connect Telegram, WhatsApp, Discord, Slack?')));
+  console.log(chalk.gray(L('  Atlamak için hepsini boş bırakın, sonra: natureco <kanal> connect\n', '  To skip, leave all blank, then: natureco <channel> connect\n')));
 
   const integrations = [
-    { key: 'telegramToken',   name: 'Telegram',   hint: 'BotFather\'dan al (@BotFather → /newbot → token)' },
-    { key: 'whatsappPhone',   name: 'WhatsApp',   hint: 'Telefon numaranızı girin (örn: +905422842631)' },
+    { key: 'telegramToken',   name: 'Telegram',   hint: L('BotFather\'dan al (@BotFather → /newbot → token)', 'Get it from BotFather (@BotFather → /newbot → token)') },
+    { key: 'whatsappPhone',   name: 'WhatsApp',   hint: L('Telefon numaranızı girin (örn: +905422842631)', 'Enter your phone number (e.g. +905422842631)') },
     { key: 'discordToken',    name: 'Discord',    hint: 'Discord bot token (Discord Developer Portal)' },
     { key: 'slackToken',      name: 'Slack',      hint: 'Slack bot token (api.slack.com/apps)' },
-    { key: 'signalBotId',     name: 'Signal',     hint: 'Signal bot numarası veya ID' },
-    { key: 'ircBotId',        name: 'IRC',        hint: 'IRC bot kullanıcı adı (örn: NatureCoBot)' },
-    { key: 'mattermostBotId', name: 'Mattermost', hint: 'Mattermost bot kullanıcı adı' },
-    { key: 'imessageBotId',   name: 'iMessage',   hint: 'iMessage bridge endpoint veya ad' },
-    { key: 'smsBotId',        name: 'SMS (Twilio)', hint: 'Twilio hesap SID veya bot ID' },
-    { key: 'webhooks',        name: 'Webhooks',   hint: 'Webhook URL (veya boş bırakın, sonra: natureco webhooks add)' },
+    { key: 'signalBotId',     name: 'Signal',     hint: L('Signal bot numarası veya ID', 'Signal bot number or ID') },
+    { key: 'ircBotId',        name: 'IRC',        hint: L('IRC bot kullanıcı adı (örn: NatureCoBot)', 'IRC bot username (e.g. NatureCoBot)') },
+    { key: 'mattermostBotId', name: 'Mattermost', hint: L('Mattermost bot kullanıcı adı', 'Mattermost bot username') },
+    { key: 'imessageBotId',   name: 'iMessage',   hint: L('iMessage bridge endpoint veya ad', 'iMessage bridge endpoint or name') },
+    { key: 'smsBotId',        name: 'SMS (Twilio)', hint: L('Twilio hesap SID veya bot ID', 'Twilio account SID or bot ID') },
+    { key: 'webhooks',        name: 'Webhooks',   hint: L('Webhook URL (veya boş bırakın, sonra: natureco webhooks add)', 'Webhook URL (or leave blank, then: natureco webhooks add)') },
   ];
 
   for (const integ of integrations) {
     const current = cfg[integ.key] || '';
     if (current) {
-      console.log(chalk.gray(`  ${integ.name}: zaten ayarlı, boş bırakırsanız korunur`));
+      console.log(chalk.gray(`  ${integ.name}: ${L('zaten ayarlı, boş bırakırsanız korunur', 'already set, leave blank to keep')}`));
     } else {
       console.log(chalk.gray(`  ${integ.hint}`));
     }
-    const val = await rlQuestion(`  ${integ.name} ${current ? '(mevcut - boş bırakın)' : '(boş = atla)'}: `);
+    const val = await rlQuestion(`  ${integ.name} ${current ? L('(mevcut - boş bırakın)', '(current - leave blank)') : L('(boş = atla)', '(blank = skip)')}: `);
     if (val) {
       cfg[integ.key] = val;
-      console.log(chalk.green(`    ✓ ${integ.name} ayarlandı`));
+      console.log(chalk.green(`    ✓ ${integ.name} ${L('ayarlandı', 'set')}`));
     }
   }
 
@@ -533,8 +535,8 @@ async function cmdWizard() {
   console.log('');
   console.log(chalk.white('  Next steps:'));
   console.log(chalk.cyan('    natureco chat              Start chatting'));
-  console.log(chalk.cyan('    natureco repl              İnteraktif REPL (persistent memory)'));
-  console.log(chalk.cyan('    natureco telegram connect  Telegram bot bağla (henüz yapılmadıysa)'));
+  console.log(chalk.cyan(L('    natureco repl              İnteraktif REPL (persistent memory)', '    natureco repl              Interactive REPL (persistent memory)')));
+  console.log(chalk.cyan(L('    natureco telegram connect  Telegram bot bağla (henüz yapılmadıysa)', '    natureco telegram connect  Connect Telegram bot (if not done yet)')));
   console.log(chalk.cyan('    natureco help              View all commands'));
   console.log('');
 }
