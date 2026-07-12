@@ -12,6 +12,15 @@ const { getLang } = require('../utils/i18n');
 
 const L = (tr, en) => (getLang() === 'en' ? en : tr);
 
+function providerHostname(providerUrl) {
+  if (!providerUrl) return '';
+  try {
+    return new URL(providerUrl).hostname;
+  } catch {
+    return String(providerUrl).replace(/^https?:\/\//i, '').split('/')[0];
+  }
+}
+
 function help() {
   const config = getConfig() || {};
   const version = require('../../package.json').version;
@@ -203,7 +212,7 @@ function help() {
       tui.styled('  ╭' + '─'.repeat(cardW) + '╮', { color: tui.PALETTE.border }),
     ];
     if (config.providerUrl) {
-      const provider = config.providerUrl.replace('https?:\/\/', '').split('/')[0];
+      const provider = providerHostname(config.providerUrl);
       cardLines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Provider   ') + tui.styled(provider.padEnd(38), { color: tui.PALETTE.text, bold: true }) + tui.styled(' │', { color: tui.PALETTE.border }));
     }
     if (config.providerModel) {
@@ -228,3 +237,4 @@ function help() {
 }
 
 module.exports = help;
+module.exports.providerHostname = providerHostname;

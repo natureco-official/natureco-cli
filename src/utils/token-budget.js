@@ -22,6 +22,7 @@ const PRESETS = {
     fileContentMaxChars: 1000,
     conversationOnDisk: 6,
     conversationInContext: 8,
+    workflowHistoryMaxTokens: 1024,
     autoCompact: true,
     compactModel: null,
     reservedTokens: 1024
@@ -42,6 +43,7 @@ const PRESETS = {
     fileContentMaxChars: 2000,
     conversationOnDisk: 10,
     conversationInContext: 12,
+    workflowHistoryMaxTokens: 2048,
     autoCompact: true,
     compactModel: null,
     reservedTokens: 2048
@@ -62,6 +64,7 @@ const PRESETS = {
     fileContentMaxChars: 5000,
     conversationOnDisk: 20,
     conversationInContext: 25,
+    workflowHistoryMaxTokens: 8192,
     autoCompact: false,
     compactModel: null,
     reservedTokens: 4096

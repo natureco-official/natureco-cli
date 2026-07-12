@@ -34,6 +34,8 @@ const { getTaskManager } = require("../utils/tasks");
 const { buildTiers, assemble, discoverProjectRules } = require("../utils/system-prompt");
 const { buildSkillIndex } = require("../utils/skill-index");
 const { AgentCore } = require("../utils/agent-core");
+const { prepareConversationHistory } = require("../utils/conversation-context");
+const tokenBudget = require("../utils/token-budget");
 
 const agentCore = new AgentCore({ maxIterations: 10 });
 
@@ -522,7 +524,14 @@ async function codeV5(targetPath) {
 
       // Workflow step — run before every request
       process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
-      const wfResult = await executeTool('workflow', { action: 'run', task: input }, toolDefs);
+      const wfResult = await executeTool('workflow', {
+        action: 'run',
+        task: input,
+        conversationHistory: prepareConversationHistory(messages, {
+          maxMessages: tokenBudget.load().conversationInContext,
+          maxTokens: tokenBudget.load().workflowHistoryMaxTokens,
+        }),
+      }, toolDefs);
       const wf = wfResult?.result || {};
       if (wf.success !== false) {
         const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';

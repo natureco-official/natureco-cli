@@ -12,7 +12,7 @@
 
 A terminal-native AI agent CLI — chat, write code, automate workflows, and connect **Telegram / Discord / Slack / WhatsApp / iMessage** and more.
 
-**A Claude Code & OpenClaw alternative** · Multi-agent orchestration · Cross-session memory · Dangerous-command approval · 12 providers, 200+ models · 57+ tools · 10 messaging channels.
+**A Claude Code & OpenClaw alternative** · Multi-agent orchestration · Cross-session memory · Token-budgeted context · Dangerous-command approval · 12 providers, 200+ models · 106 tools · 10 messaging channels.
 
 ```
 ███╗   ██╗ █████╗ ████████╗██╗   ██╗██████╗ ███████╗ ██████╗  ██████╗
@@ -51,6 +51,8 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.64.1** | **Reliable follow-ups + lower token cost:** `natureco code` now preserves same-session context across workflow calls and caps repeated history by token budget (1,024 / 2,048 / 8,192). Provider labels are rendered correctly. |
+| **v5.64.0** | **Unified secure agent foundation:** one execution gateway, hard-stop guardrails, schema-validated tools, rollback/checkpoints, sourced memory, resilient channel delivery, OS keychains and encrypted sync. |
 | **v5.43.0** | **Security:** 9 vulnerabilities fixed in a 3-round audit (RCE chain, admin-rpc auth, cron persistence, channel access control). See [`SECURITY_AUDIT_SUMMARY.md`](SECURITY_AUDIT_SUMMARY.md). |
 | **v5.42.0** | **Token optimization** — prompts trimmed by ~76% (skill index made compact; big cost savings on multi-step tasks). |
 | **v5.41.0** | **Multi-agent orchestration** — the agent can spawn focused sub-agents (`sub_agent`) and produce step-by-step plans (`plan`) before acting. |
@@ -102,11 +104,12 @@ Two-tier policy (`deny` / `allowlist` / `full`) applies to **every** shell path 
 ## ✨ Features
 
 ### 🤖 AI & Chat
-- **57+ tools** — file ops, web search, image generation, code execution, memory, and more
+- **106 tools** — file ops, web search, image generation, code execution, memory, automation, channels, and more
 - **Interactive REPL** — read_file, edit_file, bash, multi-turn conversation
 - **Slash commands** — `/memory`, `/help`, `/skills`, `/model`, `/clear`
 - **Streaming output** with live tool-call visibility and a thinking indicator
 - **Persistent memory** — fact-based, cross-session
+- **Token-budgeted context** — recent relevant turns are retained without repeatedly sending oversized code and tool output
 
 ### 💻 Coding Agent (Claude Code alternative)
 - **Read / Write / Edit** multi-file operations
@@ -114,6 +117,20 @@ Two-tier policy (`deny` / `allowlist` / `full`) applies to **every** shell path 
 - **Multi-agent orchestration** — spawn focused sub-agents and plan before acting
 - **Skills** — progressive-disclosure expertise loaded on demand via `skill_view`
 - **Verify loop** — the agent runs and tests the code it writes
+- **Reliable follow-ups** — references such as “the game you just created” retain the current coding-session context
+- **Context profiles** — Efficient (1,024), Balanced (2,048), and Quality (8,192) workflow-history token budgets
+
+### ⚡ Token Economy
+
+NatureCo uses progressive disclosure and bounded context instead of sending every skill, tool result, and old response on every request:
+
+- Skills are discovered with `skill_find` and loaded only when needed with `skill_view`.
+- System, internal tool, and empty messages are excluded from workflow history.
+- Recent user/assistant turns are kept within the selected token profile.
+- Oversized generated code is truncated in later prompts while the file path and conversational intent remain available.
+- `natureco ask` stays tool-free by default; use `--tools` only when an action is required.
+
+For a 32,000-character previous response, the Balanced profile bounds repeated history to about 2,048 tokens instead of roughly 8,000—a reduction of approximately 74% for that repeated context.
 
 ### 📡 10 Messaging Channels
 
@@ -161,7 +178,7 @@ Two-tier policy (`deny` / `allowlist` / `full`) applies to **every** shell path 
 
 | Command | Description |
 |---------|-------------|
-| `natureco chat` | Interactive REPL chat (57+ tools active) |
+| `natureco chat` | Interactive REPL chat (106 tools available) |
 | `natureco chat --resume` | Resume the previous session |
 | `natureco code` | Coding agent (write apps/scripts) |
 | `natureco code <file>` | Coding agent on a specific file |

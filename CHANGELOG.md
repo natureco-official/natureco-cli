@@ -2,6 +2,22 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.64.1] - 2026-07-13 — Reliable coding context and token-budgeted follow-ups
+
+### Fixed
+- `natureco code` now passes prior user/assistant turns into each workflow call, so follow-up requests correctly refer to files and work created earlier in the same session.
+- Workflow history excludes system/tool internals, empty messages and stale turns; oversized recent responses are safely truncated instead of being resent in full.
+- The help screen now parses provider URLs correctly (`api.minimax.io` instead of `https:`).
+
+### Token economy
+- Added workflow-history budgets to all profiles: Efficient 1,024 tokens, Balanced 2,048 tokens and Quality 8,192 tokens.
+- Long generated HTML/code no longer dominates every later prompt. A synthetic 32,000-character response is bounded from roughly 8,000 repeated tokens to 2,048 in Balanced mode (approximately 74% less repeated context).
+- Preserved recent-turn continuity while keeping token use bounded by both message count and estimated tokens.
+
+### Documentation and tests
+- Updated README release highlights, tool count, coding-session behavior and token-economy documentation.
+- Added regression coverage for same-session workflow context, role filtering, recency, oversized response truncation and provider hostname rendering.
+
 ## [5.64.0] - 2026-07-13 — Secure unified agent and operations foundation
 
 ### Added
