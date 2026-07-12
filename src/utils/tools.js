@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { globalRegistry } = require('./registry');
 const sandbox = require('./sandbox');
+const { executeThroughGateway } = require('./tool-execution-gateway');
 
 // Lazy config read — avoids circular deps
 function _getSandboxLevel() {
@@ -291,31 +292,22 @@ function toOpenAIFormat(toolDefs) {
 }
 
 async function executeTool(toolName, args, toolDefs) {
-  const tool = toolDefs.find(t => t.name === toolName);
-  if (!tool) return { error: `Tool bulunamadı: ${toolName}` };
-  if (!tool.execute) return { error: `Tool execute fonksiyonu yok: ${toolName}` };
-  // checkFn — tool disabled? (re-check at runtime with cache)
-  if (tool.checkFn) {
-    if (!_cachedCheckFn(tool.checkFn, tool.name)) {
-      return { error: `${toolName} şu anda kullanılamıyor (check_fn engelledi)` };
-    }
-  }
-
-  // Sandbox restrictions for bash/shell_command
-  if (toolName === 'bash' || toolName === 'shell_command') {
-    const level = _getSandboxLevel();
-    const cmd = (args && args.command) || '';
-    if (level === 'strict' && sandbox.isNetworkCommand(cmd)) {
-      return { error: 'strict sandbox: network komutları engellendi. Daha düşük sandbox seviyesi kullanın.' };
-    }
-  }
-
-  try {
-    const result = await tool.execute(args || {});
-    return { result };
-  } catch (e) {
-    return { error: e.message || String(e) };
-  }
+  return executeThroughGateway({
+    toolName,
+    args: args || {},
+    resolveTool: name => (toolDefs || []).find(tool => tool.name === name),
+    checkAvailability: ({ tool }) => !tool.checkFn || _cachedCheckFn(tool.checkFn, tool.name)
+      ? true
+      : { allowed: false, reason: `${toolName} şu anda kullanılamıyor (check_fn engelledi)` },
+    policyChecks: [({ args: safeArgs }) => {
+      if (toolName !== 'bash' && toolName !== 'shell_command') return true;
+      const level = _getSandboxLevel();
+      if (level === 'strict' && sandbox.isNetworkCommand(safeArgs.command || '')) {
+        return { allowed: false, reason: 'strict sandbox: network komutları engellendi. Daha düşük sandbox seviyesi kullanın.' };
+      }
+      return true;
+    }],
+  });
 }
 
 module.exports = {
