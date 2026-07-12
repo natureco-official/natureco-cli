@@ -2,48 +2,50 @@ const fs = require('fs');
 const path = require('path');
 const inquirer = require('../utils/inquirer-wrapper');
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const { getApiKey } = require('../utils/config');
 const { getBots } = require('../utils/api');
 
 async function init() {
-  console.log(chalk.green.bold('\n╭─ NatureCo Proje Başlatma ─╮\n'));
+  console.log(chalk.green.bold(L('\n╭─ NatureCo Proje Başlatma ─╮\n', '\n╭─ NatureCo Project Init ─╮\n')));
 
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.log(chalk.red('❌ Giriş yapılmadı. Önce "natureco login" çalıştırın.\n'));
+    console.log(chalk.red(L('❌ Giriş yapılmadı. Önce "natureco login" çalıştırın.\n', '❌ Not logged in. Run "natureco login" first.\n')));
     process.exit(1);
   }
 
   // Mevcut klasörde .natureco var mı kontrol et
   const projectDir = path.join(process.cwd(), '.natureco');
   if (fs.existsSync(projectDir)) {
-    console.log(chalk.yellow('⚠️  Bu klasörde zaten .natureco/ mevcut.\n'));
+    console.log(chalk.yellow(L('⚠️  Bu klasörde zaten .natureco/ mevcut.\n', '⚠️  This folder already has .natureco/.\n')));
     const { overwrite } = await inquirer.prompt([
       {
         type: 'confirm',
         name: 'overwrite',
-        message: 'Üzerine yazmak ister misiniz?',
+        message: L('Üzerine yazmak ister misiniz?', 'Overwrite?'),
         default: false,
       },
     ]);
     if (!overwrite) {
-      console.log(chalk.gray('İptal edildi.\n'));
+      console.log(chalk.gray(L('İptal edildi.\n', 'Cancelled.\n')));
       process.exit(0);
     }
   }
 
   // Botları çek
-  console.log(chalk.yellow('⏳ Botlar yükleniyor...\n'));
+  console.log(chalk.yellow(L('⏳ Botlar yükleniyor...\n', '⏳ Loading bots...\n')));
   let botList;
   try {
     botList = await getBots(apiKey);
   } catch (err) {
-    console.log(chalk.red(`❌ Hata: ${err.message}\n`));
+    console.log(chalk.red(`❌ ${L('Hata', 'Error')}: ${err.message}\n`));
     process.exit(1);
   }
 
   if (!botList || !botList.bots || botList.bots.length === 0) {
-    console.log(chalk.gray('Bot bulunamadı. Önce https://developers.natureco.me adresinden bot oluşturun.\n'));
+    console.log(chalk.gray(L('Bot bulunamadı. Önce https://developers.natureco.me adresinden bot oluşturun.\n', 'No bots found. Create a bot at https://developers.natureco.me first.\n')));
     process.exit(1);
   }
 
@@ -52,7 +54,7 @@ async function init() {
     {
       type: 'list',
       name: 'defaultBot',
-      message: 'Varsayılan bot:',
+      message: L('Varsayılan bot:', 'Default bot:'),
       choices: botList.bots.map(b => ({ name: b.name, value: b.id })),
     },
   ]);
@@ -64,11 +66,11 @@ async function init() {
     {
       type: 'checkbox',
       name: 'skills',
-      message: 'Hangi skill\'ler eklensin?',
+      message: L('Hangi skill\'ler eklensin?', 'Which skills to add?'),
       choices: [
-        { name: 'code-review (Kod inceleme)', value: 'code-review', checked: true },
-        { name: 'summarize (Özetleme)', value: 'summarize', checked: true },
-        { name: 'translate (Çeviri)', value: 'translate', checked: false },
+        { name: L('code-review (Kod inceleme)', 'code-review (Code review)'), value: 'code-review', checked: true },
+        { name: L('summarize (Özetleme)', 'summarize (Summarize)'), value: 'summarize', checked: true },
+        { name: L('translate (Çeviri)', 'translate (Translate)'), value: 'translate', checked: false },
       ],
     },
   ]);
@@ -95,24 +97,24 @@ async function init() {
   );
 
   // AGENTS.md
-  const agentsMd = `# ${selectedBot.name} Talimatları
+  const agentsMd = `# ${selectedBot.name} ${L('Talimatları', 'Instructions')}
 
-Bu dosya projeye özel bot talimatlarını içerir.
-Chat başladığında bu içerik sistem promptuna eklenir.
+${L('Bu dosya projeye özel bot talimatlarını içerir.', 'This file contains project-specific bot instructions.')}
+${L('Chat başladığında bu içerik sistem promptuna eklenir.', 'This content is added to the system prompt when chat starts.')}
 
-## Proje Hakkında
+## ${L('Proje Hakkında', 'About the Project')}
 
-[Projenizi tanımlayın]
+${L('[Projenizi tanımlayın]', '[Describe your project]')}
 
-## Bot Görevleri
+## ${L('Bot Görevleri', 'Bot Tasks')}
 
-- [Görev 1]
-- [Görev 2]
+- ${L('[Görev 1]', '[Task 1]')}
+- ${L('[Görev 2]', '[Task 2]')}
 
-## Kurallar
+## ${L('Kurallar', 'Rules')}
 
-- [Kural 1]
-- [Kural 2]
+- ${L('[Kural 1]', '[Rule 1]')}
+- ${L('[Kural 2]', '[Rule 2]')}
 `;
   fs.writeFileSync(path.join(projectDir, 'AGENTS.md'), agentsMd, 'utf8');
 
@@ -122,13 +124,13 @@ Chat başladığında bu içerik sistem promptuna eklenir.
     fs.mkdirSync(skillsDir, { recursive: true });
   }
 
-  console.log(chalk.green('\n✅ Proje başlatıldı!\n'));
-  console.log(chalk.cyan('Oluşturulan dosyalar:'));
+  console.log(chalk.green(L('\n✅ Proje başlatıldı!\n', '\n✅ Project initialized!\n')));
+  console.log(chalk.cyan(L('Oluşturulan dosyalar:', 'Created files:')));
   console.log(chalk.gray(`  .natureco/config.json`));
   console.log(chalk.gray(`  .natureco/AGENTS.md`));
   console.log(chalk.gray(`  .natureco/skills/`));
   console.log('');
-  console.log(chalk.yellow('Sonraki adım:'), chalk.white(`natureco chat "${selectedBot.name}"`));
+  console.log(chalk.yellow(L('Sonraki adım:', 'Next step:')), chalk.white(`natureco chat "${selectedBot.name}"`));
   console.log('');
 }
 
