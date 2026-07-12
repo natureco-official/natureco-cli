@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const tui = require('../utils/tui');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const F = require('../utils/format');
 const fs = require('fs');
 const path = require('path');
@@ -51,7 +53,7 @@ function approvals(args) {
   if (action === 'allowlist') return listAllowlist();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco approvals [list|pending|approve|reject|set-policy|set|add|get|allowlist]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco approvals [list|pending|approve|reject|set-policy|set|add|get|allowlist]\n', '  Usage: natureco approvals [list|pending|approve|reject|set-policy|set|add|get|allowlist]\n')));
   process.exit(1);
 }
 
@@ -80,12 +82,12 @@ function listApprovals() {
     { key: 'source', label: 'Kaynak', minWidth: 12, render: r => tui.C.text(r.source) },
     { key: 'text', label: 'Komut', minWidth: 25, render: r => tui.C.muted(r.text) },
     {
-      key: 'status', label: 'Durum', minWidth: 12,
+      key: 'status', label: L('Durum', 'Status'), minWidth: 12,
       render: r => r.status === 'pending'
         ? tui.styled(' ⏳ Bekliyor ', { bg: tui.PALETTE.warning, color: '#000', bold: true })
         : r.status === 'approved'
-        ? tui.styled('  ✓ Onaylı ', { bg: tui.PALETTE.success, color: '#000', bold: true })
-        : tui.styled('  ✗ Reddedildi ', { bg: tui.PALETTE.danger, color: '#000', bold: true })
+        ? tui.styled(L('  ✓ Onaylı ', '  ✓ Approved '), { bg: tui.PALETTE.success, color: '#000', bold: true })
+        : tui.styled(L('  ✗ Reddedildi ', '  ✗ Rejected '), { bg: tui.PALETTE.danger, color: '#000', bold: true })
     },
   ], { borderStyle: 'round', zebra: true }));
   console.log('');
@@ -101,7 +103,7 @@ function listPending() {
   const rows = queue.map(r => ({
     id: r.id, source: r.source || 'cli', text: r.text, status: r.status,
   }));
-  console.log('\n' + tui.styled('  ⏳ Bekleyen Onaylar (' + rows.length + ')', { color: tui.PALETTE.warning, bold: true }));
+  console.log('\n' + tui.styled(L('  ⏳ Bekleyen Onaylar (', '  ⏳ Pending Approvals (') + rows.length + ')', { color: tui.PALETTE.warning, bold: true }));
   console.log('\n' + tui.table(rows, [
     { key: 'id', label: 'ID', minWidth: 14, render: r => tui.C.muted(r.id) },
     { key: 'source', label: 'Kaynak', minWidth: 12, render: r => tui.C.text(r.source) },
@@ -112,16 +114,16 @@ function listPending() {
 
 function addReq(text) {
   if (!text) {
-    console.log(chalk.red('\n  ❌ Request text gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Request text gerekli\n', '\n  ❌ Request text required\n')));
     process.exit(1);
   }
   const queue = loadQueue();
   const r = { id: genId(), text, status: 'pending', source: 'cli', createdAt: new Date().toISOString(), resolvedAt: null };
   queue.push(r);
   saveQueue(queue);
-  console.log(chalk.yellow(`\n  ⏳ Onay beklemede: ${r.id}\n`));
+  console.log(chalk.yellow(`\n  ⏳ ${L('Onay beklemede', 'Awaiting approval')}: ${r.id}\n`));
   console.log(`  ${chalk.white(text)}`);
-  console.log(chalk.gray(`  Onaylamak için: natureco approvals approve ${r.id}`));
+  console.log(chalk.gray(`  ${L('Onaylamak için', 'To approve')}: natureco approvals approve ${r.id}`));
   console.log();
 }
 
@@ -129,8 +131,8 @@ function approveReq(id) {
   const queue = loadQueue();
   if (id) {
     const r = queue.find(x => x.id === id);
-    if (!r) { console.log(chalk.red(`\n  ❌ Request bulunamadı: ${id}\n`)); process.exit(1); }
-    if (r.status !== 'pending') { console.log(chalk.yellow(`\n  ⚠️  "${id}" zaten ${r.status}\n`)); return; }
+    if (!r) { console.log(chalk.red(`\n  ❌ ${L('Request bulunamadı', 'Request not found')}: ${id}\n`)); process.exit(1); }
+    if (r.status !== 'pending') { console.log(chalk.yellow(`\n  ⚠️  "${id}" ${L('zaten', 'already')} ${r.status}\n`)); return; }
     r.status = 'approved';
     r.resolvedAt = new Date().toISOString();
     saveQueue(queue);
@@ -138,7 +140,7 @@ function approveReq(id) {
     return;
   }
   const pending = queue.filter(r => r.status === 'pending');
-  if (pending.length === 0) { console.log(chalk.gray('\n  Bekleyen onay yok\n')); return; }
+  if (pending.length === 0) { console.log(chalk.gray(L('\n  Bekleyen onay yok\n', '\n  No pending approvals\n'))); return; }
   for (const r of pending) { r.status = 'approved'; r.resolvedAt = new Date().toISOString(); }
   saveQueue(queue);
   F.success(`${pending.length} requests approved`);
@@ -148,8 +150,8 @@ function rejectReq(id) {
   const queue = loadQueue();
   if (id) {
     const r = queue.find(x => x.id === id);
-    if (!r) { console.log(chalk.red(`\n  ❌ Request bulunamadı: ${id}\n`)); process.exit(1); }
-    if (r.status !== 'pending') { console.log(chalk.yellow(`\n  ⚠️  "${id}" zaten ${r.status}\n`)); return; }
+    if (!r) { console.log(chalk.red(`\n  ❌ ${L('Request bulunamadı', 'Request not found')}: ${id}\n`)); process.exit(1); }
+    if (r.status !== 'pending') { console.log(chalk.yellow(`\n  ⚠️  "${id}" ${L('zaten', 'already')} ${r.status}\n`)); return; }
     r.status = 'rejected';
     r.resolvedAt = new Date().toISOString();
     saveQueue(queue);
@@ -157,7 +159,7 @@ function rejectReq(id) {
     return;
   }
   const pending = queue.filter(r => r.status === 'pending');
-  if (pending.length === 0) { console.log(chalk.gray('\n  Bekleyen onay yok\n')); return; }
+  if (pending.length === 0) { console.log(chalk.gray(L('\n  Bekleyen onay yok\n', '\n  No pending approvals\n'))); return; }
   for (const r of pending) { r.status = 'rejected'; r.resolvedAt = new Date().toISOString(); }
   saveQueue(queue);
   F.error(`${pending.length} requests rejected`);
@@ -176,13 +178,13 @@ function setPolicy(policy) {
 
 function getReq(id) {
   if (!id) {
-    console.log(chalk.red('\n  ❌ Request ID gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Request ID gerekli\n', '\n  ❌ Request ID required\n')));
     process.exit(1);
   }
   const queue = loadQueue();
   const r = queue.find(x => x.id === id);
   if (!r) {
-    console.log(chalk.red(`\n  ❌ Request bulunamadı: ${id}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Request bulunamadı', 'Request not found')}: ${id}\n`));
     process.exit(1);
   }
   F.kv('ID', r.id);
@@ -204,7 +206,7 @@ function listAllowlist() {
 
 function allowlistAdd(pattern) {
   if (!pattern) {
-    console.log(chalk.red('\n  ❌ Pattern gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Pattern gerekli\n', '\n  ❌ Pattern required\n')));
     process.exit(1);
   }
   const patterns = loadAllowlist();
@@ -219,7 +221,7 @@ function allowlistAdd(pattern) {
 
 function allowlistRemove(pattern) {
   if (!pattern) {
-    console.log(chalk.red('\n  ❌ Pattern gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Pattern gerekli\n', '\n  ❌ Pattern required\n')));
     process.exit(1);
   }
   let patterns = loadAllowlist();

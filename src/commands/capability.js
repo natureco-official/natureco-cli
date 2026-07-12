@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const { getConfig } = require('../utils/config');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 
 const CAPABILITY_MODEL_PATTERNS = {
   chat: { patterns: ['llama', 'gpt', 'claude', 'mixtral', 'gemma', 'deepseek', 'mistral', 'grok', 'command'] },
@@ -23,7 +25,7 @@ async function capability(args) {
   if (action === 'infer' || action === 'check') return inferCapabilities(params[0]);
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco capability [list|infer]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco capability [list|infer]\n', '  Usage: natureco capability [list|infer]\n')));
   process.exit(1);
 }
 
@@ -104,7 +106,7 @@ async function listCapabilities() {
   }
 
   console.log(chalk.gray('\n  Capabilities are inferred from available models.\n'));
-  console.log(chalk.gray('  Detaylı sorgu: ') + chalk.cyan('natureco capability infer <provider>\n'));
+  console.log(chalk.gray(L('  Detaylı sorgu: ', '  Detailed query: ')) + chalk.cyan('natureco capability infer <provider>\n'));
 }
 
 function getKnownProviderModels(providerUrl) {
@@ -132,7 +134,7 @@ function getKnownProviderModels(providerUrl) {
 
 async function inferCapabilities(provider) {
   if (!provider) {
-    console.log(chalk.red('\n  ❌ Provider adı gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Provider adı gerekli\n', '\n  ❌ Provider name required\n')));
     process.exit(1);
   }
 

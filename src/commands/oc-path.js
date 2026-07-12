@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const path = require('path');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const os = require('os');
 
@@ -74,21 +76,21 @@ function ocPath(args) {
   if (action === 'ls') return lsPath(params.join('/'));
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco oc-path [resolve|list|cat|ls] <path>\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco oc-path [resolve|list|cat|ls] <path>\n', '  Usage: natureco oc-path [resolve|list|cat|ls] <path>\n')));
   process.exit(1);
 }
 
 function resolvePath(uri) {
   const ncPath = normalizeNcPath(uri);
   if (!ncPath) {
-    console.log(chalk.red('\n  ❌ Path gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Path gerekli\n', '\n  ❌ Path required\n')));
     console.log(chalk.cyan('    natureco oc-path resolve nc://config\n'));
     process.exit(1);
   }
 
   const resolved = resolveNcPath(ncPath);
   if (!resolved) {
-    console.log(chalk.red(`\n  ❌ Çözümlenemedi: ${ncPath}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Çözümlenemedi', 'Could not resolve')}: ${ncPath}\n`));
     process.exit(1);
   }
 
@@ -133,24 +135,24 @@ function listScopes() {
 function catFile(uri) {
   const ncPath = normalizeNcPath(uri);
   if (!ncPath) {
-    console.log(chalk.red('\n  ❌ Path gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Path gerekli\n', '\n  ❌ Path required\n')));
     process.exit(1);
   }
 
   const resolved = resolveNcPath(ncPath);
   if (!resolved) {
-    console.log(chalk.red(`\n  ❌ Çözümlenemedi: ${ncPath}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Çözümlenemedi', 'Could not resolve')}: ${ncPath}\n`));
     process.exit(1);
   }
 
   if (!fs.existsSync(resolved.path)) {
-    console.log(chalk.red(`\n  ❌ Dosya bulunamadı: ${resolved.path}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Dosya bulunamadı', 'File not found')}: ${resolved.path}\n`));
     process.exit(1);
   }
 
   const stat = fs.statSync(resolved.path);
   if (stat.isDirectory()) {
-    console.log(chalk.yellow(`\n  ⚠️  Bu bir dizin, dosya değil: ${resolved.path}\n`));
+    console.log(chalk.yellow(`\n  ⚠️  ${L('Bu bir dizin, dosya değil', 'This is a directory, not a file')}: ${resolved.path}\n`));
     process.exit(1);
   }
 
@@ -163,24 +165,24 @@ function catFile(uri) {
 function lsPath(uri) {
   const ncPath = normalizeNcPath(uri || 'nc://w');
   if (!ncPath) {
-    console.log(chalk.red('\n  ❌ Path gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Path gerekli\n', '\n  ❌ Path required\n')));
     process.exit(1);
   }
 
   const resolved = resolveNcPath(ncPath);
   if (!resolved) {
-    console.log(chalk.red(`\n  ❌ Çözümlenemedi: ${ncPath}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Çözümlenemedi', 'Could not resolve')}: ${ncPath}\n`));
     process.exit(1);
   }
 
   if (!fs.existsSync(resolved.path)) {
-    console.log(chalk.red(`\n  ❌ Dizin bulunamadı: ${resolved.path}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Dizin bulunamadı', 'Directory not found')}: ${resolved.path}\n`));
     process.exit(1);
   }
 
   const stat = fs.statSync(resolved.path);
   if (!stat.isDirectory()) {
-    console.log(chalk.yellow(`\n  ⚠️  Bu bir dosya: ${resolved.path}\n`));
+    console.log(chalk.yellow(`\n  ⚠️  ${L('Bu bir dosya', 'This is a file')}: ${resolved.path}\n`));
     process.exit(1);
   }
 

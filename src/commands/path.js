@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const path = require('path');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const os = require('os');
 
@@ -59,7 +61,7 @@ function listPaths() {
 
 function resolvePath(uri) {
   if (!uri) {
-    console.log(chalk.red('\n  ❌ URI gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ URI gerekli\n', '\n  ❌ URI required\n')));
     console.log(chalk.gray('  Usage: natureco path resolve nc://path\n'));
     process.exit(1);
   }
@@ -101,7 +103,7 @@ function resolvePath(uri) {
 
 function findPath(name) {
   if (!name) {
-    console.log(chalk.red('\n  ❌ Name gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Name gerekli\n', '\n  ❌ Name required\n')));
     process.exit(1);
   }
 
@@ -127,11 +129,11 @@ function findPath(name) {
 
 function setPath(name, targetPath) {
   if (!name) {
-    console.log(chalk.red('\n  ❌ Name gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Name gerekli\n', '\n  ❌ Name required\n')));
     process.exit(1);
   }
   if (!targetPath) {
-    console.log(chalk.red('\n  ❌ Path gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Path gerekli\n', '\n  ❌ Path required\n')));
     process.exit(1);
   }
 
@@ -147,7 +149,7 @@ function setPath(name, targetPath) {
 
 function validatePath(name) {
   if (!name) {
-    console.log(chalk.red('\n  ❌ Name gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Name gerekli\n', '\n  ❌ Name required\n')));
     process.exit(1);
   }
 
@@ -180,7 +182,7 @@ function validatePath(name) {
 
 function emitPath(name) {
   if (!name) {
-    console.log(chalk.red('\n  ❌ Name gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Name gerekli\n', '\n  ❌ Name required\n')));
     process.exit(1);
   }
 

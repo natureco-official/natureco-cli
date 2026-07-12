@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const path = require('path');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const os = require('os');
 const { getConfig } = require('../utils/config');
@@ -33,7 +35,7 @@ function directory(args) {
   if (action === 'groups') return groupsList();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco directory [self|peers|search|register|remove|groups]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco directory [self|peers|search|register|remove|groups]\n', '  Usage: natureco directory [self|peers|search|register|remove|groups]\n')));
   process.exit(1);
 }
 
@@ -89,8 +91,8 @@ function listPeers() {
 
 function searchPeers(query) {
   if (!query) {
-    console.log(chalk.red('\n  ❌ Arama sorgusu gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco directory search <query>\n'));
+    console.log(chalk.red(L('\n  ❌ Arama sorgusu gerekli\n', '\n  ❌ Search query required\n')));
+    console.log(chalk.gray(L('  Kullanım: natureco directory search <query>\n', '  Usage: natureco directory search <query>\n')));
     process.exit(1);
   }
 
@@ -103,7 +105,7 @@ function searchPeers(query) {
   );
 
   if (results.length === 0) {
-    console.log(chalk.yellow(`\n  "${query}" için eşleşen peer bulunamadı.\n`));
+    console.log(chalk.yellow(`\n  "${query}" ${L('için eşleşen peer bulunamadı.', '— no matching peers found.')}\n`));
     return;
   }
 
@@ -119,26 +121,26 @@ function searchPeers(query) {
 
 function registerPeer(url, name) {
   if (!url) {
-    console.log(chalk.red('\n  ❌ URL gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco directory register <url> [name]\n'));
+    console.log(chalk.red(L('\n  ❌ URL gerekli\n', '\n  ❌ URL required\n')));
+    console.log(chalk.gray(L('  Kullanım: natureco directory register <url> [name]\n', '  Usage: natureco directory register <url> [name]\n')));
     process.exit(1);
   }
 
   const peers = loadPeers();
   if (peers.some(p => p.url === url)) {
-    console.log(chalk.yellow(`\n  ⚠ Bu peer zaten kayıtlı: ${url}\n`));
+    console.log(chalk.yellow(`\n  ⚠ ${L('Bu peer zaten kayıtlı', 'This peer is already registered')}: ${url}\n`));
     return;
   }
 
   peers.push({ url, name: name || url, tags: [], addedAt: new Date().toISOString(), lastSeen: null });
   savePeers(peers);
-  console.log(chalk.green(`\n  ✓ Peer kaydedildi: ${name || url}\n`));
+  console.log(chalk.green(`\n  ✓ ${L('Peer kaydedildi', 'Peer registered')}: ${name || url}\n`));
 }
 
 function removePeer(urlOrName) {
   if (!urlOrName) {
-    console.log(chalk.red('\n  ❌ URL veya isim gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco directory remove <url|name>\n'));
+    console.log(chalk.red(L('\n  ❌ URL veya isim gerekli\n', '\n  ❌ URL or name required\n')));
+    console.log(chalk.gray(L('  Kullanım: natureco directory remove <url|name>\n', '  Usage: natureco directory remove <url|name>\n')));
     process.exit(1);
   }
 
@@ -147,12 +149,12 @@ function removePeer(urlOrName) {
   peers = peers.filter(p => p.url !== urlOrName && p.name !== urlOrName);
 
   if (peers.length === initialLength) {
-    console.log(chalk.yellow(`\n  ⚠ Peer bulunamadı: ${urlOrName}\n`));
+    console.log(chalk.yellow(`\n  ⚠ ${L('Peer bulunamadı', 'Peer not found')}: ${urlOrName}\n`));
     return;
   }
 
   savePeers(peers);
-  console.log(chalk.green(`\n  ✓ Peer kaldırıldı: ${urlOrName}\n`));
+  console.log(chalk.green(`\n  ✓ ${L('Peer kaldırıldı', 'Peer removed')}: ${urlOrName}\n`));
 }
 
 function groupsList() {
@@ -161,7 +163,7 @@ function groupsList() {
 
 function groupsMembers(name) {
   if (!name) {
-    console.log(chalk.red('\n  ❌ Group name gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Group name gerekli\n', '\n  ❌ Group name required\n')));
     process.exit(1);
   }
   console.log(chalk.cyan('\n  Members of group "' + name + '":\n'));

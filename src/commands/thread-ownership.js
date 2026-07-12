@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const { getConfig, saveConfig } = require('../utils/config');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 
 const MENTION_TTL_MS = 300 * 1000;
 
@@ -14,7 +16,7 @@ function threadOwnership(args) {
   if (action === 'agent') return setDefaultAgent(params[0]);
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco thread-ownership [status|list|assign|release|check|agent]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco thread-ownership [status|list|assign|release|check|agent]\n', '  Usage: natureco thread-ownership [status|list|assign|release|check|agent]\n')));
   process.exit(1);
 }
 
@@ -49,7 +51,7 @@ function listOwnership() {
   console.log(chalk.gray('  ' + '─'.repeat(48)));
 
   if (entries.length === 0) {
-    console.log(chalk.gray('  Atanmış thread yok.\n'));
+    console.log(chalk.gray(L('  Atanmış thread yok.\n', '  No threads assigned.\n')));
     return;
   }
 
@@ -67,7 +69,7 @@ function listOwnership() {
 
 function assignOwnership(threadId, agentName, channel) {
   if (!threadId || !agentName) {
-    console.log(chalk.red('\n  ❌ threadId ve agentName gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ threadId ve agentName gerekli\n', '\n  ❌ threadId and agentName required\n')));
     console.log(chalk.cyan('    natureco thread-ownership assign C012345 "agent-bob" slack\n'));
     process.exit(1);
   }
@@ -82,7 +84,7 @@ function assignOwnership(threadId, agentName, channel) {
 
 function releaseOwnership(threadId, channel) {
   if (!threadId) {
-    console.log(chalk.red('\n  ❌ threadId gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ threadId gerekli\n', '\n  ❌ threadId required\n')));
     process.exit(1);
   }
 
@@ -99,12 +101,12 @@ function releaseOwnership(threadId, channel) {
   }
 
   saveConfig(config);
-  console.log(chalk.gray(`\n  🔓 Thread ${threadId} serbest bırakıldı\n`));
+  console.log(chalk.gray(`\n  🔓 Thread ${threadId} ${L('serbest bırakıldı', 'released')}\n`));
 }
 
 function checkOwnership(threadId, channel, agentName) {
   if (!threadId || !channel || !agentName) {
-    console.log(chalk.red('\n  ❌ threadId, channel ve agentName gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ threadId, channel ve agentName gerekli\n', '\n  ❌ threadId, channel and agentName required\n')));
     console.log(chalk.cyan('    natureco thread-ownership check C012345 slack agent-bob\n'));
     process.exit(1);
   }
@@ -118,7 +120,7 @@ function checkOwnership(threadId, channel, agentName) {
   });
 
   if (!entry) {
-    console.log(chalk.green(`\n  ✅ Thread ${threadId} sahipsiz — ${agentName} alabilir\n`));
+    console.log(chalk.green(`\n  ✅ Thread ${threadId} ${L('sahipsiz', 'unowned')} — ${agentName} ${L('alabilir', 'can take it')}\n`));
     return;
   }
 
@@ -127,13 +129,13 @@ function checkOwnership(threadId, channel, agentName) {
   const since = typeof data === 'string' ? '-' : data.since ? new Date(data.since).toLocaleString() : '-';
 
   if (owner === agentName) {
-    console.log(chalk.green(`\n  ✅ Thread ${threadId} zaten ${agentName}'e ait\n`));
+    console.log(chalk.green(`\n  ✅ Thread ${threadId} ${L('zaten', 'already belongs to')} ${agentName}${L("'e ait", '')}\n`));
     return;
   }
 
   const expired = data.since ? (Date.now() - new Date(data.since).getTime() > MENTION_TTL_MS) : false;
   if (expired) {
-    console.log(chalk.yellow(`\n  ⚠️  Thread ${threadId} süresi dolmuş (${owner}), ${agentName} alabilir\n`));
+    console.log(chalk.yellow(`\n  ⚠️  Thread ${threadId} ${L('süresi dolmuş', 'expired')} (${owner}), ${agentName} ${L('alabilir', 'can take it')}\n`));
     return;
   }
 
@@ -142,7 +144,7 @@ function checkOwnership(threadId, channel, agentName) {
 
 function setDefaultAgent(name) {
   if (!name) {
-    console.log(chalk.red('\n  ❌ Agent adı gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Agent adı gerekli\n', '\n  ❌ Agent name required\n')));
     process.exit(1);
   }
 

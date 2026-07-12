@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const tui = require('../utils/tui');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const F = require('../utils/format');
 const { getConfig, saveConfig } = require('../utils/config');
 const fs = require('fs');
@@ -20,7 +22,7 @@ function devices(args) {
   if (action === 'clear') return clearDevices();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco devices [list|pair|unpair|remove|token|regenerate-token|rotate|revoke|clear]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco devices [list|pair|unpair|remove|token|regenerate-token|rotate|revoke|clear]\n', '  Usage: natureco devices [list|pair|unpair|remove|token|regenerate-token|rotate|revoke|clear]\n')));
   process.exit(1);
 }
 
@@ -28,12 +30,12 @@ function listDevices() {
   const config = getConfig();
   const devices = config.pairedDevices || [];
 
-  console.log('\n' + tui.styled('  📱 Cihaz Listesi', { color: tui.PALETTE.primary, bold: true }));
+  console.log('\n' + tui.styled(L('  📱 Cihaz Listesi', '  📱 Device List'), { color: tui.PALETTE.primary, bold: true }));
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
 
   if (devices.length === 0) {
-    console.log('\n  ' + tui.C.muted('Eşleşmiş cihaz yok.'));
-    console.log('  ' + tui.C.muted('Eşleştirmek için: ') + tui.C.brand('natureco devices pair <ad> <tip>'));
+    console.log('\n  ' + tui.C.muted(L('Eşleşmiş cihaz yok.', 'No paired devices.')));
+    console.log('  ' + tui.C.muted(L('Eşleştirmek için: ', 'To pair: ')) + tui.C.brand('natureco devices pair <ad> <tip>'));
     console.log('');
     return;
   }
@@ -46,16 +48,16 @@ function listDevices() {
 
   console.log('\n' + tui.table(rows, [
     { key: 'id', label: 'ID', minWidth: 16, render: r => tui.C.muted(r.id) },
-    { key: 'name', label: 'İsim', minWidth: 14, render: r => tui.styled(r.name, { color: tui.PALETTE.primary, bold: true }) },
+    { key: 'name', label: L('İsim', 'Name'), minWidth: 14, render: r => tui.styled(r.name, { color: tui.PALETTE.primary, bold: true }) },
     { key: 'type', label: 'Tip', minWidth: 12, render: r => tui.C.text(r.type) },
-    { key: 'lastSeen', label: 'Eşleşme', minWidth: 18, render: r => tui.C.muted(r.lastSeen) },
+    { key: 'lastSeen', label: L('Eşleşme', 'Pairing'), minWidth: 18, render: r => tui.C.muted(r.lastSeen) },
   ], { borderStyle: 'round', zebra: true }));
   console.log('');
 }
 
 function pairDevice(name, type) {
   if (!name) {
-    F.error('Device name gerekli');
+    F.error(L('Device name gerekli', 'Device name required'));
     process.exit(1);
   }
 
@@ -80,7 +82,7 @@ function pairDevice(name, type) {
 
 function unpairDevice(id) {
   if (!id) {
-    F.error('Device ID gerekli');
+    F.error(L('Device ID gerekli', 'Device ID required'));
     process.exit(1);
   }
 
@@ -89,7 +91,7 @@ function unpairDevice(id) {
   const idx = devices.findIndex(d => d.id === id);
 
   if (idx === -1) {
-    F.error('Cihaz bulunamadı: ' + id);
+    F.error(L('Cihaz bulunamadı: ', 'Device not found: ') + id);
     process.exit(1);
   }
 
@@ -121,7 +123,7 @@ function regenerateToken() {
 
 function rotateDevice(deviceId) {
   if (!deviceId) {
-    F.error('Device ID gerekli');
+    F.error(L('Device ID gerekli', 'Device ID required'));
     process.exit(1);
   }
 
@@ -131,7 +133,7 @@ function rotateDevice(deviceId) {
 
 function revokeDevice(deviceId) {
   if (!deviceId) {
-    F.error('Device ID gerekli');
+    F.error(L('Device ID gerekli', 'Device ID required'));
     process.exit(1);
   }
 

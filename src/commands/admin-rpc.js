@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const http = require('http');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const { getConfig } = require('../utils/config');
 
 const ALLOWED_METHODS = [
@@ -74,7 +76,7 @@ function adminRpc(args) {
   if (action === 'methods') return listMethods();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco admin-rpc [status|start|stop|call|methods]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco admin-rpc [status|start|stop|call|methods]\n', '  Usage: natureco admin-rpc [status|start|stop|call|methods]\n')));
   process.exit(1);
 }
 
@@ -103,7 +105,7 @@ function listMethods() {
 
 async function callMethod(method, jsonParams) {
   if (!method) {
-    console.log(chalk.red('\n  ❌ Method adı gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Method adı gerekli\n', '\n  ❌ Method name required\n')));
     console.log(chalk.cyan('    natureco admin-rpc call health\n'));
     process.exit(1);
   }
@@ -116,7 +118,7 @@ async function callMethod(method, jsonParams) {
   let params = {};
   if (jsonParams) {
     try { params = JSON.parse(jsonParams); }
-    catch { console.log(chalk.red('\n  ❌ Geçersiz JSON\n')); process.exit(1); }
+    catch { console.log(chalk.red(L('\n  ❌ Geçersiz JSON\n', '\n  ❌ Invalid JSON\n'))); process.exit(1); }
   }
 
   console.log(chalk.cyan(`\n  📡 Calling: ${method}\n`));
@@ -172,14 +174,14 @@ async function callMethod(method, jsonParams) {
       const output = execSync(`tail -${lines} "${logPath}"`, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
       console.log(output);
     } catch {
-      console.log(chalk.yellow('  ⚠️  Log bulunamadı\n'));
+      console.log(chalk.yellow(L('  ⚠️  Log bulunamadı\n', '  ⚠️  Log not found\n')));
     }
     return;
   }
 
   if (method === 'config.set') {
     const { setConfigValue } = require('../utils/config');
-    if (!params.key) { console.log(chalk.red('\n  ❌ params.key gerekli\n')); process.exit(1); }
+    if (!params.key) { console.log(chalk.red(L('\n  ❌ params.key gerekli\n', '\n  ❌ params.key required\n'))); process.exit(1); }
     setConfigValue(params.key, params.value);
     console.log(chalk.green(`\n  ✅ config.${params.key} = ${JSON.stringify(params.value)}\n`));
     return;

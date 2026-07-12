@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const fs = require('fs');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const path = require('path');
 const os = require('os');
 const { execSync, spawn } = require('child_process');
@@ -30,14 +32,14 @@ function terminal(args) {
   if (action === 'list') return listSessions();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco terminal [exec|connect|disconnect|list]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco terminal [exec|connect|disconnect|list]\n', '  Usage: natureco terminal [exec|connect|disconnect|list]\n')));
   process.exit(1);
 }
 
 function execCmd(cmd) {
   if (!cmd) {
-    console.log(chalk.red('\n  ❌ Komut gerekli\n'));
-    console.log(chalk.gray('  Örnek: natureco terminal exec "ls -la"\n'));
+    console.log(chalk.red(L('\n  ❌ Komut gerekli\n', '\n  ❌ Command required\n')));
+    console.log(chalk.gray(L('  Örnek: natureco terminal exec "ls -la"\n', '  Example: natureco terminal exec "ls -la"\n')));
     process.exit(1);
   }
   console.log(chalk.cyan(`\n  🖥️  $ ${cmd}\n`));
@@ -45,24 +47,24 @@ function execCmd(cmd) {
   try {
     const output = execSync(cmd, { encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024 });
     if (output) console.log(output);
-    console.log(chalk.green(`\n  ✅ Komut başarıyla tamamlandı (${output.length} bytes)\n`));
+    console.log(chalk.green(`\n  ✅ ${L('Komut başarıyla tamamlandı', 'Command completed successfully')} (${output.length} bytes)\n`));
   } catch (err) {
     if (err.stdout) console.log(err.stdout.toString());
     if (err.stderr) console.log(chalk.red(err.stderr.toString()));
-    console.log(chalk.red(`\n  ❌ Hata: ${err.message}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Hata', 'Error')}: ${err.message}\n`));
   }
 }
 
 function connectSession(target, cmd) {
   if (!target) {
-    console.log(chalk.red('\n  ❌ Hedef gerekli (örn: local, ssh://user@host)\n'));
+    console.log(chalk.red(L('\n  ❌ Hedef gerekli (örn: local, ssh://user@host)\n', '\n  ❌ Target required (e.g. local, ssh://user@host)\n')));
     process.exit(1);
   }
 
   const sessions = loadSessions();
   const existing = sessions.find(s => s.target === target && s.status === 'active');
   if (existing) {
-    console.log(chalk.yellow(`\n  ⚠️  ${target} üzerinde zaten aktif oturum var: ${existing.id}\n`));
+    console.log(chalk.yellow(`\n  ⚠️  ${target} ${L('üzerinde zaten aktif oturum var', 'already has an active session')}: ${existing.id}\n`));
     return;
   }
 
@@ -70,21 +72,21 @@ function connectSession(target, cmd) {
   sessions.push(session);
   saveSessions(sessions);
 
-  console.log(chalk.green(`\n  ✅ Oturum başlatıldı: ${session.id}\n`));
+  console.log(chalk.green(`\n  ✅ ${L('Oturum başlatıldı', 'Session started')}: ${session.id}\n`));
   console.log(`  ${chalk.white('Target:')} ${target}`);
   console.log(`  ${chalk.white('Shell:')}  ${session.cmd}`);
   console.log();
 
   if (target === 'local' || target.startsWith('local')) {
     const shell = session.cmd;
-    console.log(chalk.gray(`  ${shell} başlatılıyor... (Ctrl+D çıkış)\n`));
+    console.log(chalk.gray(`  ${shell} ${L('başlatılıyor... (Ctrl+D çıkış)', 'starting... (Ctrl+D to exit)')}\n`));
     try {
       const child = spawn(shell, [], { stdio: 'inherit', shell: true });
       child.on('exit', () => {
         session.status = 'closed';
         session.endedAt = new Date().toISOString();
         saveSessions(sessions);
-        console.log(chalk.gray(`\n  Oturum sonlandı: ${session.id}\n`));
+        console.log(chalk.gray(`\n  ${L('Oturum sonlandı', 'Session ended')}: ${session.id}\n`));
       });
     } catch (err) {
       console.log(chalk.red(`\n  ❌ ${err.message}\n`));
@@ -92,17 +94,17 @@ function connectSession(target, cmd) {
     return;
   }
 
-  console.log(chalk.gray(`  Uzak oturum: ssh veya winrm ile ${target} bağlanın\n`));
+  console.log(chalk.gray(`  ${L('Uzak oturum: ssh veya winrm ile', 'Remote session: connect via ssh or winrm to')} ${target}${L(' bağlanın', '')}\n`));
 }
 
 function disconnectSession(id) {
   const sessions = loadSessions();
   const idx = sessions.findIndex(s => s.id === id);
-  if (idx === -1) { console.log(chalk.red(`\n  ❌ Oturum bulunamadı: ${id}\n`)); process.exit(1); }
+  if (idx === -1) { console.log(chalk.red(`\n  ❌ ${L('Oturum bulunamadı', 'Session not found')}: ${id}\n`)); process.exit(1); }
   sessions[idx].status = 'closed';
   sessions[idx].endedAt = new Date().toISOString();
   saveSessions(sessions);
-  console.log(chalk.gray(`\n  🛑 Oturum sonlandı: ${id} — ${sessions[idx].target}\n`));
+  console.log(chalk.gray(`\n  🛑 ${L('Oturum sonlandı', 'Session ended')}: ${id} — ${sessions[idx].target}\n`));
 }
 
 function listSessions() {
@@ -110,7 +112,7 @@ function listSessions() {
   console.log(chalk.cyan('\n  📋 Terminal Sessions\n'));
   console.log(chalk.gray('  ' + '─'.repeat(48)));
   if (sessions.length === 0) {
-    console.log(chalk.gray('  Oturum bulunamadı.\n'));
+    console.log(chalk.gray(L('  Oturum bulunamadı.\n', '  No sessions found.\n')));
     return;
   }
   for (const s of sessions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))) {

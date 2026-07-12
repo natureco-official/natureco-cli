@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const fs = require('fs');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
@@ -36,7 +38,7 @@ function devicePair(args) {
   if (action === 'verify') return verifyPairing(params[0], params[1]);
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco device-pair [list|request|approve|reject|remove|pairing-code|verify]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco device-pair [list|request|approve|reject|remove|pairing-code|verify]\n', '  Usage: natureco device-pair [list|request|approve|reject|remove|pairing-code|verify]\n')));
   process.exit(1);
 }
 
@@ -48,7 +50,7 @@ function listDevices() {
 
   const devices = data.pairedDevices || [];
   if (devices.length === 0) {
-    console.log(chalk.gray('  Eşleştirilmiş cihaz yok.\n'));
+    console.log(chalk.gray(L('  Eşleştirilmiş cihaz yok.\n', '  No paired devices.\n')));
   } else {
     for (const d of devices) {
       console.log(`  ${chalk.green('●')} ${chalk.white(d.name || d.id)} ${chalk.gray(`(${d.type || 'unknown'})`)}`);
@@ -60,13 +62,13 @@ function listDevices() {
 
   const pending = data.pendingRequests || [];
   if (pending.length > 0) {
-    console.log(chalk.yellow(`\n  ⏳ Bekleyen İstekler (${pending.length})\n`));
+    console.log(chalk.yellow(`\n  ⏳ ${L('Bekleyen İstekler', 'Pending Requests')} (${pending.length})\n`));
     for (const p of pending) {
       console.log(`  ${chalk.yellow('◐')} ${chalk.white(p.name || p.id)} ${chalk.gray(`(${p.type || 'unknown'})`)}`);
       console.log(`    ${chalk.gray('Code:')}  ${chalk.cyan(p.code)}`);
       console.log(`    ${chalk.gray('Since:')} ${p.requestedAt ? new Date(p.requestedAt).toLocaleString() : '-'}`);
     }
-    console.log(chalk.gray('\n  Onaylamak için:'));
+    console.log(chalk.gray(L('\n  Onaylamak için:', '\n  To approve:')));
     console.log(chalk.cyan('    natureco device-pair approve <code>'));
     console.log(chalk.cyan('    natureco device-pair reject <code>'));
   }
@@ -109,7 +111,7 @@ function requestPairing(deviceName, deviceType) {
 
 function approvePairing(code) {
   if (!code) {
-    console.log(chalk.red('\n  ❌ Pairing code gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Pairing code gerekli\n', '\n  ❌ Pairing code required\n')));
     process.exit(1);
   }
 
@@ -117,8 +119,8 @@ function approvePairing(code) {
   const idx = (data.pendingRequests || []).findIndex(p => p.code === code);
 
   if (idx === -1) {
-    console.log(chalk.red(`\n  ❌ Geçersiz pairing code: ${code}\n`));
-    console.log(chalk.gray('  Bekleyen istekleri görmek için: natureco device-pair list\n'));
+    console.log(chalk.red(`\n  ❌ ${L('Geçersiz pairing code', 'Invalid pairing code')}: ${code}\n`));
+    console.log(chalk.gray(L('  Bekleyen istekleri görmek için: natureco device-pair list\n', '  To see pending requests: natureco device-pair list\n')));
     process.exit(1);
   }
 
@@ -144,7 +146,7 @@ function approvePairing(code) {
 
 function rejectPairing(code) {
   if (!code) {
-    console.log(chalk.red('\n  ❌ Pairing code gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Pairing code gerekli\n', '\n  ❌ Pairing code required\n')));
     process.exit(1);
   }
 
@@ -152,7 +154,7 @@ function rejectPairing(code) {
   const idx = (data.pendingRequests || []).findIndex(p => p.code === code);
 
   if (idx === -1) {
-    console.log(chalk.red(`\n  ❌ Geçersiz pairing code: ${code}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Geçersiz pairing code', 'Invalid pairing code')}: ${code}\n`));
     process.exit(1);
   }
 
@@ -165,7 +167,7 @@ function rejectPairing(code) {
 
 function removeDevice(deviceId) {
   if (!deviceId) {
-    console.log(chalk.red('\n  ❌ Device ID gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Device ID gerekli\n', '\n  ❌ Device ID required\n')));
     console.log(chalk.cyan('    natureco device-pair remove dev_abc123\n'));
     process.exit(1);
   }
@@ -174,7 +176,7 @@ function removeDevice(deviceId) {
   const idx = (data.pairedDevices || []).findIndex(d => d.id === deviceId);
 
   if (idx === -1) {
-    console.log(chalk.red(`\n  ❌ Cihaz bulunamadı: ${deviceId}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Cihaz bulunamadı', 'Device not found')}: ${deviceId}\n`));
     process.exit(1);
   }
 
@@ -200,7 +202,7 @@ function showPairingCode() {
 
 function verifyPairing(code, deviceName) {
   if (!code) {
-    console.log(chalk.red('\n  ❌ Pairing code gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Pairing code gerekli\n', '\n  ❌ Pairing code required\n')));
     process.exit(1);
   }
 

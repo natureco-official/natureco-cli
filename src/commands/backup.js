@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const fs = require('fs');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
@@ -15,7 +17,7 @@ function backup(args) {
   if (action === 'verify') return verifyBackup(params.join(' '));
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco backup [create|list|restore|verify]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco backup [create|list|restore|verify]\n', '  Usage: natureco backup [create|list|restore|verify]\n')));
   process.exit(1);
 }
 
@@ -79,7 +81,7 @@ function listBackups() {
 
 function restoreBackup(file) {
   if (!file) {
-    console.log(chalk.red('\n  ❌ Backup file gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Backup file gerekli\n', '\n  ❌ Backup file required\n')));
     console.log(chalk.cyan('    natureco backup list'));
     console.log(chalk.cyan('    natureco backup restore <filename>\n'));
     process.exit(1);
@@ -89,7 +91,7 @@ function restoreBackup(file) {
   const backupFile = path.join(backupDir, file);
 
   if (!fs.existsSync(backupFile)) {
-    console.log(chalk.red(`\n  ❌ Backup bulunamadı: ${backupFile}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Backup bulunamadı', 'Backup not found')}: ${backupFile}\n`));
     process.exit(1);
   }
 
@@ -105,7 +107,7 @@ function restoreBackup(file) {
 
 function verifyBackup(file) {
   if (!file) {
-    console.log(chalk.red('\n  ❌ Backup file gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Backup file gerekli\n', '\n  ❌ Backup file required\n')));
     process.exit(1);
   }
 
@@ -113,7 +115,7 @@ function verifyBackup(file) {
   const backupFile = path.join(backupDir, file);
 
   if (!fs.existsSync(backupFile)) {
-    console.log(chalk.red(`\n  ❌ Backup bulunamadı: ${backupFile}\n`));
+    console.log(chalk.red(`\n  ❌ ${L('Backup bulunamadı', 'Backup not found')}: ${backupFile}\n`));
     process.exit(1);
   }
 

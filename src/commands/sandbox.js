@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const { execSync, spawn } = require('child_process');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -15,7 +17,7 @@ function sandbox(args) {
   if (action === 'exec') return execSandbox(params[0], params.slice(1).join(' '));
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco sandbox [list|create|destroy|exec]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco sandbox [list|create|destroy|exec]\n', '  Usage: natureco sandbox [list|create|destroy|exec]\n')));
   process.exit(1);
 }
 
@@ -80,7 +82,7 @@ function createSandbox(name) {
 
 function destroySandbox(name) {
   if (!name) {
-    console.log(chalk.red('\n  ❌ Sandbox name gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Sandbox name gerekli\n', '\n  ❌ Sandbox name required\n')));
     process.exit(1);
   }
 
@@ -98,8 +100,8 @@ function destroySandbox(name) {
 
 function execSandbox(name, command) {
   if (!name || !command) {
-    console.log(chalk.red('\n  ❌ Sandbox name ve command gerekli\n'));
-    console.log(chalk.gray('  Kullanım: natureco sandbox exec <name> <command>\n'));
+    console.log(chalk.red(L('\n  ❌ Sandbox name ve command gerekli\n', '\n  ❌ Sandbox name and command required\n')));
+    console.log(chalk.gray(L('  Kullanım: natureco sandbox exec <name> <command>\n', '  Usage: natureco sandbox exec <name> <command>\n')));
     process.exit(1);
   }
 

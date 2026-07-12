@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const http = require('http');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const https = require('https');
 const path = require('path');
 const fs = require('fs');
@@ -47,7 +49,7 @@ function proxy(args) {
   if (action === 'purge') return cmdPurge();
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco proxy [status|start|stop|capture|clear|run|coverage|sessions|query|blob|purge]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco proxy [status|start|stop|capture|clear|run|coverage|sessions|query|blob|purge]\n', '  Usage: natureco proxy [status|start|stop|capture|clear|run|coverage|sessions|query|blob|purge]\n')));
   process.exit(1);
 }
 

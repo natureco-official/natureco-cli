@@ -1,5 +1,7 @@
 const chalk = require('chalk');
 const fs = require('fs');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const path = require('path');
 const os = require('os');
 
@@ -33,7 +35,7 @@ function commitments(args) {
   if (action === 'delete') return deleteC(params[0]);
 
   console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
-  console.log(chalk.gray('  Kullanım: natureco commitments [list|add|check|resolve|pending|summary|delete]\n'));
+  console.log(chalk.gray(L('  Kullanım: natureco commitments [list|add|check|resolve|pending|summary|delete]\n', '  Usage: natureco commitments [list|add|check|resolve|pending|summary|delete]\n')));
   process.exit(1);
 }
 
@@ -42,7 +44,7 @@ function listC() {
   console.log(chalk.cyan('\n  📋 Commitments\n'));
   console.log(chalk.gray('  ' + '─'.repeat(48)));
   if (items.length === 0) {
-    console.log(chalk.gray('  Henüz commitment yok.\n'));
+    console.log(chalk.gray(L('  Henüz commitment yok.\n', '  No commitments yet.\n')));
     return;
   }
   for (const c of items) {
@@ -55,52 +57,52 @@ function listC() {
 
 function addC(text) {
   if (!text) {
-    console.log(chalk.red('\n  ❌ Commitment text gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Commitment text gerekli\n', '\n  ❌ Commitment text required\n')));
     process.exit(1);
   }
   const items = load();
   const c = { id: genId(), text, status: 'pending', createdAt: new Date().toISOString(), resolvedAt: null };
   items.push(c);
   save(items);
-  console.log(chalk.green(`\n  ✅ Commitment eklendi: ${c.id}\n`));
+  console.log(chalk.green(`\n  ✅ ${L('Commitment eklendi', 'Commitment added')}: ${c.id}\n`));
   console.log(`  ${chalk.white(c.text)}`);
   console.log();
 }
 
 function checkC(id) {
   if (!id) {
-    console.log(chalk.red('\n  ❌ Commitment ID gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Commitment ID gerekli\n', '\n  ❌ Commitment ID required\n')));
     process.exit(1);
   }
   const items = load();
   const c = items.find(x => x.id === id);
-  if (!c) { console.log(chalk.red(`\n  ❌ Commitment bulunamadı: ${id}\n`)); process.exit(1); }
-  if (c.status === 'resolved') { console.log(chalk.yellow(`\n  ⚠️  "${c.text}" zaten çözülmüş\n`)); return; }
+  if (!c) { console.log(chalk.red(`\n  ❌ ${L('Commitment bulunamadı', 'Commitment not found')}: ${id}\n`)); process.exit(1); }
+  if (c.status === 'resolved') { console.log(chalk.yellow(`\n  ⚠️  "${c.text}" ${L('zaten çözülmüş', 'already resolved')}\n`)); return; }
   c.status = 'checked';
   save(items);
-  console.log(chalk.green(`\n  ☑️  "${c.text}" tamamlandı olarak işaretlendi\n`));
+  console.log(chalk.green(`\n  ☑️  "${c.text}" ${L('tamamlandı olarak işaretlendi', 'marked as done')}\n`));
 }
 
 function resolveC(id) {
   if (!id) {
     const items = load();
     const pending = items.filter(x => x.status !== 'resolved');
-    if (pending.length === 0) { console.log(chalk.gray('\n  Çözülecek commitment yok\n')); return; }
+    if (pending.length === 0) { console.log(chalk.gray(L('\n  Çözülecek commitment yok\n', '\n  No commitments to resolve\n'))); return; }
     for (const c of pending) {
       c.status = 'resolved';
       c.resolvedAt = new Date().toISOString();
     }
     save(items);
-    console.log(chalk.green(`\n  ✅ ${pending.length} commitment çözüldü\n`));
+    console.log(chalk.green(`\n  ✅ ${pending.length} ${L('commitment çözüldü', 'commitments resolved')}\n`));
     return;
   }
   const items = load();
   const c = items.find(x => x.id === id);
-  if (!c) { console.log(chalk.red(`\n  ❌ Commitment bulunamadı: ${id}\n`)); process.exit(1); }
+  if (!c) { console.log(chalk.red(`\n  ❌ ${L('Commitment bulunamadı', 'Commitment not found')}: ${id}\n`)); process.exit(1); }
   c.status = 'resolved';
   c.resolvedAt = new Date().toISOString();
   save(items);
-  console.log(chalk.green(`\n  ✅ "${c.text}" çözüldü\n`));
+  console.log(chalk.green(`\n  ✅ "${c.text}" ${L('çözüldü', 'resolved')}\n`));
 }
 
 function pendingC() {
@@ -125,8 +127,8 @@ function summaryC() {
   const pending = total - resolved - checked;
   console.log(chalk.cyan('\n  📊 Commitments Summary\n'));
   console.log(chalk.gray('  ' + '─'.repeat(48)));
-  console.log(`  ${chalk.white('Toplam:')}   ${total}`);
-  console.log(`  ${chalk.green('Çözülen:')}  ${resolved}`);
+  console.log(`  ${chalk.white(L('Toplam:', 'Total:'))}   ${total}`);
+  console.log(`  ${chalk.green(L('Çözülen:', 'Resolved:'))}  ${resolved}`);
   console.log(`  ${chalk.yellow('Kontrol:')}  ${checked}`);
   console.log(`  ${chalk.cyan('Kalan:')}    ${pending}`);
   console.log();
@@ -134,12 +136,12 @@ function summaryC() {
 
 function deleteC(id) {
   if (!id) {
-    console.log(chalk.red('\n  ❌ Commitment ID gerekli\n'));
+    console.log(chalk.red(L('\n  ❌ Commitment ID gerekli\n', '\n  ❌ Commitment ID required\n')));
     process.exit(1);
   }
   let items = load();
   const idx = items.findIndex(x => x.id === id);
-  if (idx === -1) { console.log(chalk.red(`\n  ❌ Commitment bulunamadı: ${id}\n`)); process.exit(1); }
+  if (idx === -1) { console.log(chalk.red(`\n  ❌ ${L('Commitment bulunamadı', 'Commitment not found')}: ${id}\n`)); process.exit(1); }
   const removed = items.splice(idx, 1)[0];
   save(items);
   console.log(chalk.gray(`\n  🗑️  "${removed.text}" silindi\n`));
