@@ -1,25 +1,5 @@
 const chalk = require('chalk');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-
-const PAIRINGS_FILE = path.join(os.homedir(), '.natureco', 'pairings.json');
-
-function loadPairings() {
-  if (!fs.existsSync(PAIRINGS_FILE)) return [];
-  try { return JSON.parse(fs.readFileSync(PAIRINGS_FILE, 'utf8')); }
-  catch { return []; }
-}
-
-function savePairings(pairings) {
-  const dir = path.dirname(PAIRINGS_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(PAIRINGS_FILE, JSON.stringify(pairings, null, 2), 'utf8');
-}
-
-function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8).toUpperCase();
-}
+const { loadPairings, savePairings, genCode } = require('../utils/pairing-store');
 
 function pairing(args) {
   const [action, ...params] = args || [];
@@ -84,7 +64,7 @@ function cmdReject(id) {
 }
 
 function cmdGenerate() {
-  const code = genId();
+  const code = genCode();
   const pairings = loadPairings();
 
   const entry = {

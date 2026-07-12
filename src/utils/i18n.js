@@ -92,4 +92,10 @@ function t(key, vars) {
   return s;
 }
 
-module.exports = { t, getLang, setLangCache, MESSAGES };
+function validateCatalogParity(catalog = MESSAGES) {
+  const tr = Object.keys(catalog.tr || {}).sort();
+  const en = Object.keys(catalog.en || {}).sort();
+  return { ok: tr.length === en.length && tr.every((key, index) => key === en[index]), trOnly: tr.filter(key => !en.includes(key)), enOnly: en.filter(key => !tr.includes(key)), keys: tr.length };
+}
+
+module.exports = { t, getLang, setLangCache, MESSAGES, validateCatalogParity };

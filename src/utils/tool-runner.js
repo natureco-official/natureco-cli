@@ -2,6 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const chalk = require('chalk');
 const inquirer = require('./inquirer-wrapper');
+const { executeThroughGateway } = require('./tool-execution-gateway');
+const { checkPermission } = require('./permissions');
+const { checkPreHooks, runPostHooks } = require('./tool-hooks');
+const { loadToolManifest } = require('./tool-manifest');
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
 const SPINNER_FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
@@ -56,21 +60,13 @@ function resetSessionStats() {
 
 // ── Load tools ────────────────────────────────────────────────────────────────
 function loadTools() {
-  const toolsDir = path.join(__dirname, '..', 'tools');
-  const tools = {};
-
-  if (!fs.existsSync(toolsDir)) return tools;
-
-  const files = fs.readdirSync(toolsDir).filter(f => f.endsWith('.js'));
-  for (const file of files) {
-    try {
-      const tool = require(path.join(toolsDir, file));
-      if (tool.name && tool.execute) tools[tool.name] = tool;
-    } catch (err) {
-      console.error(chalk.red(`Failed to load tool ${file}:`, err.message));
-    }
-  }
-  return tools;
+  return Object.fromEntries([...loadToolManifest()].map(([name, entry]) => [name, {
+    ...entry.module,
+    name: entry.name,
+    description: entry.description,
+    inputSchema: entry.inputSchema,
+    execute: entry.execute,
+  }]));
 }
 
 function getToolDefinitions() {
@@ -95,6 +91,7 @@ function needsConfirmation(toolName, params) {
   return (
     toolName === 'write_file' ||
     toolName === 'edit_file' ||
+    toolName === 'structural_patch' ||
     ((toolName === 'bash' || toolName === 'shell_command') && /\b(rm|mv|cp|chmod|chown|dd|mkfs|truncate)\b/.test(p.command || ''))
   );
 }
@@ -105,16 +102,31 @@ async function executeTool(toolName, params, opts = {}) {
   const tools = loadTools();
   const tool = tools[toolName];
   const agentMode = opts.agentMode || false;
-
   if (!tool) {
     return { success: false, error: `Tool '${toolName}' not found` };
+  }
+
+  // Configured permission rules and pre-hooks are mandatory in every origin.
+  // Interactive callers may approve `ask`; API/headless/channel callers must
+  // fail closed because they cannot prove that a human approved the action.
+  const permission = checkPermission(toolName, safeParams);
+  const hook = checkPreHooks(toolName, safeParams);
+  const policy = evaluatePolicyDecision(permission, hook, opts);
+  const policyAsk = policy.needsApproval ? { reason: policy.reason } : null;
+  if (!policy.allowed) {
+    return {
+      success: false,
+      error: policy.needsApproval
+        ? `Etkileşimsiz çağrıda kullanıcı onayı gerekiyor: ${policy.reason || toolName}`
+        : policy.reason || 'Araç güvenlik politikasıyla engellendi.',
+    };
   }
 
   const label = `${toolName}${safeParams.path ? ' — ' + safeParams.path : safeParams.command ? ' — ' + safeParams.command : ''}`;
 
   // ── Onay mekanizması (dosya değiştiren araçlar ve tehlikeli bash) ──────────
   if (agentMode) {
-    if (needsConfirmation(toolName, safeParams)) {
+    if (policyAsk || needsConfirmation(toolName, safeParams)) {
       if (toolName === 'write_file') {
         // Diff göster
         let oldContent = '';
@@ -137,6 +149,7 @@ async function executeTool(toolName, params, opts = {}) {
       }
 
       const confirmMsg =
+        policyAsk ? `🛡️  ${policyAsk.reason || toolName + ' için izin gerekli'}` :
         toolName === 'write_file' ? `✏️  ${safeParams.path} dosyası değiştirilecek` :
         toolName === 'edit_file' ? `✏️  ${safeParams.path} dosyasında değişiklik yapılacak` :
         '⚠️  Bu komut çalıştırılacak';
@@ -156,21 +169,35 @@ async function executeTool(toolName, params, opts = {}) {
 
   // ── Spinner ile çalıştır ──────────────────────────────────────────────────
   const spinner = startSpinner(label);
-  try {
-    const result = await tool.execute(safeParams);
-    stopSpinner(spinner, label, result.success !== false);
+  const result = await executeThroughGateway({
+    toolName,
+    args: safeParams,
+    resolveTool: () => tool,
+    postProcess: ({ result: value }) => runPostHooks(toolName, safeParams, value),
+    normalizeSuccess: value => value,
+    normalizeError: error => ({ success: false, error }),
+    allowSensitivePaths: !!opts.allowSensitivePaths,
+  });
+  stopSpinner(spinner, label, result.success !== false);
 
-    // İstatistik güncelle
-    if (result.success !== false) {
-      if (toolName === 'write_file' || toolName === 'edit_file') filesChanged++;
-      if (toolName === 'bash') commandsRun++;
-    }
-
-    return result;
-  } catch (error) {
-    stopSpinner(spinner, label, false);
-    return { success: false, error: error.message };
+  // İstatistik güncelle
+  if (result.success !== false) {
+    if (toolName === 'write_file' || toolName === 'edit_file' || toolName === 'structural_patch') filesChanged++;
+    if (toolName === 'bash' || toolName === 'shell_command') commandsRun++;
   }
+
+  return result;
+}
+
+function evaluatePolicyDecision(permission, hook, opts = {}) {
+  const decisions = [permission, hook].filter(Boolean);
+  const denied = decisions.find(decision => decision.action === 'deny');
+  if (denied) return { allowed: false, needsApproval: false, reason: denied.reason };
+  const asked = decisions.find(decision => decision.action === 'ask');
+  if (!asked) return { allowed: true, needsApproval: false };
+  if (opts.agentMode) return { allowed: true, needsApproval: true, reason: asked.reason };
+  if (opts.approvalMode === 'preapproved') return { allowed: true, needsApproval: false };
+  return { allowed: false, needsApproval: true, reason: asked.reason };
 }
 
 // ── Execute multiple tool calls (parallel for independent, sequential for others) ──
@@ -211,4 +238,5 @@ module.exports = {
   getSessionStats,
   resetSessionStats,
   needsConfirmation,
+  evaluatePolicyDecision,
 };

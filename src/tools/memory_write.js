@@ -9,6 +9,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const { writeJsonAtomicSync, readJsonSafeSync } = require("../utils/atomic-file");
+const { createMemoryRecord, resolveConflict, factKey } = require("../utils/memory-record");
 
 const MEMORY_DIR = path.join(os.homedir(), ".natureco", "memory");
 
@@ -131,7 +132,7 @@ function verifyMemoryWrite(username, expectedFact, expectedBotName) {
 }
 
 
-function addMemory({ username, fact, score = 5, category = "general", botName, nickname, name }) {
+function addMemory({ username, fact, score = 5, category = "general", botName, nickname, name, source = "tool", confidence = 0.5, ttlMs, userConfirmed = false }) {
   // Username yoksa ve 'name' parametresi varsa, onu username olarak kullan
   // (hitap bicimi icin)
   const effectiveUsername = username || (name && name.toLowerCase()) || 'default';
@@ -149,18 +150,17 @@ function addMemory({ username, fact, score = 5, category = "general", botName, n
 
   if (fact) {
     // duplicate kontrol
-    const existing = memory.facts.find(f => (f.value || f).toLowerCase() === fact.toLowerCase());
+    const incoming = createMemoryRecord({ value: fact, score, category, source, confidence, ttlMs, userConfirmed, verified: true });
+    const key = factKey(fact, category);
+    const existing = memory.facts.find(f => factKey(f.value || f, f.category || category) === key);
     if (existing) {
-      existing.score = Math.min(10, (existing.score || 5) + 2);
-      existing.updatedAt = new Date().toISOString();
+      const sameValue = String(existing.value || existing).toLowerCase() === fact.toLowerCase();
+      const previousScore = existing.score || 5;
+      const resolved = resolveConflict(existing, incoming);
+      Object.assign(existing, resolved.winner);
+      if (sameValue) existing.score = Math.min(10, previousScore + 2);
     } else {
-      memory.facts.push({
-        value: fact,
-        score,
-        category,
-        updatedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-      });
+      memory.facts.push(incoming);
     }
     // Limit'i ZIM push'tan sonra uygula → yeni eklenen fact düşürülmez.
     memory = enforceFactLimit(memory, { recentValue: fact });
@@ -236,6 +236,10 @@ module.exports = {
       fact: { type: "string", description: 'Yeni fact (ornek: "Kullanici kahve seviyor", "Istanbul\'da yasiyor")' },
       score: { type: "number", description: "Onem derecesi 1-10 (default 5)" },
       category: { type: "string", description: "Kategori: personal, preference, work, hobby, fact (default general)" },
+      source: { type: "string", description: "Bilginin kaynağı (user, tool, import, inference)" },
+      confidence: { type: "number", description: "Güven puanı 0-1" },
+      ttlMs: { type: "number", description: "İsteğe bağlı yaşam süresi (milisaniye)" },
+      userConfirmed: { type: "boolean", description: "Kullanıcı tarafından açıkça doğrulandı mı" },
       botName: { type: "string", description: "Bot adini degistir (memory.botName)" },
       nickname: { type: "string", description: "Kullanici nickname'i" },
       name: { type: "string", description: "Kullanici gercek adi" },

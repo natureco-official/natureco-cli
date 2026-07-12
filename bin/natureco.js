@@ -1,5 +1,12 @@
 #!/usr/bin/env node
 
+// Fast path: version checks are used by shells, installers and health probes.
+// Avoid loading Commander and ~100 command modules for a constant-time answer.
+if (process.argv.length === 3 && (process.argv[2] === '--version' || process.argv[2] === '-V')) {
+  process.stdout.write(require('../package.json').version + '\n');
+  process.exit(0);
+}
+
 const { Command } = require('commander');
 const chalk = require('chalk');
 const packageJson = require('../package.json');

@@ -15,6 +15,8 @@
  * bu modda KAPALIDIR (onay katmanini atlamamak icin).
  */
 const path = require('path');
+const { executeThroughGateway } = require('../utils/tool-execution-gateway');
+const { assessToolPath } = require('../utils/tool-path-policy');
 const os = require('os');
 
 // Agentic dongude izin verilen araclar. bash BURADA ama guvenli: bash.js kendi
@@ -64,21 +66,9 @@ function expandHome(p) {
 // Hassas dosya yolu koruması (safe modda). Coding-agent proje dosyalarina serbest erisir
 // ama kimlik/secret yollari prompt-injection ile suistimal edilebilir (SSH backdoor,
 // credential sizintisi). Full modda (sahibin opt-in'i) bypass edilir.
-const SENSITIVE_READ = [
-  /(^|[\\/])\.ssh[\\/]/i, /id_rsa|id_ed25519|id_ecdsa|id_dsa/i, /\.pem$|\.ppk$|\.key$/i,
-  /(^|[\\/])\.aws[\\/]/i, /gcloud[\\/].*(credential|token)/i, /(^|[\\/])\.npmrc$/i,
-  /(^|[\\/])\.git-credentials$/i, /\.natureco[\\/]config\.json$/i, /(^|[\\/])\.netrc$/i,
-];
-const SENSITIVE_WRITE = [
-  /(^|[\\/])\.ssh[\\/]/i,                 // authorized_keys/config yazma = backdoor
-  /^\/(etc|usr|bin|sbin|boot|sys)[\\/]/i, // mutlak sistem yollari
-  /(^|[\\/])etc[\\/](passwd|shadow|sudoers|hosts|crontab|ssh)/i, // goreceli traversal dahil (../../etc/shadow)
-  /System32[\\/]drivers[\\/]etc/i, /\.aws[\\/]credentials/i,
-];
 function sensitivePathBlocked(p, mode) {
-  const s = String(p || '');
-  const pats = mode === 'write' ? SENSITIVE_WRITE : SENSITIVE_READ;
-  return pats.some((re) => re.test(s));
+  const toolName = mode === 'write' ? 'write_file' : 'read_file';
+  return !assessToolPath(toolName, { path: p }).allowed;
 }
 
 // Ajanin urettigi komutlar icin ekstra koruma. bash.js kendi politikasini uygular
@@ -332,15 +322,17 @@ async function executeCall(call, opts = {}) {
         feedbacks.push(`write_file: "${targetPath}" hassas bir yol oldugu icin CALISTIRILMADI.`);
         continue;
       }
-      try {
-        const res = await wf.execute({ path: targetPath, content: f.content != null ? String(f.content) : '' });
-        const ok = res && res.success !== false;
-        records.push({ tool: 'write_file', status: ok ? 'done' : 'error', args: { path: targetPath }, result: res, error: ok ? undefined : (res && res.error) });
-        feedbacks.push(ok ? `write_file OK: ${res.path || targetPath} (${res.size != null ? res.size : '?'} bytes)` : `write_file HATA: ${res && res.error}`);
-      } catch (e) {
-        records.push({ tool: 'write_file', status: 'error', args: { path: f.path }, error: e.message });
-        feedbacks.push(`write_file HATA: ${e.message}`);
-      }
+      const res = await executeThroughGateway({
+        toolName: 'write_file',
+        args: { path: targetPath, content: f.content != null ? String(f.content) : '' },
+        resolveTool: () => wf,
+        normalizeSuccess: value => value,
+        normalizeError: error => ({ success: false, error }),
+        allowSensitivePaths: !!opts.execFull,
+      });
+      const ok = res && res.success !== false;
+      records.push({ tool: 'write_file', status: ok ? 'done' : 'error', args: { path: targetPath }, result: res, error: ok ? undefined : (res && res.error) });
+      feedbacks.push(ok ? `write_file OK: ${res.path || targetPath} (${res.size != null ? res.size : '?'} bytes)` : `write_file HATA: ${res && res.error}`);
     }
     return { records, feedback: feedbacks.join('\n') };
   }
@@ -397,17 +389,20 @@ async function executeCall(call, opts = {}) {
     records.push({ tool: norm, status: 'error', error: 'execute yok' });
     return { records, feedback: `${norm} HATA: execute fonksiyonu yok` };
   }
-  try {
-    const res = await fn(args);
-    const ok = typeof res === 'string' ? true : (res && res.success !== false);
-    const status = ok ? 'done' : 'error';
-    const feedback = buildFeedback(norm, res);
-    records.push({ tool: norm, status, args: sanitizeArgs(args), result: res });
-    return { records, feedback };
-  } catch (e) {
-    records.push({ tool: norm, status: 'error', args: sanitizeArgs(args), error: e.message });
-    return { records, feedback: `${norm} HATA: ${e.message}` };
-  }
+  const res = await executeThroughGateway({
+    toolName: norm,
+    args,
+    resolveTool: () => mod,
+    execute: fn,
+    normalizeSuccess: value => value,
+    normalizeError: error => ({ success: false, error }),
+    allowSensitivePaths: !!opts.execFull,
+  });
+  const ok = typeof res === 'string' ? true : (res && res.success !== false);
+  const status = ok ? 'done' : 'error';
+  const feedback = buildFeedback(norm, res);
+  records.push({ tool: norm, status, args: sanitizeArgs(args), result: res, error: ok ? undefined : res.error });
+  return { records, feedback };
 }
 
 /**

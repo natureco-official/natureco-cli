@@ -5,18 +5,15 @@
  * v5.7.17: Emoji + toolset + check_fn + registry entegrasyonu.
  */
 
-const fs = require('fs');
-const path = require('path');
 const { globalRegistry } = require('./registry');
 const sandbox = require('./sandbox');
 const { executeThroughGateway } = require('./tool-execution-gateway');
+const { loadToolManifest } = require('./tool-manifest');
 
 // Lazy config read — avoids circular deps
 function _getSandboxLevel() {
   try { return sandbox.getLevel(require('./config').getConfig()); } catch { return 'none'; }
 }
-
-const TOOLS_DIR = path.join(__dirname, '..', 'tools');
 
 // ── Emoji map (central, tek kaynak) ──────────────────────────────────────
 const EMOJI_MAP = {
@@ -175,7 +172,7 @@ function getToolsForProvider(allTools, providerUrl) {
 
 function loadToolDefinitions() {
   const tools = [];
-  const files = fs.readdirSync(TOOLS_DIR).filter(f => f.endsWith('.js'));
+  const manifest = loadToolManifest();
 
   let isGroq = false;
   try {
@@ -198,20 +195,19 @@ function loadToolDefinitions() {
     'soul', 'memory', 'memory_write', 'memory_search', 'filesystem', 'grep_search'
   ]);
 
-  for (const file of files) {
+  for (const entry of manifest.values()) {
     try {
-      const toolPath = path.join(TOOLS_DIR, file);
-      const mod = require(toolPath);
-      const toolName = mod.name || path.basename(file, '.js');
+      const mod = entry.module;
+      const toolName = entry.name;
 
       if (isGroq && !GROQ_ALLOWED.has(toolName)) continue;
       if (disabledTools.has(toolName)) continue;
 
       const meta = {
         name: toolName,
-        description: mod.description || `${path.basename(file, '.js')} tool`,
-        parameters: mod.parameters || mod.inputSchema || { type: 'object', properties: {} },
-        execute: mod.execute || (mod.default && mod.default.execute) || null,
+        description: entry.description,
+        parameters: entry.inputSchema,
+        execute: entry.execute,
         emoji: EMOJI_MAP[toolName] || '',
         toolset: TOOLSET_MAP[toolName] || 'general',
         checkFn: CHECK_FN_MAP[toolName] || null,

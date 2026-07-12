@@ -33,6 +33,9 @@ const { getFallbackChain } = require("../utils/fallback-chain");
 const { getTaskManager } = require("../utils/tasks");
 const { buildTiers, assemble, discoverProjectRules } = require("../utils/system-prompt");
 const { buildSkillIndex } = require("../utils/skill-index");
+const { AgentCore } = require("../utils/agent-core");
+
+const agentCore = new AgentCore({ maxIterations: 10 });
 
 const IS_MAC = os.platform() === "darwin";
 const MAX_ITERATIONS = 10;
@@ -624,9 +627,16 @@ async function codeV5(targetPath) {
 const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
 
 async function processToolCalls(reply, config, toolDefs, messages, onToolResult) {
+  agentCore.startIteration();
+  const coreBlocked = new Map();
   for (const tc of reply.tool_calls) {
     let args = {};
     try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
+    const guard = agentCore.assess({ name: tc.function.name, input: args });
+    if (guard.blocked) {
+      coreBlocked.set(tc.id, guard.reason || "blocked_by_guardrails");
+      continue;
+    }
     const risk = assessRisk(tc.function.name, args);
 
     // Built-in risk assessment
@@ -687,7 +697,11 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult)
 
   messages.push({ role: "assistant", content: reply.content || null, tool_calls: reply.tool_calls });
 
-  const parsed = reply.tool_calls.map(tc => {
+  for (const [id, reason] of coreBlocked) {
+    messages.push({ role: "tool", tool_call_id: id, content: "ERROR: " + reason });
+  }
+
+  const parsed = reply.tool_calls.filter(tc => !coreBlocked.has(tc.id)).map(tc => {
     let args = {};
     try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
     return { name: tc.function.name, args, id: tc.id };

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { PluginError, handleError } = require('./errors');
 
 const PLUGINS_DIR = path.join(os.homedir(), '.natureco', 'plugins');
@@ -122,7 +122,7 @@ function installFromNpm(pkg) {
   const tmpDir = path.join(os.tmpdir(), `nc-plugin-${Date.now()}`);
   ensureDir(tmpDir);
   try {
-    execSync(`npm install ${pkg} --prefix "${tmpDir}" --no-save --ignore-scripts --no-audit --no-fund`, { stdio: 'pipe', timeout: 120000 });
+    execFileSync('npm', ['install', pkg, '--prefix', tmpDir, '--no-save', '--ignore-scripts', '--no-audit', '--no-fund'], { stdio: 'pipe', timeout: 120000, shell: false });
     const pkgDir = path.join(tmpDir, 'node_modules', pkg.split('/').pop());
     const scopedPkgDir = pkg.startsWith('@') ? path.join(tmpDir, 'node_modules', pkg) : null;
     const srcDir = scopedPkgDir && fs.existsSync(scopedPkgDir) ? scopedPkgDir : (fs.existsSync(pkgDir) ? pkgDir : null);
@@ -155,7 +155,7 @@ function installFromGit(spec) {
   const tmpDir = path.join(os.tmpdir(), `nc-plugin-git-${Date.now()}`);
   ensureDir(tmpDir);
   try {
-    execSync(`git clone --depth 1 "${repoUrl}" "${tmpDir}"`, { stdio: 'pipe', timeout: 60000 });
+    execFileSync('git', ['clone', '--depth', '1', repoUrl, tmpDir], { stdio: 'pipe', timeout: 60000, shell: false });
     const slug = spec.split('/').pop().replace(/\.git$/, '');
     const dest = path.join(PLUGINS_DIR, slug);
     if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });

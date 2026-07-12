@@ -11,6 +11,7 @@ module.exports = defineConfig({
       reporter: ['text', 'lcov', 'html'],
       include: ['src/**/*.js'],
       exclude: ['node_modules', 'test'],
+      thresholds: { lines: 16, statements: 16, functions: 13, branches: 11 },
     },
     // Windows'ta süreç başlatma yavaş; paralel yük altında spawn'lı testler
     // 10sn'yi aşabiliyor — flaky'liği önlemek için cömert tut

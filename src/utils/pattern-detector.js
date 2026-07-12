@@ -265,10 +265,20 @@ function acceptProposal(proposalId) {
   if (fs.existsSync(skillDir)) {
     return { success: false, reason: `Skill zaten var: ${proposal.suggestedName}` };
   }
-  fs.mkdirSync(skillDir, { recursive: true });
-
   const skillMd = generateSkillMd(proposal);
-  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), skillMd, 'utf8');
+  const { SkillLifecycle } = require('./skill-lifecycle');
+  const lifecycle = new SkillLifecycle(userSkillsDir);
+  const staged = lifecycle.stage({ name: proposal.suggestedName, content: skillMd, source: 'repeated-pattern', evidence: { hash: proposal.hash, count: proposal.count } });
+  if (!staged.ok) return { success: false, reason: staged.error };
+  // This function is only reached through the explicit `skills accept` command.
+  // Promotion stays synchronous here because validation is deterministic.
+  const candidate = staged.candidate;
+  fs.mkdirSync(skillDir, { recursive: true });
+  fs.writeFileSync(path.join(skillDir, 'SKILL.md'), candidate.content, 'utf8');
+  fs.writeFileSync(path.join(skillDir, 'lifecycle.json'), JSON.stringify({
+    currentVersion: 1,
+    versions: [{ version: 1, candidateId: candidate.id, source: candidate.source, evidence: candidate.evidence, approvedBy: 'cli-user', approvedAt: new Date().toISOString(), validation: { ok: true, type: 'frontmatter' } }],
+  }, null, 2), 'utf8');
 
   proposals[idx].status = 'accepted';
   proposals[idx].acceptedAt = new Date().toISOString();

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { getProviderConfig } = require('./api');
+const { AgentWorkspaceManager } = require('./agent-workspace');
 
 const SUB_AGENTS_FILE = path.join(os.homedir(), '.natureco', 'sub-agents.json');
 
@@ -64,12 +65,15 @@ async function spawnSubAgent(type, task, options = {}) {
   saveAgents(agents);
 
   try {
+    const workspaceManager = options.workspaceManager || new AgentWorkspaceManager();
+    const useWorkspace = options.isolatedWorktree !== false && ['general', 'debugger'].includes(type);
+    const executeAgent = async (workspace = null) => {
     const providerConfig = getProviderConfig();
     if (!providerConfig) {
       throw new Error('Provider not configured. Run: natureco configure');
     }
 
-    const systemPrompt = options.systemPrompt || SYSTEM_PROMPTS[type];
+    const systemPrompt = (options.systemPrompt || SYSTEM_PROMPTS[type]) + (workspace ? `\n\nIsolated workspace: ${workspace.cwd}\nOnly operate inside this workspace.` : '');
 
     const baseUrl = providerConfig.url.replace(/\/+$/, '');
     const endpoint = `${baseUrl}/chat/completions`;
@@ -109,7 +113,14 @@ async function spawnSubAgent(type, task, options = {}) {
     const usage = data.usage || {};
     const duration = new Date(entry.completedAt) - new Date(entry.startedAt);
 
-    return { result: content, usage, duration };
+    return { result: content, usage, duration, workspace: workspace?.cwd || null };
+    };
+    if (useWorkspace) {
+      const isolated = await workspaceManager.run(entry.id, executeAgent, { merge: options.mergeWorktree === true });
+      if (!isolated.ok) throw new Error(isolated.error);
+      return isolated.result;
+    }
+    return await executeAgent();
   } catch (err) {
     entry.status = 'failed';
     entry.result = err.message;

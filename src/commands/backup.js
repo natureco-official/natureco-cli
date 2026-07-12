@@ -4,7 +4,7 @@ const { getLang: _gl } = require('../utils/i18n');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const NATURECO_DIR = path.join(os.homedir(), '.natureco');
 
@@ -32,7 +32,7 @@ function createBackup() {
 
   if (fs.existsSync(NATURECO_DIR)) {
     try {
-      execSync(`tar -czf "${backupFile}" -C "${path.dirname(NATURECO_DIR)}" "${path.basename(NATURECO_DIR)}"`, {
+      execFileSync('tar', ['-czf', backupFile, '-C', path.dirname(NATURECO_DIR), path.basename(NATURECO_DIR)], {
         stdio: 'pipe',
         encoding: 'utf8',
         timeout: 30000
@@ -97,7 +97,7 @@ function restoreBackup(file) {
 
   console.log(chalk.yellow(`\n  ⚠️  Restoring ${file}...\n`));
   try {
-    execSync(`tar -xzf "${backupFile}" -C "${os.homedir()}"`, { stdio: 'pipe', timeout: 15000 });
+    execFileSync('tar', ['-xzf', backupFile, '-C', os.homedir()], { stdio: 'pipe', timeout: 15000 });
     console.log(chalk.green('  ✅ Restore complete\n'));
   } catch {
     console.log(chalk.red('  ❌ Restore failed\n'));

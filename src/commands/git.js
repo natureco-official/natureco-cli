@@ -1,4 +1,4 @@
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const inquirer = require('../utils/inquirer-wrapper');
 const chalk = require('chalk');
 const { getApiKey } = require('../utils/config');
@@ -111,7 +111,7 @@ async function gitCommit() {
     
     if (answer.confirm) {
       try {
-        execSync(`git commit -m "${commitMessage.replace(/"/g, '\\"')}"`, { stdio: 'inherit' });
+        execFileSync('git', ['commit', '-m', commitMessage], { stdio: 'inherit' });
         console.log(chalk.green('\n✅ Committed successfully\n'));
       } catch (err) {
         console.log(chalk.red('\n❌ Commit failed\n'));

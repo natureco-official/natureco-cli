@@ -2,7 +2,7 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const readline = require('readline');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 const inquirer = require('../utils/inquirer-wrapper');
 const TB = require('../utils/token-budget');
 const chalk = require('chalk');
@@ -15,6 +15,10 @@ const { getAgentsPrompt } = require('../utils/agents');
 const { createSession, addMessageToSession } = require('../utils/sessions');
 const { addToHistory } = require('../utils/history');
 const { getToolDefinitions, executeTool } = require('../utils/tool-runner');
+const { AgentCore } = require('../utils/agent-core');
+const { CodingSession } = require('../utils/coding-session');
+
+const agentCore = new AgentCore({ maxIterations: 10 });
 
 let rl = null;
 
@@ -224,12 +228,17 @@ async function streamMessage(providerConfig, messages, tools) {
 // ── Tool execution ────────────────────────────────────────────────────────────
 const DANGEROUS = [/\brm\b/, /\brmdir\b/, /\bdelete\b/i, /\bdrop\b/i, /\btruncate\b/i];
 
-async function runToolCall(toolCall, stats, dryRun = false) {
+async function runToolCall(toolCall, stats, dryRun = false, codingSession = null) {
+  const guard = agentCore.assess({ name: toolCall.name, input: toolCall.input });
+  if (guard.blocked) return { success: false, error: guard.reason || `blocked_by_guardrails: ${toolCall.name}` };
   const inputPreview = JSON.stringify(toolCall.input).slice(0, 60);
 
   const needsConfirm =
     toolCall.name === 'write_file' ||
     (toolCall.name === 'bash' && DANGEROUS.some(re => re.test(toolCall.input.command || '')));
+
+  const risk = codingSession?.riskSummary(toolCall);
+  if (risk && risk.level !== 'low') console.log(chalk.gray(`  Risk: ${risk.level} (${risk.risks.join(', ')})`));
 
   // Dry-run: write_file'ı engelle, diff göster
   if (dryRun && toolCall.name === 'write_file') {
@@ -262,7 +271,11 @@ async function runToolCall(toolCall, stats, dryRun = false) {
   }
 
   const spinner = startSpinner(`${toolCall.name}  ${inputPreview}`);
+  if (!dryRun && codingSession && (toolCall.name === 'write_file' || toolCall.name === 'edit_file')) {
+    codingSession.capture(toolCall.input.path);
+  }
   const result = await executeTool(toolCall.name, toolCall.input);
+  agentCore.record({ name: toolCall.name, input: toolCall.input }, result);
   stopSpinner(spinner, toolCall.name, result.success !== false);
 
   if (result.success !== false) {
@@ -311,6 +324,7 @@ async function runTests(projectIndex, conversationMessages, tools, providerConfi
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function code(targetFile, options = {}) {
+  const codingSession = new CodingSession();
   const workDir = options.dir || process.cwd();
   const apiKey = getApiKey();
   const config = getConfig();
@@ -508,6 +522,9 @@ ${indexPrompt}`);
             ['/test',    L('Testleri çalıştır, hata varsa düzelt', 'Run tests, fix errors if any')],
             ['/git',     L('Git durumu ve son commitler', 'Git status and recent commits')],
             ['/commit',  L('Staged değişiklikleri AI ile commit et', 'Commit staged changes with AI')],
+            ['/undo',    L('Son dosya değişikliğini geri al', 'Undo the last file change')],
+            ['/retry',   L('Son isteği yeniden çalıştır', 'Retry the last request')],
+            ['/compact', L('Konuşma bağlamını sıkıştır', 'Compact conversation context')],
             ['/help',    L('Bu yardım', 'This help')],
           ].forEach(([c, d]) => console.log('  ' + chalk.cyan(c.padEnd(12)) + chalk.gray(d)));
           console.log(chalk.gray('  Ctrl+C'.padEnd(14) + L('Çıkış', 'Exit')));
@@ -516,6 +533,23 @@ ${indexPrompt}`);
         case 'clear':
           console.clear();
           return;
+        case 'undo': {
+          const undone = codingSession.undo();
+          console.log(undone.ok ? chalk.green(`  ✓ ${undone.path}`) : chalk.yellow(`  ${undone.error}`));
+          return;
+        }
+        case 'compact': {
+          const compacted = codingSession.compact(conversationMessages);
+          conversationMessages.splice(0, conversationMessages.length, ...compacted.messages);
+          console.log(chalk.green(`  ✓ Context compacted: ${compacted.before} → ${compacted.after}`));
+          return;
+        }
+        case 'retry': {
+          const previous = codingSession.retryMessage();
+          if (!previous) console.log(chalk.yellow(L('  Tekrarlanacak istek yok.', '  No request to retry.')));
+          else await handleMessage(previous);
+          return;
+        }
         case 'summary':
         case 'done': {
           const sum = await generateSummary(conversationMessages, providerConfig);
@@ -591,7 +625,7 @@ ${indexPrompt}`);
             console.log(chalk.cyan(`\n  ${L('Önerilen', 'Suggested')}: ${chalk.white(commitMsg)}\n`));
             const ok = await confirmAction(L('Commit edilsin mi?', 'Commit?'));
             if (ok) {
-              execSync(`git commit -m "${commitMsg.replace(/"/g, '\\"')}"`, { cwd: workDir, stdio: 'pipe' });
+              execFileSync('git', ['commit', '-m', commitMsg], { cwd: workDir, stdio: 'pipe' });
               console.log(chalk.green(L('  ✓ Commit yapıldı!\n', '  ✓ Committed!\n')));
             } else {
               console.log(chalk.gray(L('  İptal edildi.\n', '  Cancelled.\n')));
@@ -608,6 +642,7 @@ ${indexPrompt}`);
     }
 
     stats.messageCount++;
+    codingSession.rememberUserMessage(userMessage);
     console.log(chalk.white('You  ') + userMessage);
     conversationMessages.push({ role: 'user', content: userMessage });
 
@@ -655,7 +690,7 @@ ${indexPrompt}`);
 
       for (let ti = 0; ti < streamResult.toolCalls.length; ti++) {
         const toolCall = streamResult.toolCalls[ti];
-        const result = await runToolCall(toolCall, stats, options.dryRun);
+        const result = await runToolCall(toolCall, stats, options.dryRun, codingSession);
         const resultStr = result.success !== false
           ? (result.output || JSON.stringify(result))
           : `${L('Hata', 'Error')}: ${result.error}`;

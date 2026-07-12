@@ -2,13 +2,75 @@ const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, execFileSync } = require('child_process');
 const pino = require('pino');
 const { loadBaileys } = require('../utils/baileys');
 const { ApiError } = require('../utils/errors');
+const { ensurePendingPairing, isPaired } = require('../utils/pairing-store');
+const { ChannelAdapter, ChannelDeliveryManager } = require('../utils/channel-sdk');
+const { DeliveryStore } = require('../utils/delivery-store');
 
 const PID_FILE = path.join(os.homedir(), '.natureco', 'gateway.pid');
 const LOG_FILE = path.join(os.homedir(), '.natureco', 'gateway.log');
+const gatewayStartedAt = Date.now();
+const gatewayDeliveryManager = new ChannelDeliveryManager({ store: new DeliveryStore() });
+
+async function buildGatewayHealth(config = {}, manager = gatewayDeliveryManager) {
+  const configuredChannels = ['whatsapp', 'telegram', 'signal', 'discord', 'slack', 'irc', 'mattermost', 'imessage', 'sms']
+    .filter(name => Object.keys(config).some(key => key.toLowerCase().startsWith(name) && !!config[key]));
+  const adapterHealth = await manager.health();
+  const channelStates = Object.fromEntries(configuredChannels.map(name => {
+    const adapter = adapterHealth.find(item => item.channel === name);
+    return [name, adapter || { channel: name, state: 'configured', ok: null }];
+  }));
+  const metrics = manager.snapshotMetrics();
+  return {
+    ok: metrics.failed === 0 || metrics.delivered > 0,
+    status: metrics.failed > 0 ? 'degraded' : 'healthy',
+    uptimeSeconds: Math.floor((Date.now() - gatewayStartedAt) / 1000),
+    pid: process.pid,
+    channels: channelStates,
+    delivery: { ...metrics, deadLetters: manager.deadLetters.length },
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function registerGatewayDeliveryAdapters(config, manager = gatewayDeliveryManager) {
+  const register = (name, send, health) => {
+    if (manager.adapters.has(name)) return;
+    manager.register(new ChannelAdapter({ name, send, health }));
+  };
+  register('whatsapp', async item => {
+    if (!global.whatsappSock) throw new Error('WhatsApp not connected');
+    const jid = `${String(item.target).replace(/[^\d]/g, '')}@s.whatsapp.net`;
+    return global.whatsappSock.sendMessage(jid, { text: String(item.payload.message) });
+  }, async () => ({ ok: !!global.whatsappSock }));
+  register('telegram', async item => {
+    if (!global.telegramBot) throw new Error('Telegram not connected');
+    return global.telegramBot.sendMessage(String(item.target), String(item.payload.message));
+  }, async () => ({ ok: !!global.telegramBot }));
+  register('signal', item => sendSignalMessage(config, item.target, item.payload.message), async () => ({ ok: !!global.signalProvider || !!config.signalHttpUrl }));
+  register('irc', async item => {
+    if (!global.ircClient?.isReady()) throw new Error('IRC not connected');
+    return sendIrcMessage(global.ircClient, item.target, item.payload.message);
+  }, async () => ({ ok: !!global.ircClient?.isReady() }));
+  register('mattermost', item => sendMattermostMessage(config, item.target, item.payload.message), async () => ({ ok: !!global.mattermostProvider }));
+  register('imessage', async item => {
+    if (!global.imessageProvider) throw new Error('iMessage not connected');
+    return sendImessage(global.imessageProvider.imsgPath, item.target, item.payload.message);
+  }, async () => ({ ok: !!global.imessageProvider }));
+  register('sms', item => sendSmsMessage(config, item.target, item.payload.message), async () => ({ ok: !!global.smsProvider }));
+  register('discord', async item => {
+    if (!global.discordClient) throw new Error('Discord not connected');
+    const channel = await global.discordClient.channels.fetch(String(item.target));
+    return channel.send(String(item.payload.message));
+  }, async () => ({ ok: !!global.discordClient }));
+  register('slack', async item => {
+    if (!global.slackClient) throw new Error('Slack not connected');
+    return global.slackClient.chat.postMessage({ channel: String(item.target), text: String(item.payload.message) });
+  }, async () => ({ ok: !!global.slackClient }));
+  return manager;
+}
 
 // `https` is used in the webhook delivery path (~line 570). The require was
 // missing; the module only worked because Node's CommonJS cache happens to
@@ -408,9 +470,14 @@ async function startWhatsAppProvider(sessionDir, config) {
         // Log incoming number
         log('whatsapp', `Incoming from: +${sender}, allowed: ${JSON.stringify(allowedNumbers)}`, 'gray');
         
-        // Access control - skip if fromMe + LID (own conversation)
-        if (!(msg.key.fromMe && isLID) && allowedNumbers.length > 0 && !allowedNumbers.some(n => numberMatches(n, sender))) {
-          log('whatsapp', `blocked message from +${sender} (not in allowed list)`, 'yellow');
+        // Pairing is the default. The owner's own LID conversation is trusted;
+        // every other sender must be allowlisted or explicitly paired.
+        const ownConversation = msg.key.fromMe && isLID;
+        const gate = ownConversation
+          ? { allowed: true, trusted: true, reason: 'owner' }
+          : channelGate(config, 'whatsapp', sender);
+        if (!gate.allowed) {
+          log('whatsapp', `blocked message from +${sender} (${gate.reason})`, 'yellow');
           continue;
         }
         
@@ -437,8 +504,7 @@ async function startWhatsAppProvider(sessionDir, config) {
         try {
           // v5.47 TEK BEYIN: allow-list'teki gonderen (veya sahibin kendi cihazi) =
           // guvenilir → terminaldekiyle ayni ajan. Aksi halde hafizasiz hafif yol.
-          const trusted = (msg.key.fromMe && isLID) ||
-            (allowedNumbers.length > 0 && allowedNumbers.some(n => numberMatches(n, sender)));
+          const trusted = gate.trusted;
           let reply = '';
 
           if (trusted) {
@@ -516,8 +582,11 @@ async function startDiscordProvider(config) {
     client.on(Events.MessageCreate, async (message) => {
       if (message.author.bot) return;
       const chatId = message.channel.id;
-      const allowedChats = config.discordAllowedChats || [];
-      if (allowedChats.length > 0 && !allowedChats.includes(chatId)) return;
+      const gate = channelGate(config, 'discord', String(message.author.id || chatId));
+      if (!gate.allowed) {
+        log('discord', `blocked message from ${message.author.id} (${gate.reason})`, 'yellow');
+        return;
+      }
 
       try {
         const response = await callProviderForGateway(config, message.content, {
@@ -546,13 +615,19 @@ async function startDiscordProvider(config) {
 // yetkisiz/yabancı gönderene kişisel hafıza sızabiliyordu. channelGate: (1) allow-list
 // kuruluysa yetkisiz göndereni ENGELLE; (2) allow-list kurulu DEĞİLSE yanıt ver ama
 // kişisel hafızayı ENJEKTE ETME (trusted=false) — böylece anonim kanaldan hafıza sızmaz.
-function channelGate(config, channel, senderId) {
+function channelGate(config, channel, senderId, pairing = { isPaired, ensurePendingPairing }) {
   const allow = config[`${channel}AllowedChats`] || config[`${channel}AllowedNumbers`] || config[`${channel}AllowedUsers`] || [];
-  if (!Array.isArray(allow) || allow.length === 0) {
-    return { allowed: true, trusted: false };
+  const allowlisted = Array.isArray(allow) && allow.map(String).includes(String(senderId));
+  if (allowlisted) return { allowed: true, trusted: true, reason: 'allowlist' };
+
+  const policy = config[`${channel}DmPolicy`] || 'pairing';
+  if (policy === 'open') return { allowed: true, trusted: false, reason: 'open' };
+  if (policy === 'disabled' || policy === 'allowlist') {
+    return { allowed: false, trusted: false, reason: policy };
   }
-  const ok = allow.map(String).includes(String(senderId));
-  return { allowed: ok, trusted: ok };
+  if (pairing.isPaired(channel, senderId)) return { allowed: true, trusted: true, reason: 'paired' };
+  const pending = pairing.ensurePendingPairing(channel, senderId);
+  return { allowed: false, trusted: false, reason: 'pairing-required', pairingId: pending.id };
 }
 
 async function startSlackProvider(config) {
@@ -1500,7 +1575,7 @@ function startImessagePollingFallback(imsgPath, config) {
     try {
       const args = ['history', '--format', 'json', '--limit', '10'];
       if (lastRowId) args.push('--since-rowid', String(lastRowId));
-      const result = execSync(`"${imsgPath}" ${args.join(' ')} 2>/dev/null`, {
+      const result = execFileSync(imsgPath, args, {
         encoding: 'utf-8', timeout: 10000, stdio: 'pipe',
       });
       const lines = result.trim().split('\n').filter(Boolean);
@@ -1517,6 +1592,13 @@ function startImessagePollingFallback(imsgPath, config) {
   }, 15000);
 
   log('imessage', 'polling started (15s interval, history fallback)', 'green');
+}
+
+function sendImessage(imsgPath, target, text) {
+  return execFileSync(imsgPath, ['send', '--to', String(target), '--text', String(text)], {
+    timeout: 15000,
+    stdio: 'pipe',
+  });
 }
 
 function findImsgBin() {
@@ -1601,9 +1683,7 @@ async function processImessageMessage(msg, config) {
     }
 
     if (reply) {
-      execSync(`${global.imessageProvider.imsgPath} send --to "${sender}" --text "${reply.replace(/"/g, '\\"')}" 2>/dev/null`, {
-        timeout: 15000, stdio: 'pipe',
-      });
+      sendImessage(global.imessageProvider.imsgPath, sender, reply);
       log('imessage', `Reply sent to ${sender} (${reply.length} chars)`, 'green');
 
       // v5.6.40: Track outgoing message for loop prevention
@@ -1805,12 +1885,20 @@ function startHttpServer() {
   const server = http.createServer(async (req, res) => {
     // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     
     if (req.method === 'OPTIONS') {
       res.writeHead(200);
       res.end();
+      return;
+    }
+
+    if (req.method === 'GET' && (req.url === '/health' || req.url === '/metrics')) {
+      const { getConfig } = require('../utils/config');
+      const snapshot = await buildGatewayHealth(getConfig(), gatewayDeliveryManager);
+      res.writeHead(snapshot.status === 'healthy' ? 200 : 503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(req.url === '/health' ? snapshot : snapshot.delivery));
       return;
     }
     
@@ -1855,6 +1943,23 @@ function startHttpServer() {
           if (!channel || !target || !message) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Missing required fields: channel, target, message' }));
+            return;
+          }
+
+          const cfg = require('../utils/config').getConfig();
+          registerGatewayDeliveryAdapters(cfg, gatewayDeliveryManager);
+          if (gatewayDeliveryManager.adapters.has(channel)) {
+            const queued = gatewayDeliveryManager.enqueue(channel, target, { message }, { idempotencyKey: req.headers['idempotency-key'] });
+            if (queued.duplicate) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true, duplicate: true, deliveryId: queued.id }));
+              return;
+            }
+            const [delivery] = await gatewayDeliveryManager.drain();
+            res.writeHead(delivery.ok ? 200 : 503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(delivery.ok
+              ? { success: true, channel, target, deliveryId: delivery.id, attempts: delivery.attempts }
+              : { success: false, channel, target, deliveryId: delivery.id, error: delivery.error }));
             return;
           }
           
@@ -1938,9 +2043,7 @@ function startHttpServer() {
               return;
             }
             try {
-              execSync(`${global.imessageProvider.imsgPath} send --to "${target.replace(/"/g, '\\"')}" --text "${message.replace(/"/g, '\\"')}" 2>/dev/null`, {
-                timeout: 15000, stdio: 'pipe',
-              });
+              sendImessage(global.imessageProvider.imsgPath, target, message);
               log('http', `iMessage sent to ${target}`, 'green');
               res.writeHead(200, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ success: true, channel: 'imessage', target }));
@@ -2133,9 +2236,7 @@ function startCronJobs(config) {
                 log('cron', 'iMessage not connected, skipping', 'red');
                 return;
               }
-              execSync(`${global.imessageProvider.imsgPath} send --to "${cronJob.target.replace(/"/g, '\\"')}" --text "${reply.replace(/"/g, '\\"')}" 2>/dev/null`, {
-                timeout: 15000, stdio: 'pipe',
-              });
+              sendImessage(global.imessageProvider.imsgPath, cronJob.target, reply);
               log('cron', `Sent to iMessage: ${cronJob.target}`, 'green');
             } else if (cronJob.action === 'sms') {
               if (!global.smsProvider) {
@@ -2267,3 +2368,6 @@ if (require.main === module || process.argv.includes('--gateway-worker')) {
 module.exports = gatewayServer;
 // v5.43: test için — kanal gönderen doğrulaması + hafıza izolasyonu (Madde 7)
 module.exports.channelGate = channelGate;
+module.exports.buildGatewayHealth = buildGatewayHealth;
+module.exports.gatewayDeliveryManager = gatewayDeliveryManager;
+module.exports.registerGatewayDeliveryAdapters = registerGatewayDeliveryAdapters;

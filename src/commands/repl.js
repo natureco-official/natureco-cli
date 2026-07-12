@@ -56,7 +56,7 @@ const { createPasteSafeInput, createOutputFilter, enableBracketedPaste, disableB
 const { getMemoryStore } = require('../utils/memory-store');
 const { buildSkillIndex } = require('../utils/skill-index');
 const { buildTiers, assemble, discoverProjectRules } = require('../utils/system-prompt');
-const { ToolGuardrails } = require('../utils/tool-guardrails');
+const { AgentCore } = require('../utils/agent-core');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
 const MODEL_NAMES_TO_HIDE = ['MiniMax-M2.5', 'MiniMaxM2.5', 'minimaxm25', 'Claude-3', 'GPT-4', 'ChatGPT'];
@@ -128,7 +128,8 @@ function rebuildSystemPrompt(opts) {
 }
 
 // ── Tool Guardrails instance (Hermes-style) ─────────────────────────────
-const guardrails = new ToolGuardrails({ hardStopEnabled: true });
+const agentCore = new AgentCore({ maxIterations: 10 });
+const guardrails = agentCore.guardrails;
 
 // CLI komutları (REPL içinden çalıştırılabilir)
 const CLI_COMMANDS = {
@@ -835,7 +836,8 @@ async function processToolCalls(toolCalls, onToolCall, onAsk) {
   const results = [];
 
   // Parse all tool calls first
-  const parsed = toolCalls.map(tc => {
+  const parsed = agentCore.parseToolCalls(toolCalls).map(call => {
+    const tc = call.original;
     const name = tc.function?.name || tc.name;
     const argsStr = tc.function?.arguments || tc.args || '{}';
     const id = tc.id || `call_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -845,11 +847,11 @@ async function processToolCalls(toolCalls, onToolCall, onAsk) {
     } catch (e) {
       args = { _parse_error: e.message, _raw: argsStr };
     }
-    return { name, args, id };
+    return { name, args, id, parseError: call.parseError };
   });
 
   // Filter out blocked tools via guardrails
-  guardrails.startIteration();
+  agentCore.startIteration();
   const blocked = parsed.filter(p => {
     const check = guardrails.check(p.name, p.args);
     if (check.blocked) {

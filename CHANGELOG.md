@@ -2,6 +2,27 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.64.0] - 2026-07-13 — Secure unified agent and operations foundation
+
+### Added
+- Unified `AgentCore`, `ToolExecutionGateway`, single tool manifest, mandatory JSON Schema validation and standardized tool results.
+- Conflict-safe structural patching, atomic rollback, coding `/undo`, `/retry`, `/compact`, local code intelligence and LSP JSON-RPC client.
+- Provenance/confidence/TTL memory records, conflict resolution, approved skill promotion, versioning and rollback.
+- Shared channel SDK with pairing-by-default, persistent idempotent delivery queue, retries, dead letters, reconnect supervision, health and metrics.
+- macOS Keychain, Windows DPAPI, Linux Secret Service and AES-256-GCM encrypted secret fallback.
+- Encrypted multi-device sync primitives with authenticated envelopes and vector-clock conflict detection.
+- Isolated sub-agent worktrees, test-failure analysis/repair loop, startup benchmark and TR/EN catalog snapshots.
+
+### Security
+- Fixed bulk-write guardrail bypasses, protected sensitive paths across execution origins and enabled guardrail hard-stop.
+- Removed high-risk shell string interpolation from iMessage delivery, backups, plugin installation/cloning and AI-generated Git commits.
+- Added channel pairing gates, non-interactive fail-closed permission handling and process-listener cleanup.
+
+### Tests
+- 73 test files, 711 passing tests (3 skipped), zero high-severity audit findings, CLI smoke and package checks.
+- Windows `--version` median reduced from ~366 ms to ~75 ms, meeting the <100 ms target.
+- Real Windows/macOS/Linux GitHub Actions matrix with lint, tests, smoke, audit and package verification.
+
 ## [5.63.0] - 2026-07-12 — Complete English REPL localization
 
 ### Changed

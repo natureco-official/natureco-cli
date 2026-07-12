@@ -12,21 +12,26 @@ import gatewayServer from '../../src/commands/gateway-server.js';
 const { channelGate } = gatewayServer;
 
 describe('channelGate — gönderen doğrulaması + hafıza izolasyonu', () => {
-  it('allow-list kurulu DEĞİLSE: yanıt verir ama HAFIZASIZ (sızıntı önlenir)', () => {
-    const g = channelGate({}, 'signal', '+905551234567');
-    expect(g.allowed).toBe(true);
-    expect(g.trusted).toBe(false); // → memoryPrompt boş kalır
+  it('allow-list kurulu DEĞİLSE: pairing varsayılanıyla engeller', () => {
+    const g = channelGate({}, 'signal', '+905551234567', {
+      isPaired: () => false,
+      ensurePendingPairing: () => ({ id: 'pair_test' }),
+    });
+    expect(g.allowed).toBe(false);
+    expect(g.trusted).toBe(false);
+    expect(g.reason).toBe('pairing-required');
+    expect(g.pairingId).toBe('pair_test');
   });
 
   it('allow-list kuruluysa yetkili gönderen: izinli + güvenilir (hafıza gider)', () => {
-    const cfg = { signalAllowedNumbers: ['+905551234567'] };
+    const cfg = { signalAllowedNumbers: ['+905551234567'], signalDmPolicy: 'allowlist' };
     const g = channelGate(cfg, 'signal', '+905551234567');
     expect(g.allowed).toBe(true);
     expect(g.trusted).toBe(true);
   });
 
   it('allow-list kuruluysa YETKİSİZ gönderen: engellenir', () => {
-    const cfg = { signalAllowedNumbers: ['+905551234567'] };
+    const cfg = { signalAllowedNumbers: ['+905551234567'], signalDmPolicy: 'allowlist' };
     const g = channelGate(cfg, 'signal', '+900000000000');
     expect(g.allowed).toBe(false);
     expect(g.trusted).toBe(false);
@@ -34,10 +39,15 @@ describe('channelGate — gönderen doğrulaması + hafıza izolasyonu', () => {
 
   it('farklı kanal anahtarlarını tanır (AllowedChats/AllowedUsers)', () => {
     expect(channelGate({ mattermostAllowedUsers: ['u1'] }, 'mattermost', 'u1').trusted).toBe(true);
-    expect(channelGate({ ircAllowedChats: ['nick1'] }, 'irc', 'nick2').allowed).toBe(false);
+    expect(channelGate({ ircAllowedChats: ['nick1'], ircDmPolicy: 'allowlist' }, 'irc', 'nick2').allowed).toBe(false);
   });
 
   it('sayısal/string tip karışımını normalize eder', () => {
     expect(channelGate({ mattermostAllowedChats: [12345] }, 'mattermost', '12345').trusted).toBe(true);
+  });
+
+  it('yalnızca açıkça open seçilmiş kanalda hafızasız erişime izin verir', () => {
+    expect(channelGate({ telegramDmPolicy: 'open' }, 'telegram', 'guest'))
+      .toMatchObject({ allowed: true, trusted: false, reason: 'open' });
   });
 });

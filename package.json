@@ -1,6 +1,6 @@
 {
   "name": "natureco-cli",
-  "version": "5.63.0",
+  "version": "5.64.0",
   "description": "Terminal-native AI agent CLI with bilingual TR/EN UI, multi-agent orchestration, persistent memory, secure tools and messaging integrations.",
   "bin": {
     "natureco": "bin/natureco.js"
@@ -22,6 +22,7 @@
     "test:unit": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "perf:startup": "node scripts/benchmark-startup.js",
     "lint": "eslint src/ bin/ test/",
     "lint:fix": "eslint src/ bin/ test/ --fix",
     "lint:errors-only": "eslint src/ bin/ test/ --quiet",

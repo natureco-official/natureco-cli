@@ -1,6 +1,7 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const { executeThroughGateway } = require('../utils/tool-execution-gateway');
 const os = require('os');
 
 const WORKFLOW_DIR = path.join(os.homedir(), '.natureco', 'workflows');
@@ -517,7 +518,14 @@ async function workflow(params) {
           const toolMod = require(path.join(__dirname, '..', 'tools', step.tool + '.js'));
           const fn = toolMod.execute || (toolMod.default && toolMod.default.execute);
           if (!fn) { throw new Error(step.tool + ' toolunda execute fonksiyonu bulunamadi'); }
-          const toolResult = await fn(args);
+          const toolResult = await executeThroughGateway({
+            toolName: step.tool,
+            args,
+            resolveTool: () => toolMod,
+            execute: fn,
+            normalizeSuccess: value => value,
+            normalizeError: error => ({ success: false, error }),
+          });
           stepResults.push({ step: step.step, tool: step.tool, status: 'done', args, result: toolResult });
         } else if (msg.content) {
           stepResults.push({ step: step.step, tool: step.tool, status: 'done', note: 'Tool cagrilmadi, model dogrudan yanit verdi', content: msg.content.slice(0, 500) });
