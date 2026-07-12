@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const tui = require('../utils/tui');
 const F = require('../utils/format');
 const fs = require('fs');
@@ -349,10 +351,10 @@ async function gateway(action, ...args) {
   }
 
   F.section('Quick Start');
-  F.kv('natureco chat', 'Bot ile sohbet başlat');
-  F.kv('natureco setup', 'Kurulumu yeniden çalıştır');
-  F.kv('natureco gateway start', 'Gateway\'i arka planda başlat');
-  F.kv('natureco help', 'Tüm komutları göster');
+  F.kv('natureco chat', L('Bot ile sohbet başlat', 'Start chatting with the bot'));
+  F.kv('natureco setup', L('Kurulumu yeniden çalıştır', 'Re-run setup'));
+  F.kv('natureco gateway start', L('Gateway\'i arka planda başlat', 'Start the gateway in the background'));
+  F.kv('natureco help', L('Tüm komutları göster', 'Show all commands'));
 
   F.meta('Docs: natureco.me/cli');
 }
@@ -371,9 +373,9 @@ async function startGateway() {
     const existingPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10);
     try {
       process.kill(existingPid, 0); // Test et, canlı mı
-      console.log('\n' + tui.styled('  ⚠️  Gateway zaten çalışıyor (PID: ' + existingPid + ')', { color: tui.PALETTE.warning, bold: true }) + '\n');
-      console.log('  ' + tui.C.muted('Durdurmak için: ') + tui.C.brand('natureco gateway stop'));
-      console.log('  ' + tui.C.muted('Durum için:     ') + tui.C.brand('natureco gateway status'));
+      console.log('\n' + tui.styled(L('  ⚠️  Gateway zaten çalışıyor (PID: ', '  ⚠️  Gateway already running (PID: ') + existingPid + ')', { color: tui.PALETTE.warning, bold: true }) + '\n');
+      console.log('  ' + tui.C.muted(L('Durdurmak için: ', 'To stop: ')) + tui.C.brand('natureco gateway stop'));
+      console.log('  ' + tui.C.muted(L('Durum için:     ', 'For status:     ')) + tui.C.brand('natureco gateway status'));
       console.log('');
       return;
     } catch {
@@ -382,7 +384,7 @@ async function startGateway() {
     }
   }
 
-  console.log('\n' + tui.styled('  🚀 Gateway Başlatılıyor...', { color: tui.PALETTE.primary, bold: true }));
+  console.log('\n' + tui.styled(L('  🚀 Gateway Başlatılıyor...', '  🚀 Starting Gateway...'), { color: tui.PALETTE.primary, bold: true }));
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
 
   // Log dosyası
@@ -405,17 +407,17 @@ async function startGateway() {
   // Başarı kartı
   const cardW = 54;
   console.log(tui.styled('  ╭' + '─'.repeat(cardW) + '╮', { color: tui.PALETTE.border }));
-  console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Durum       ') + tui.styled('  ✓ Çalışıyor '.padEnd(36), { bg: tui.PALETTE.success, color: '#000', bold: true }) + tui.styled(' │', { color: tui.PALETTE.border }));
+  console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted(L('Durum       ', 'Status      ')) + tui.styled(L('  ✓ Çalışıyor ', '  ✓ Running ').padEnd(36), { bg: tui.PALETTE.success, color: '#000', bold: true }) + tui.styled(' │', { color: tui.PALETTE.border }));
   console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('PID         ') + tui.styled(String(child.pid).padEnd(40), { color: tui.PALETTE.text, bold: true }) + tui.styled(' │', { color: tui.PALETTE.border }));
-  console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Log dosyası ') + tui.styled(logFile.padEnd(40).slice(0, 40), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
+  console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted(L('Log dosyası ', 'Log file    ')) + tui.styled(logFile.padEnd(40).slice(0, 40), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
   console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Provider    ') + tui.styled((config.providerUrl || '—').replace('https://', '').padEnd(40).slice(0, 40), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
-  console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Telegram    ') + tui.styled((config.telegramToken ? '✓ Token ayarlı' : '✗ Token yok').padEnd(40), { color: config.telegramToken ? tui.PALETTE.success : tui.PALETTE.warning, bold: true }) + tui.styled(' │', { color: tui.PALETTE.border }));
+  console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Telegram    ') + tui.styled((config.telegramToken ? L('✓ Token ayarlı', '✓ Token set') : L('✗ Token yok', '✗ No token')).padEnd(40), { color: config.telegramToken ? tui.PALETTE.success : tui.PALETTE.warning, bold: true }) + tui.styled(' │', { color: tui.PALETTE.border }));
   console.log(tui.styled('  ╰' + '─'.repeat(cardW) + '╯', { color: tui.PALETTE.border }));
 
-  console.log('\n  ' + tui.C.muted('Komutlar:'));
-  console.log('  ' + tui.C.muted('  Durum:  ') + tui.C.brand('natureco gateway status'));
-  console.log('  ' + tui.C.muted('  Log:    ') + tui.C.brand('natureco gateway logs') + ' ' + tui.C.muted('veya ') + tui.C.brand('tail -f ' + logFile));
-  console.log('  ' + tui.C.muted('  Dur:    ') + tui.C.brand('natureco gateway stop'));
+  console.log('\n  ' + tui.C.muted(L('Komutlar:', 'Commands:')));
+  console.log('  ' + tui.C.muted(L('  Durum:  ', '  Status: ')) + tui.C.brand('natureco gateway status'));
+  console.log('  ' + tui.C.muted('  Log:    ') + tui.C.brand('natureco gateway logs') + ' ' + tui.C.muted(L('veya ', 'or ')) + tui.C.brand('tail -f ' + logFile));
+  console.log('  ' + tui.C.muted(L('  Dur:    ', '  Stop:   ')) + tui.C.brand('natureco gateway stop'));
   console.log('');
 }
 
@@ -485,30 +487,30 @@ async function startWhatsAppProvider(sessionDir, config) {
           if (trimmed.toLowerCase().startsWith('!code')) {
             const task = trimmed.replace(/^!code\s*/i, '').trim();
             if (!task) {
-              await sock.sendMessage(msg.key.remoteJid, { text: '⚙️ Kullanım: !code <görev>\nÖrnek: !code login sayfasına forgot password ekle' });
+              await sock.sendMessage(msg.key.remoteJid, { text: L('⚙️ Kullanım: !code <görev>\nÖrnek: !code login sayfasına forgot password ekle', '⚙️ Usage: !code <task>\nExample: !code add forgot password to the login page') });
               continue;
             }
-            console.log(chalk.cyan('[whatsapp]'), chalk.yellow(`!code komutu: ${task.slice(0, 60)}`));
+            console.log(chalk.cyan('[whatsapp]'), chalk.yellow(`!code ${L('komutu', 'command')}: ${task.slice(0, 60)}`));
 
             try {
               const { runCodeAgent } = require('../utils/headless');
-              await sock.sendMessage(msg.key.remoteJid, { text: `⚙️ Çalışıyor: ${task.slice(0, 80)}...` });
+              await sock.sendMessage(msg.key.remoteJid, { text: `⚙️ ${L('Çalışıyor', 'Running')}: ${task.slice(0, 80)}...` });
 
               const result = await runCodeAgent(task, process.cwd(), (progress) => {
                 console.log(chalk.cyan('[whatsapp/code]'), chalk.gray(progress));
               });
 
-              let reply = `✅ Tamamlandı!\n\n${result.reply}`;
+              let reply = `✅ ${L('Tamamlandı!', 'Done!')}\n\n${result.reply}`;
               if (result.filesChanged?.length) {
-                reply += `\n\n📝 Değiştirilen dosyalar:\n${result.filesChanged.map(f => `• ${f}`).join('\n')}`;
+                reply += `\n\n📝 ${L('Değiştirilen dosyalar', 'Changed files')}:\n${result.filesChanged.map(f => `• ${f}`).join('\n')}`;
               }
 
               await sock.sendMessage(msg.key.remoteJid, { text: reply.slice(0, 4000) });
-              console.log(chalk.cyan('[whatsapp]'), chalk.green(`!code tamamlandı (${result.iterations} iterasyon)`));
+              console.log(chalk.cyan('[whatsapp]'), chalk.green(`!code ${L('tamamlandı', 'completed')} (${result.iterations} ${L('iterasyon', 'iterations')})`));
             } catch (err) {
               const msg = err instanceof NatureCoError ? err.message : err?.message ?? 'Unknown error';
-              console.log(chalk.red('[whatsapp/code]'), chalk.gray(`hata: ${msg}`));
-              await sock.sendMessage(msg.key.remoteJid, { text: `❌ Hata: ${msg}` });
+              console.log(chalk.red('[whatsapp/code]'), chalk.gray(`${L('hata', 'error')}: ${msg}`));
+              await sock.sendMessage(msg.key.remoteJid, { text: `❌ ${L('Hata', 'Error')}: ${msg}` });
             }
             continue;
           }
