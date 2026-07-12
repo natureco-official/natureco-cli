@@ -2,6 +2,18 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.63.0] - 2026-07-12 — Complete English REPL localization
+
+### Changed
+- Completed the interactive REPL's Turkish/English localization across help, session headers, memory, plan review, identity prompts, command descriptions and workflow summaries.
+- Localized default user, assistant and empty-session labels for new English installations without changing existing saved personas.
+- Added English identity-question handling and language-aware internal plan/workflow instructions so responses remain in the selected interface language.
+- Removed the unused legacy `mattermost` client, upgraded `node-telegram-bot-api` to 1.1.2 and Discord to 14.26.5, and pinned its compatible patched `undici` 6.27.0 runtime.
+
+### Tests
+- Added a dedicated English REPL regression suite that prevents untranslated Turkish help text from returning.
+- Full validation: 49 test files, 640 passing tests (3 skipped), ESLint, CLI smoke test and npm package dry run.
+
 ## [5.51.4] - 2026-07-11 — "account: OTP kodu magiclink tipini de dener"
 
 ### Fixed

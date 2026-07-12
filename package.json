@@ -1,7 +1,7 @@
 {
   "name": "natureco-cli",
-  "version": "5.62.0",
-  "description": "OpenClaw'dan daha güvenli, daha hızlı, daha ucuz AI agent CLI. Multi-agent, self-evolving skills, audit log, maliyet optimizasyonu ve NatureCo platform-native.",
+  "version": "5.63.0",
+  "description": "Terminal-native AI agent CLI with bilingual TR/EN UI, multi-agent orchestration, persistent memory, secure tools and messaging integrations.",
   "bin": {
     "natureco": "bin/natureco.js"
   },
@@ -74,11 +74,10 @@
     "@whiskeysockets/baileys": "^7.0.0-rc10",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
-    "discord.js": "^14.26.4",
+    "discord.js": "^14.26.5",
     "irc": "^0.5.2",
-    "mattermost": "^3.4.0",
     "node-cron": "^4.2.1",
-    "node-telegram-bot-api": "^0.67.0",
+    "node-telegram-bot-api": "^1.1.2",
     "openai": "^6.45.0",
     "pino": "^8.21.0",
     "qrcode": "^1.5.4",
@@ -93,5 +92,8 @@
     "eslint": "^10.6.0",
     "globals": "^15.15.0",
     "vitest": "^4.1.9"
+  },
+  "overrides": {
+    "undici": "6.27.0"
   }
 }
