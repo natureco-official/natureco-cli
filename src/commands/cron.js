@@ -1,4 +1,6 @@
 const chalk = require('chalk');
+const { getLang: _gl } = require('../utils/i18n');
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const tui = require('../utils/tui');
 const F = require('../utils/format');
 const fs = require('fs');
@@ -40,8 +42,8 @@ function saveCrons(crons) {
 
 async function cron(action, options) {
   if (!action || !['add', 'list', 'remove', 'get', 'edit', 'enable', 'disable', 'runs', 'run'].includes(action)) {
-    console.log(chalk.red('\n❌ Geçersiz aksiyon\n'));
-    console.log(chalk.gray('Kullanım:'));
+    console.log(chalk.red(L('\n❌ Geçersiz aksiyon\n', '\n❌ Invalid action\n')));
+    console.log(chalk.gray(L('Kullanım:', 'Usage:')));
     console.log(chalk.cyan('  natureco cron add --name <name> --schedule <cron> --action <channel> --target <target> --prompt <prompt>'));
     console.log(chalk.cyan('  natureco cron list'));
     console.log(chalk.cyan('  natureco cron get <name>'));
@@ -51,8 +53,8 @@ async function cron(action, options) {
     console.log(chalk.cyan('  natureco cron disable <name>'));
     console.log(chalk.cyan('  natureco cron runs <name>'));
     console.log(chalk.cyan('  natureco cron run <name>'));
-    console.log(chalk.gray('\nÖrnek:'));
-    console.log(chalk.cyan('  natureco cron add --name "bitcoin-fiyat" --schedule "0 9 * * *" --action "whatsapp" --target "+905422842631" --prompt "Bugünkü Bitcoin fiyatını öğren ve kısaca bildir"\n'));
+    console.log(chalk.gray(L('\nÖrnek:', '\nExample:')));
+    console.log(chalk.cyan(L('  natureco cron add --name "bitcoin-fiyat" --schedule "0 9 * * *" --action "whatsapp" --target "+905422842631" --prompt "Bugünkü Bitcoin fiyatını öğren ve kısaca bildir"\n', '  natureco cron add --name "bitcoin-price" --schedule "0 9 * * *" --action "whatsapp" --target "+905422842631" --prompt "Get today\'s Bitcoin price and report briefly"\n')));
     process.exit(1);
   }
   
@@ -81,13 +83,13 @@ async function addCron(options) {
   const { name, schedule, action, target, prompt } = options;
   
   if (!name || !schedule || !action || !target || !prompt) {
-    console.log(chalk.red('\n❌ Eksik parametre\n'));
-    console.log(chalk.gray('Gerekli parametreler: --name, --schedule, --action, --target, --prompt\n'));
+    console.log(chalk.red(L('\n❌ Eksik parametre\n', '\n❌ Missing parameter\n')));
+    console.log(chalk.gray(L('Gerekli parametreler: --name, --schedule, --action, --target, --prompt\n', 'Required parameters: --name, --schedule, --action, --target, --prompt\n')));
     process.exit(1);
   }
   
   if (!['whatsapp', 'telegram'].includes(action)) {
-    console.log(chalk.red('\n❌ Geçersiz action. Sadece "whatsapp" veya "telegram" kullanılabilir\n'));
+    console.log(chalk.red(L('\n❌ Geçersiz action. Sadece "whatsapp" veya "telegram" kullanılabilir\n', '\n❌ Invalid action. Only "whatsapp" or "telegram" can be used\n')));
     process.exit(1);
   }
   
@@ -95,13 +97,13 @@ async function addCron(options) {
   try {
     const nodeCron = require('node-cron');
     if (!nodeCron.validate(schedule)) {
-      console.log(chalk.red('\n❌ Geçersiz cron ifadesi\n'));
-      console.log(chalk.gray('Örnek: "0 9 * * *" (her gün saat 09:00)\n'));
+      console.log(chalk.red(L('\n❌ Geçersiz cron ifadesi\n', '\n❌ Invalid cron expression\n')));
+      console.log(chalk.gray(L('Örnek: "0 9 * * *" (her gün saat 09:00)\n', 'Example: "0 9 * * *" (every day at 09:00)\n')));
       process.exit(1);
     }
   } catch (err) {
-    console.log(chalk.red('\n❌ node-cron yüklü değil\n'));
-    console.log(chalk.yellow('Yüklemek için:'), chalk.cyan('npm install -g node-cron\n'));
+    console.log(chalk.red(L('\n❌ node-cron yüklü değil\n', '\n❌ node-cron not installed\n')));
+    console.log(chalk.yellow(L('Yüklemek için:', 'To install:')), chalk.cyan('npm install -g node-cron\n'));
     process.exit(1);
   }
   
@@ -109,8 +111,8 @@ async function addCron(options) {
   
   // Check if name already exists
   if (crons.find(c => c.name === name)) {
-    console.log(chalk.red('\n❌ Bu isimde bir cron zaten var\n'));
-    console.log(chalk.yellow('Önce silin:'), chalk.cyan(`natureco cron remove --name "${name}"\n`));
+    console.log(chalk.red(L('\n❌ Bu isimde bir cron zaten var\n', '\n❌ A cron with this name already exists\n')));
+    console.log(chalk.yellow(L('Önce silin:', 'Delete it first:')), chalk.cyan(`natureco cron remove --name "${name}"\n`));
     process.exit(1);
   }
   
@@ -127,24 +129,24 @@ async function addCron(options) {
   crons.push(newCron);
   saveCrons(crons);
   
-  console.log(chalk.green('\n✅ Cron eklendi!\n'));
-  console.log(chalk.cyan('İsim:'), chalk.white(name));
-  console.log(chalk.cyan('Zamanlama:'), chalk.white(schedule));
-  console.log(chalk.cyan('Kanal:'), chalk.white(action));
-  console.log(chalk.cyan('Hedef:'), chalk.white(target));
+  console.log(chalk.green(L('\n✅ Cron eklendi!\n', '\n✅ Cron added!\n')));
+  console.log(chalk.cyan(L('İsim:', 'Name:')), chalk.white(name));
+  console.log(chalk.cyan(L('Zamanlama:', 'Schedule:')), chalk.white(schedule));
+  console.log(chalk.cyan(L('Kanal:', 'Channel:')), chalk.white(action));
+  console.log(chalk.cyan(L('Hedef:', 'Target:')), chalk.white(target));
   console.log(chalk.cyan('Prompt:'), chalk.white(prompt));
-  console.log(chalk.gray('\nCron\'lar gateway başlatıldığında aktif olur.'));
-  console.log(chalk.gray('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start\n'));
+  console.log(chalk.gray(L('\nCron\'lar gateway başlatıldığında aktif olur.', '\nCrons become active when the gateway starts.')));
+  console.log(chalk.gray(L('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start\n', 'If the gateway is running, restart it: natureco gateway stop && natureco gateway start\n')));
 }
 
 function listCrons() {
   const crons = loadCrons();
 
   if (crons.length === 0) {
-    console.log('\n' + tui.styled('  ⏰ Zamanlanmış Görevler', { color: tui.PALETTE.primary, bold: true }));
+    console.log('\n' + tui.styled(L('  ⏰ Zamanlanmış Görevler', '  ⏰ Scheduled Tasks'), { color: tui.PALETTE.primary, bold: true }));
     console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
-    console.log('\n  ' + tui.C.muted('Henüz cron tanımlı değil. Eklemek için:'));
-    console.log('  ' + tui.C.brand('natureco cron add --name "görev" --schedule "0 9 * * *" --action telegram --prompt "..."'));
+    console.log('\n  ' + tui.C.muted(L('Henüz cron tanımlı değil. Eklemek için:', 'No crons defined yet. To add:')));
+    console.log('  ' + tui.C.brand(L('natureco cron add --name "görev" --schedule "0 9 * * *" --action telegram --prompt "..."', 'natureco cron add --name "task" --schedule "0 9 * * *" --action telegram --prompt "..."')));
     console.log('');
     return;
   }
@@ -177,16 +179,16 @@ function listCrons() {
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
 
   console.log('\n' + tui.table(rows, [
-    { key: 'name', label: 'İsim', minWidth: 20, render: r => tui.styled(r.name, { color: tui.PALETTE.primary, bold: true }) },
-    { key: 'schedule', label: 'Zamanlama', minWidth: 18, render: r => tui.C.muted(r.schedule) },
+    { key: 'name', label: L('İsim', 'Name'), minWidth: 20, render: r => tui.styled(r.name, { color: tui.PALETTE.primary, bold: true }) },
+    { key: 'schedule', label: L('Zamanlama', 'Schedule'), minWidth: 18, render: r => tui.C.muted(r.schedule) },
     {
-      key: 'status', label: 'Durum', minWidth: 10,
+      key: 'status', label: L('Durum', 'Status'), minWidth: 10,
       render: r => r.status
-        ? tui.styled('  ✓ Aktif ', { bg: tui.PALETTE.success, color: '#000', bold: true })
-        : tui.styled(' ✗ Pasif ', { bg: tui.PALETTE.muted, color: '#000', bold: true }),
+        ? tui.styled(L('  ✓ Aktif ', '  ✓ Active '), { bg: tui.PALETTE.success, color: '#000', bold: true })
+        : tui.styled(L(' ✗ Pasif ', ' ✗ Inactive '), { bg: tui.PALETTE.muted, color: '#000', bold: true }),
     },
-    { key: 'target', label: 'Hedef', minWidth: 18, render: r => tui.C.text(r.target) },
-    { key: 'lastRun', label: 'Son Çalışma', minWidth: 18, render: r => tui.C.muted(r.lastRun) },
+    { key: 'target', label: L('Hedef', 'Target'), minWidth: 18, render: r => tui.C.text(r.target) },
+    { key: 'lastRun', label: L('Son Çalışma', 'Last Run'), minWidth: 18, render: r => tui.C.muted(r.lastRun) },
   ], { borderStyle: 'round', zebra: true }));
 
   console.log('');
@@ -196,7 +198,7 @@ function removeCron(options) {
   const { name } = options;
   
   if (!name) {
-    F.error('--name parametresi gerekli');
+    F.error(L('--name parametresi gerekli', '--name parameter required'));
     process.exit(1);
   }
   
@@ -204,39 +206,39 @@ function removeCron(options) {
   const index = crons.findIndex(c => c.name === name);
   
   if (index === -1) {
-    F.error('Bu isimde bir cron bulunamadı');
+    F.error(L('Bu isimde bir cron bulunamadı', 'No cron found with this name'));
     process.exit(1);
   }
   
   crons.splice(index, 1);
   saveCrons(crons);
   
-  F.success('Cron silindi!');
-  F.meta('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start');
+  F.success(L('Cron silindi!', 'Cron deleted!'));
+  F.meta(L('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start', 'If the gateway is running, restart it: natureco gateway stop && natureco gateway start'));
 }
 
 function getCron(options) {
   const { name } = options;
   if (!name) {
-    F.error('Cron adı gerekli. Kullanım: natureco cron get <name>');
+    F.error(L('Cron adı gerekli. Kullanım: natureco cron get <name>', 'Cron name required. Usage: natureco cron get <name>'));
     process.exit(1);
   }
 
   const crons = loadCrons();
   const cron = crons.find(c => c.name === name);
   if (!cron) {
-    F.error('"' + name + '" isminde bir cron bulunamadı');
+    F.error('"' + name + L('" isminde bir cron bulunamadı', '" — no cron found with this name'));
     process.exit(1);
   }
 
   F.header('Cron: ' + cron.name);
-  F.kv('İsim', cron.name);
-  F.kv('Zamanlama', cron.schedule);
-  F.kv('Kanal', cron.action);
-  F.kv('Hedef', cron.target);
+  F.kv(L('İsim', 'Name'), cron.name);
+  F.kv(L('Zamanlama', 'Schedule'), cron.schedule);
+  F.kv(L('Kanal', 'Channel'), cron.action);
+  F.kv(L('Hedef', 'Target'), cron.target);
   F.kv('Prompt', cron.prompt);
-  F.kv('Oluşturulma', cron.createdAt);
-  F.kv('Durum', cron.enabled ? 'Aktif' : 'Pasif');
+  F.kv(L('Oluşturulma', 'Created'), cron.createdAt);
+  F.kv(L('Durum', 'Status'), cron.enabled ? L('Aktif', 'Active') : L('Pasif', 'Inactive'));
 }
 
 function editCron(options) {
@@ -244,14 +246,14 @@ function editCron(options) {
   const newName = options['newName'];
 
   if (!name) {
-    F.error('Cron adı gerekli. Kullanım: natureco cron edit <name> [--name <newName>] [--schedule <cron>] [--action <channel>] [--target <target>] [--prompt <prompt>]');
+    F.error(L('Cron adı gerekli. Kullanım: natureco cron edit <name> [--name <newName>] [--schedule <cron>] [--action <channel>] [--target <target>] [--prompt <prompt>]', 'Cron name required. Usage: natureco cron edit <name> [--name <newName>] [--schedule <cron>] [--action <channel>] [--target <target>] [--prompt <prompt>]'));
     process.exit(1);
   }
 
   const crons = loadCrons();
   const cron = crons.find(c => c.name === name);
   if (!cron) {
-    F.error('"' + name + '" isminde bir cron bulunamadı');
+    F.error('"' + name + L('" isminde bir cron bulunamadı', '" — no cron found with this name'));
     process.exit(1);
   }
 
@@ -260,18 +262,18 @@ function editCron(options) {
     try {
       const nodeCron = require('node-cron');
       if (!nodeCron.validate(schedule)) {
-        F.error('Geçersiz cron ifadesi');
+        F.error(L('Geçersiz cron ifadesi', 'Invalid cron expression'));
         process.exit(1);
       }
     } catch (err) {
-      F.error('node-cron yüklü değil');
+      F.error(L('node-cron yüklü değil', 'node-cron not installed'));
       process.exit(1);
     }
     cron.schedule = schedule;
   }
   if (action) {
     if (!['whatsapp', 'telegram'].includes(action)) {
-      F.error('Geçersiz action. Sadece "whatsapp" veya "telegram" kullanılabilir');
+      F.error(L('Geçersiz action. Sadece "whatsapp" veya "telegram" kullanılabilir', 'Invalid action. Only "whatsapp" or "telegram" can be used'));
       process.exit(1);
     }
     cron.action = action;
@@ -281,65 +283,65 @@ function editCron(options) {
 
   saveCrons(crons);
 
-  F.success('Cron güncellendi!');
-  F.kv('İsim', cron.name);
-  F.kv('Zamanlama', cron.schedule);
-  F.kv('Kanal', cron.action);
-  F.kv('Hedef', cron.target);
+  F.success(L('Cron güncellendi!', 'Cron updated!'));
+  F.kv(L('İsim', 'Name'), cron.name);
+  F.kv(L('Zamanlama', 'Schedule'), cron.schedule);
+  F.kv(L('Kanal', 'Channel'), cron.action);
+  F.kv(L('Hedef', 'Target'), cron.target);
   F.kv('Prompt', cron.prompt);
-  F.meta('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start');
+  F.meta(L('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start', 'If the gateway is running, restart it: natureco gateway stop && natureco gateway start'));
 }
 
 function enableCron(options) {
   const { name } = options;
   if (!name) {
-    F.error('Cron adı gerekli. Kullanım: natureco cron enable <name>');
+    F.error(L('Cron adı gerekli. Kullanım: natureco cron enable <name>', 'Cron name required. Usage: natureco cron enable <name>'));
     process.exit(1);
   }
 
   const crons = loadCrons();
   const cron = crons.find(c => c.name === name);
   if (!cron) {
-    F.error('"' + name + '" isminde bir cron bulunamadı');
+    F.error('"' + name + L('" isminde bir cron bulunamadı', '" — no cron found with this name'));
     process.exit(1);
   }
 
   if (cron.enabled) {
-    F.warning('"' + name + '" cron zaten aktif');
+    F.warning('"' + name + L('" cron zaten aktif', '" cron already active'));
     return;
   }
 
   cron.enabled = true;
   saveCrons(crons);
   F.dot(true, name);
-  F.success('"' + name + '" cron aktifleştirildi');
-  F.meta('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start');
+  F.success('"' + name + L('" cron aktifleştirildi', '" cron enabled'));
+  F.meta(L('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start', 'If the gateway is running, restart it: natureco gateway stop && natureco gateway start'));
 }
 
 function disableCron(options) {
   const { name } = options;
   if (!name) {
-    F.error('Cron adı gerekli. Kullanım: natureco cron disable <name>');
+    F.error(L('Cron adı gerekli. Kullanım: natureco cron disable <name>', 'Cron name required. Usage: natureco cron disable <name>'));
     process.exit(1);
   }
 
   const crons = loadCrons();
   const cron = crons.find(c => c.name === name);
   if (!cron) {
-    F.error('"' + name + '" isminde bir cron bulunamadı');
+    F.error('"' + name + L('" isminde bir cron bulunamadı', '" — no cron found with this name'));
     process.exit(1);
   }
 
   if (!cron.enabled) {
-    F.warning('"' + name + '" cron zaten pasif');
+    F.warning('"' + name + L('" cron zaten pasif', '" cron already inactive'));
     return;
   }
 
   cron.enabled = false;
   saveCrons(crons);
   F.dot(false, name);
-  F.success('"' + name + '" cron pasifleştirildi');
-  F.meta('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start');
+  F.success('"' + name + L('" cron pasifleştirildi', '" cron disabled'));
+  F.meta(L('Gateway çalışıyorsa yeniden başlatın: natureco gateway stop && natureco gateway start', 'If the gateway is running, restart it: natureco gateway stop && natureco gateway start'));
 }
 
 function loadRuns() {
@@ -356,7 +358,7 @@ function loadRuns() {
 function showRuns(options) {
   const { name } = options;
   if (!name) {
-    F.error('Cron adı gerekli. Kullanım: natureco cron runs <name>');
+    F.error(L('Cron adı gerekli. Kullanım: natureco cron runs <name>', 'Cron name required. Usage: natureco cron runs <name>'));
     process.exit(1);
   }
 
@@ -365,7 +367,7 @@ function showRuns(options) {
   F.header('Cron Runs: ' + name);
 
   if (runs.length === 0) {
-    F.meta('"' + name + '" için kayıtlı çalışma geçmişi yok');
+    F.meta('"' + name + L('" için kayıtlı çalışma geçmişi yok', '" — no run history recorded'));
     return;
   }
 
@@ -380,25 +382,25 @@ function showRuns(options) {
 function runCron(options) {
   const { name } = options;
   if (!name) {
-    F.error('Cron adı gerekli. Kullanım: natureco cron run <name>');
+    F.error(L('Cron adı gerekli. Kullanım: natureco cron run <name>', 'Cron name required. Usage: natureco cron run <name>'));
     process.exit(1);
   }
 
   const crons = loadCrons();
   const cron = crons.find(c => c.name === name);
   if (!cron) {
-    F.error('"' + name + '" isminde bir cron bulunamadı');
+    F.error('"' + name + L('" isminde bir cron bulunamadı', '" — no cron found with this name'));
     process.exit(1);
   }
 
   const timestamp = new Date().toISOString();
 
-  F.info('"' + name + '" cron manuel olarak çalıştırılıyor...');
-  F.kv('Zamanlama', cron.schedule);
-  F.kv('Kanal', cron.action);
-  F.kv('Hedef', cron.target);
+  F.info('"' + name + L('" cron manuel olarak çalıştırılıyor...', '" cron running manually...'));
+  F.kv(L('Zamanlama', 'Schedule'), cron.schedule);
+  F.kv(L('Kanal', 'Channel'), cron.action);
+  F.kv(L('Hedef', 'Target'), cron.target);
   F.kv('Prompt', cron.prompt);
-  F.success('Cron tetiklendi (mock)');
+  F.success(L('Cron tetiklendi (mock)', 'Cron triggered (mock)'));
 
   // Log the run
   const runs = loadRuns();
