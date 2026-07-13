@@ -51,6 +51,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.64.6** | **Reliable MiniMax tool calls:** XML parameters are converted to their declared schema types, fixing `computer_use_loop` failures such as `maxSteps: expected number, got string`. |
 | **v5.64.5** | **Deterministic GUI recovery:** visible web tasks use one verified GUI loop; failures expose their concrete reason and stop blind browser/AppleScript fallback chains. |
 | **v5.64.4** | **Unified MiniMax media:** the existing MiniMax key now powers `MiniMax-VL-01` analysis, `image-01` generation, `MiniMax-Hailuo-2.3` video, and verified GUI vision—no second key required. |
 | **v5.64.3** | **Evidence-based GUI completion:** desktop actions require a changed screen plus independent visual evidence before success. MiniMax screenshots use the Token Plan VLM with the existing provider key. |

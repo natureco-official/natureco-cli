@@ -2,6 +2,16 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.64.6] - 2026-07-13 — Typed MiniMax tool arguments
+
+### Fixed
+- MiniMax XML tool parameters are now coerced from text to their declared JSON Schema types before validation and execution.
+- `computer_use_loop` now accepts XML values such as `<parameter name="maxSteps">30</parameter>` as the number `30`, so visible GUI automation starts instead of failing with `expected number, got string`.
+- Conversion also covers integer, boolean, object, and array parameters while leaving invalid values untouched for normal schema validation.
+
+### Tests
+- Added regressions for valid type conversion, invalid-value preservation, and the exact `computer_use_loop` `maxSteps` failure reported on macOS.
+
 ## [5.64.5] - 2026-07-13 — Deterministic visible-browser recovery
 
 ### Fixed

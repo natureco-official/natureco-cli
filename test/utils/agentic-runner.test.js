@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import mod from '../../src/tools/agentic-runner.js';
 
-const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback } = mod;
+const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback, coerceArgsForSchema } = mod;
 
 describe('parseAgenticCalls', () => {
   it('<minimax:tool_call> icindeki write_file (path+content) cagirisini cozer', () => {
@@ -68,6 +68,37 @@ describe('stripProtocolTokens', () => {
   it('invoke/skill/minimax bloklarini temizler', () => {
     const s = 'Ozet metni.<minimax:tool_call><invoke name="x"></invoke></minimax:tool_call><skill>y</skill>';
     expect(stripProtocolTokens(s)).toBe('Ozet metni.');
+  });
+});
+
+describe('XML arac argumani tip donusumu', () => {
+  it('JSON Schema tiplerine gore number/integer/boolean/object/array donusturur', () => {
+    const schema = { properties: {
+      maxSteps: { type: 'number' }, count: { type: 'integer' }, enabled: { type: 'boolean' },
+      options: { type: 'object' }, items: { type: 'array' }, label: { type: 'string' },
+    } };
+    expect(coerceArgsForSchema({ maxSteps: '30', count: '4', enabled: 'false', options: '{"x":1}', items: '[1,2]', label: '30' }, schema)).toEqual({
+      maxSteps: 30, count: 4, enabled: false, options: { x: 1 }, items: [1, 2], label: '30',
+    });
+  });
+
+  it('gecersiz degeri sessizce NaN veya yanlis tipe cevirmeden korur', () => {
+    expect(coerceArgsForSchema({ maxSteps: 'otuz', items: '{"x":1}' }, {
+      properties: { maxSteps: { type: 'number' }, items: { type: 'array' } },
+    })).toEqual({ maxSteps: 'otuz', items: '{"x":1}' });
+  });
+
+  it('computer_use_loop maxSteps XML metnini calistirmadan once sayiya cevirir', async () => {
+    let received;
+    const loadTool = () => ({
+      parameters: { type: 'object', properties: { goal: { type: 'string' }, maxSteps: { type: 'number' } }, required: ['goal'] },
+      execute: async (args) => { received = args; return { success: true, verified: true }; },
+    });
+    const { records } = await executeCall({ tool: 'computer_use_loop', args: { goal: 'mesaj gonder', maxSteps: '30' } }, {
+      loadTool, execFull: true,
+    });
+    expect(received.maxSteps).toBe(30);
+    expect(records[0].status).toBe('done');
   });
 });
 

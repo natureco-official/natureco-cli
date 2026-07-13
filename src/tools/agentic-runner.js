@@ -288,6 +288,37 @@ function buildFeedback(norm, res) {
   return body ? `${head}:\n${body}` : head;
 }
 
+function coerceArgsForSchema(args, schema) {
+  if (!args || typeof args !== 'object' || !schema || typeof schema !== 'object') return { ...(args || {}) };
+  const properties = schema.properties || {};
+  const result = { ...args };
+
+  for (const [key, property] of Object.entries(properties)) {
+    const value = result[key];
+    if (typeof value !== 'string' || !property) continue;
+    const types = Array.isArray(property.type) ? property.type : [property.type];
+    const trimmed = value.trim();
+
+    if (types.includes('integer') && /^[-+]?\d+$/.test(trimmed)) {
+      const number = Number(trimmed);
+      if (Number.isSafeInteger(number)) result[key] = number;
+    } else if (types.includes('number') && trimmed !== '' && Number.isFinite(Number(trimmed))) {
+      result[key] = Number(trimmed);
+    } else if (types.includes('boolean') && /^(true|false)$/i.test(trimmed)) {
+      result[key] = trimmed.toLowerCase() === 'true';
+    } else if (types.includes('object') || types.includes('array')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if ((types.includes('array') && Array.isArray(parsed)) ||
+            (types.includes('object') && parsed && typeof parsed === 'object' && !Array.isArray(parsed))) {
+          result[key] = parsed;
+        }
+      } catch {}
+    }
+  }
+  return result;
+}
+
 /**
  * Tek bir parse edilmis cagriyi calistir.
  * Donus: { records: [...], feedback: '...' }
@@ -389,9 +420,11 @@ async function executeCall(call, opts = {}) {
     records.push({ tool: norm, status: 'error', error: 'execute yok' });
     return { records, feedback: `${norm} HATA: execute fonksiyonu yok` };
   }
+  const schema = mod.inputSchema || mod.parameters || (mod.default && (mod.default.inputSchema || mod.default.parameters));
+  const typedArgs = coerceArgsForSchema(args, schema);
   const res = await executeThroughGateway({
     toolName: norm,
-    args,
+    args: typedArgs,
     resolveTool: () => mod,
     execute: fn,
     normalizeSuccess: value => value,
@@ -401,7 +434,7 @@ async function executeCall(call, opts = {}) {
   const ok = typeof res === 'string' ? true : (res && res.success !== false);
   const status = ok ? 'done' : 'error';
   const feedback = buildFeedback(norm, res);
-  records.push({ tool: norm, status, args: sanitizeArgs(args), result: res, error: ok ? undefined : res.error });
+  records.push({ tool: norm, status, args: sanitizeArgs(typedArgs), result: res, error: ok ? undefined : res.error });
   return { records, feedback };
 }
 
@@ -462,4 +495,4 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
   return { records: allRecords, reply: finalReply, iterations };
 }
 
-module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback, TOOL_ALIASES, DEFAULT_ALLOWED };
+module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback, coerceArgsForSchema, TOOL_ALIASES, DEFAULT_ALLOWED };
