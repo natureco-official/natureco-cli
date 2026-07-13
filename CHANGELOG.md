@@ -2,6 +2,16 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.64.7] - 2026-07-13 — Resilient GUI vision decisions
+
+### Fixed
+- GUI actions now validate required coordinates, text, and keys before generating macOS AppleScript, preventing `undefined değişkeni tanımlanmamış` failures.
+- Truncated, malformed, empty, or Markdown-wrapped vision JSON is handled safely; invalid decisions trigger another visual-analysis step instead of crashing the GUI loop.
+- The independent completion verifier now treats malformed JSON as failed evidence rather than throwing.
+
+### Tests
+- Added regressions for missing GUI parameters, Markdown JSON responses, and the exact unterminated-string response reported with MiniMax vision.
+
 ## [5.64.6] - 2026-07-13 — Typed MiniMax tool arguments
 
 ### Fixed

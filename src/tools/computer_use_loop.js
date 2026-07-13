@@ -133,17 +133,41 @@ function evaluateCompletionEvidence({ mutationCount, initialHash, currentHash, v
 async function verifyGoal(providerUrl, apiKey, model, goal, screenshot) {
   const prompt = `You are a strict independent verifier. Inspect only the screenshot. Goal: ${goal}\nReturn JSON only: {"verified":boolean,"confidence":0..1,"evidence":"exact visible evidence","reason":"why not"}. Never infer success from the goal text. If the requested sent message, booking, purchase, or confirmation is not visibly present, verified must be false.`;
   const reply = await visionCall(providerUrl, apiKey, model, prompt, screenshot);
-  try { return JSON.parse(reply); }
-  catch {
-    const match = reply.match(/\{[\s\S]*\}/);
-    return match ? JSON.parse(match[0]) : { verified: false, confidence: 0, reason: 'Verifier returned invalid JSON' };
+  const parsed = parseVisionDecision(reply);
+  return parsed.success ? parsed.value : { verified: false, confidence: 0, reason: 'Verifier returned invalid JSON: ' + parsed.error };
+}
+
+function parseVisionDecision(reply) {
+  const raw = String(reply || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  const candidates = [raw];
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start >= 0 && end > start) candidates.push(raw.slice(start, end + 1));
+  for (const candidate of candidates) {
+    try {
+      const value = JSON.parse(candidate);
+      if (value && typeof value === 'object' && !Array.isArray(value)) return { success: true, value };
+    } catch {}
   }
+  return { success: false, error: raw ? 'malformed or truncated JSON' : 'empty vision response' };
+}
+
+function validateAction(action, params = {}) {
+  const finite = value => typeof value === 'number' && Number.isFinite(value);
+  if (!['click', 'type', 'keypress', 'mouse_move', 'scroll', 'wait', 'done'].includes(action)) return 'Unknown action: ' + action;
+  if ((action === 'click' || action === 'mouse_move') && (!finite(params.x) || !finite(params.y))) return action + ' requires finite numeric x and y';
+  if (action === 'scroll' && !finite(params.y)) return 'scroll requires a finite numeric y';
+  if (action === 'type' && typeof params.text !== 'string') return 'type requires text';
+  if (action === 'keypress' && (typeof params.key !== 'string' || !params.key.trim())) return 'keypress requires key';
+  return null;
 }
 
 function executeAction(action, params) {
   const { spawnSync } = require('child_process');
   const PLATFORM = os.platform();
 
+  const invalid = validateAction(action, params);
+  if (invalid) return { success: false, error: invalid };
   const ESC = (s) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
   function osaScript(script, timeoutMs = 10000) {
@@ -232,15 +256,17 @@ async function loop(goal, maxSteps) {
       const history = steps.filter(s => s.action && s.action !== 'screenshot' && s.action !== 'done').slice(-5);
       const historyText = history.length > 0 ? '\nOnceki adimlar:\n' + history.map(h => 'Adim ' + h.step + ': ' + JSON.stringify(h)).join('\n') : '';
       const reply = await visionCall(providerUrl, apiKey, model, SYSTEM_PROMPT + '\n\nGorev: ' + goal + historyText + '\n\nEkran goruntusunu analiz et. Siradaki action ne?', screenshot);
-      let decision;
-      try {
-        decision = JSON.parse(reply);
-      } catch {
-        const m = reply.match(/\{[\s\S]*\}/);
-        decision = m ? JSON.parse(m[0]) : { action: 'wait' };
+      const parsedDecision = parseVisionDecision(reply);
+      if (!parsedDecision.success) {
+        steps.push({ step: i + 1, action: 'vision_retry', error: parsedDecision.error });
+        continue;
       }
-
-      if (!decision.action) decision.action = 'wait';
+      const decision = parsedDecision.value;
+      const invalidDecision = validateAction(decision.action, decision);
+      if (invalidDecision) {
+        steps.push({ step: i + 1, action: 'vision_retry', error: invalidDecision });
+        continue;
+      }
 
       // 3. Execute
       if (decision.action === 'done') {
@@ -307,4 +333,4 @@ async function execute(params) {
   return await loop(params.goal, params.maxSteps || 30);
 }
 
-module.exports = { name, description, parameters, execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall };
+module.exports = { name, description, parameters, execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall, parseVisionDecision, validateAction };

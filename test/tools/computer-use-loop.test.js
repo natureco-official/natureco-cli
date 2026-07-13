@@ -1,4 +1,4 @@
-const { executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall } = require('../../src/tools/computer_use_loop');
+const { executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall, parseVisionDecision, validateAction } = require('../../src/tools/computer_use_loop');
 
 describe('computer_use_loop macOS actions', () => {
   it('exposes the action executor for platform regression coverage', () => {
@@ -7,6 +7,25 @@ describe('computer_use_loop macOS actions', () => {
 
   it('rejects an unknown action instead of reporting success', () => {
     expect(executeAction('not-real', {})).toEqual({ success: false, error: 'Unknown action: not-real' });
+  });
+
+  it('AppleScript calistirmadan eksik koordinat ve metni reddeder', () => {
+    expect(executeAction('click', { x: undefined, y: 20 }).error).toContain('numeric x and y');
+    expect(executeAction('type', {}).error).toContain('requires text');
+    expect(validateAction('keypress', { key: undefined })).toContain('requires key');
+  });
+});
+
+describe('computer_use_loop vision JSON parsing', () => {
+  it('duz ve markdown JSON kararlarini ayristirir', () => {
+    expect(parseVisionDecision('{"action":"click","x":10,"y":20}').value.action).toBe('click');
+    expect(parseVisionDecision('```json\n{"action":"wait"}\n```').value.action).toBe('wait');
+  });
+
+  it('yarim kalmis JSON yanitini throw etmeden retry hatasina cevirir', () => {
+    const result = parseVisionDecision('{"action":"type","text":"selam');
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('truncated JSON');
   });
 });
 
