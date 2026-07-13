@@ -362,4 +362,25 @@ describe('runAgentic dongusu', () => {
     expect(reply).toBe('Dosya olusturuldu.');
     expect(iterations).toBe(2);
   });
+
+  it('dogrulanamayan GUI dongusunden sonra kor arac denemelerine devam etmez', async () => {
+    let modelCalls = 0;
+    const callModel = async () => {
+      modelCalls++;
+      return {
+        content: '<minimax:tool_call><invoke name="computer_use_loop"><parameter name="goal">mesaj gonder</parameter></invoke></minimax:tool_call>',
+        toolCalls: [],
+      };
+    };
+    const loadTool = (name) => ({
+      execute: async () => name === 'computer_use_loop'
+        ? { success: false, error: 'Goal was not verified: screen unchanged' }
+        : { success: true },
+    });
+    const result = await runAgentic({ callModel, systemPrompt: 's', task: 't', loadTool, execFull: true, maxIterations: 5 });
+    expect(modelCalls).toBe(1);
+    expect(result.reply).toContain('screen unchanged');
+    expect(result.records).toHaveLength(1);
+    expect(result.records[0].status).toBe('error');
+  });
 });

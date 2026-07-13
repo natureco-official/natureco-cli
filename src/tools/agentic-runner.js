@@ -112,7 +112,7 @@ const AGENT_EXEC_BLOCK_PATTERNS = [
 ];
 // Full modda ("agentExec: full") acilan computer-use araclari: tarayici otomasyonu,
 // uygulama ac/kapat, GUI (tikla/yaz/ekran goruntusu). Safe modda (varsayilan) KAPALI.
-const FULL_TOOLS = ['browser', 'browser_use', 'mac_app_open', 'mac_app_quit', 'social_open', 'computer_use', 'macos_screenshot'];
+const FULL_TOOLS = ['browser', 'browser_use', 'mac_app_open', 'mac_app_quit', 'social_open', 'computer_use', 'computer_use_loop', 'macos_screenshot'];
 function agentExecAllowed(command, opts) {
   if (opts && opts.full) return true;
   if (String(process.env.NATURECO_AGENT_EXEC || '').toLowerCase() === 'full') return true;
@@ -438,6 +438,16 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
       if (onEvent) { try { onEvent({ phase: 'end', tool: call.tool, args: call.args, records }); } catch {} }
       allRecords.push(...records);
       feedbacks.push(feedback);
+    }
+    // A verified GUI loop is the authority for visible multi-step desktop work.
+    // If it fails, do not let the text model fan out into blind screenshots,
+    // binary read_file calls, headless browser guesses, or brittle AppleScript
+    // tab enumeration in the same turn. Surface the evidence failure instead;
+    // a user-requested retry starts a clean new turn.
+    const guiFailure = allRecords.find(record => record.tool === 'computer_use_loop' && record.status === 'error');
+    if (guiFailure) {
+      finalReply = `GUI görevi doğrulanamadı: ${guiFailure.error || guiFailure.result?.error || 'bilinmeyen hata'}`;
+      break;
     }
     messages.push({
       role: 'user',

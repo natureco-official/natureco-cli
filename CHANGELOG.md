@@ -2,6 +2,17 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.64.5] - 2026-07-13 — Deterministic visible-browser recovery
+
+### Fixed
+- Added `computer_use_loop` to the full-mode GUI tool set and documented it as the single authority for visible multi-step desktop tasks.
+- Clarified that the headless `browser` tool only accepts `open`, `screenshot`, `evaluate`, and `html`; it does not support `navigate`, `click`, or `type` and every call requires a URL.
+- After a verified GUI loop fails, the agent now stops the current turn instead of fanning out into blind screenshots, binary `read_file`, invalid headless-browser actions, or brittle AppleScript window/tab index enumeration.
+- GUI failures now include the last concrete verification/action error instead of only returning `Goal was not verified`.
+
+### Tests
+- Added regression coverage proving an unverified GUI loop ends the agentic turn immediately and preserves the failure reason.
+
 ## [5.64.4] - 2026-07-13 — Unified MiniMax media routing
 
 ### Added

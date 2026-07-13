@@ -285,7 +285,9 @@ async function loop(goal, maxSteps) {
   }
 
   if (!completed) {
-    return { success: false, error: 'Goal was not verified', goal, totalSteps: steps.length, steps };
+    const lastFailure = [...steps].reverse().find(step => step.error);
+    const detail = lastFailure?.error || 'No visible completion evidence was produced';
+    return { success: false, error: 'Goal was not verified: ' + detail, goal, totalSteps: steps.length, steps };
   }
   return { success: true, verified: true, evidence: completionEvidence.evidence, confidence: completionEvidence.confidence, goal, totalSteps: steps.length, steps };
 }

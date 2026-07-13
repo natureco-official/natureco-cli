@@ -51,6 +51,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.64.5** | **Deterministic GUI recovery:** visible web tasks use one verified GUI loop; failures expose their concrete reason and stop blind browser/AppleScript fallback chains. |
 | **v5.64.4** | **Unified MiniMax media:** the existing MiniMax key now powers `MiniMax-VL-01` analysis, `image-01` generation, `MiniMax-Hailuo-2.3` video, and verified GUI vision—no second key required. |
 | **v5.64.3** | **Evidence-based GUI completion:** desktop actions require a changed screen plus independent visual evidence before success. MiniMax screenshots use the Token Plan VLM with the existing provider key. |
 | **v5.64.2** | **Reliable macOS GUI automation:** tool names stay visible in REPL transcripts, visual tasks use a verified screenshot loop, MiniMax GUI routing avoids duplicate paths, and failed/unverified actions no longer claim success. |
