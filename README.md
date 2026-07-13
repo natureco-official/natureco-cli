@@ -51,6 +51,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.64.3** | **Evidence-based GUI completion:** desktop actions require a changed screen plus independent visual evidence before success. MiniMax text models fail closed unless a dedicated vision model is configured. |
 | **v5.64.2** | **Reliable macOS GUI automation:** tool names stay visible in REPL transcripts, visual tasks use a verified screenshot loop, MiniMax GUI routing avoids duplicate paths, and failed/unverified actions no longer claim success. |
 | **v5.64.1** | **Reliable follow-ups + lower token cost:** `natureco code` now preserves same-session context across workflow calls and caps repeated history by token budget (1,024 / 2,048 / 8,192). Provider labels are rendered correctly. |
 | **v5.64.0** | **Unified secure agent foundation:** one execution gateway, hard-stop guardrails, schema-validated tools, rollback/checkpoints, sourced memory, resilient channel delivery, OS keychains and encrypted sync. |
@@ -132,6 +133,18 @@ NatureCo uses progressive disclosure and bounded context instead of sending ever
 - `natureco ask` stays tool-free by default; use `--tools` only when an action is required.
 
 For a 32,000-character previous response, the Balanced profile bounds repeated history to about 2,048 tokens instead of roughly 8,000—a reduction of approximately 74% for that repeated context.
+
+### 👁️ Verified GUI Automation
+
+Screenshot-driven desktop automation requires a vision-capable OpenAI-compatible model. Text-only models such as MiniMax M-series remain available for chat, while GUI vision can use a separate provider:
+
+```bash
+natureco config set guiVisionProviderUrl https://api.openai.com/v1
+natureco config set guiVisionApiKey "$OPENAI_API_KEY"
+natureco config set guiVisionModel gpt-4.1-mini
+```
+
+NatureCo reports GUI success only after a state-changing action, a changed screen, and a separate visual verification with explicit evidence. Purchasing, booking, sending, or other consequential actions should still be reviewed at the final confirmation step.
 
 ### 📡 10 Messaging Channels
 

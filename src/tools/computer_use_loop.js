@@ -9,10 +9,31 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { buildChatEndpoint } = require('../utils/provider-detect');
+const crypto = require('crypto');
+const { buildChatEndpoint, isMiniMax } = require('../utils/provider-detect');
 
 function loadConfig() {
   try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; }
+}
+
+function resolveVisionConfig(cfg) {
+  const main = {
+    providerUrl: cfg.providerUrl,
+    apiKey: cfg.providerApiKey,
+    model: cfg.providerModel || 'default',
+  };
+  const explicit = cfg.guiVisionProviderUrl && cfg.guiVisionApiKey && cfg.guiVisionModel
+    ? { providerUrl: cfg.guiVisionProviderUrl, apiKey: cfg.guiVisionApiKey, model: cfg.guiVisionModel }
+    : null;
+  if (explicit) return { success: true, ...explicit, dedicated: true };
+  if (isMiniMax(main.providerUrl) || /^MiniMax-M/i.test(main.model)) {
+    return {
+      success: false,
+      error: 'MiniMax M-series text models do not support screenshot input. Configure an OpenAI-compatible vision model with guiVisionProviderUrl, guiVisionApiKey and guiVisionModel.',
+    };
+  }
+  if (!main.providerUrl || !main.apiKey) return { success: false, error: 'Provider not configured' };
+  return { success: true, ...main, dedicated: false };
 }
 
 function apiCall(providerUrl, apiKey, body) {
@@ -38,13 +59,48 @@ function apiCall(providerUrl, apiKey, body) {
   });
 }
 
-function screenshotBase64() {
+function captureScreenshot() {
   if (os.platform() !== 'darwin') throw new Error('computer_use_loop currently requires macOS');
   const file = path.join(os.tmpdir(), 'ncloop_' + Date.now() + '.png');
   require('child_process').execSync('screencapture -x "' + file + '"', { timeout: 5000 });
   const buf = fs.readFileSync(file);
   fs.unlinkSync(file);
-  return buf.toString('base64');
+  return {
+    base64: buf.toString('base64'),
+    hash: crypto.createHash('sha256').update(buf).digest('hex'),
+  };
+}
+
+function evaluateCompletionEvidence({ mutationCount, initialHash, currentHash, verification }) {
+  if (mutationCount < 1) return { verified: false, error: 'No state-changing GUI action was executed' };
+  if (!initialHash || !currentHash || initialHash === currentHash) {
+    return { verified: false, error: 'The screen did not change after GUI actions' };
+  }
+  if (!verification || verification.verified !== true) {
+    return { verified: false, error: verification?.reason || 'Visual verifier could not confirm the goal' };
+  }
+  const confidence = Number(verification.confidence || 0);
+  if (confidence < 0.8 || !String(verification.evidence || '').trim()) {
+    return { verified: false, error: 'Visual verification evidence was insufficient' };
+  }
+  return { verified: true, evidence: String(verification.evidence).trim(), confidence };
+}
+
+async function verifyGoal(providerUrl, apiKey, model, goal, screenshot) {
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'text', text: `You are a strict independent verifier. Inspect only the screenshot. Goal: ${goal}\nReturn JSON only: {"verified":boolean,"confidence":0..1,"evidence":"exact visible evidence","reason":"why not"}. Never infer success from the goal text. If the requested sent message, booking, purchase, or confirmation is not visibly present, verified must be false.` },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,' + screenshot.base64 } },
+    ],
+  }];
+  const result = await apiCall(providerUrl, apiKey, { model, messages, stream: false, temperature: 0, max_tokens: 300 });
+  const reply = result.choices?.[0]?.message?.content || '';
+  try { return JSON.parse(reply); }
+  catch {
+    const match = reply.match(/\{[\s\S]*\}/);
+    return match ? JSON.parse(match[0]) : { verified: false, confidence: 0, reason: 'Verifier returned invalid JSON' };
+  }
 }
 
 function executeAction(action, params) {
@@ -110,17 +166,14 @@ Actions:
 - wait: { "action": "wait" }
 - done: { "action": "done", "reason": "gorev tamamlandi" }
 
+"done" yalnız görev sonucunu mevcut ekranda açıkça görüyorsan kullanılabilir. Bir mesajı yazmak gönderildiği anlamına gelmez; gönderilen mesajın konuşmada görünmesi gerekir.
 Sadece JSON yanit ver, baska metin ekleme. Her action'dan sonra otomatik screenshot alinir, sen sadece bir sonraki en mantikli adimi soyle.`;
 
 async function loop(goal, maxSteps) {
   const cfg = loadConfig();
-  const providerUrl = cfg.providerUrl;
-  const apiKey = cfg.providerApiKey;
-  const model = cfg.providerModel || 'default';
-
-  if (!providerUrl || !apiKey) {
-    return { success: false, error: 'Provider not configured' };
-  }
+  const vision = resolveVisionConfig(cfg);
+  if (!vision.success) return vision;
+  const { providerUrl, apiKey, model } = vision;
 
   if (os.platform() !== 'darwin') {
     return { success: false, error: 'computer_use_loop currently requires macOS' };
@@ -128,10 +181,14 @@ async function loop(goal, maxSteps) {
 
   const steps = [];
   let completed = false;
+  let initialHash = null;
+  let mutationCount = 0;
+  let completionEvidence = null;
   for (let i = 0; i < maxSteps; i++) {
     try {
       // 1. Screenshot
-      const b64 = screenshotBase64();
+      const screenshot = captureScreenshot();
+      if (!initialHash) initialHash = screenshot.hash;
       steps.push({ step: i + 1, action: 'screenshot' });
 
       // 2. LLM vision analysis
@@ -150,7 +207,7 @@ async function loop(goal, maxSteps) {
         role: 'user',
         content: [
           { type: 'text', text: 'Gorev: ' + goal + '\n\nEkran goruntusunu analiz et. Siradaki action ne?' },
-          { type: 'image_url', image_url: { url: 'data:image/png;base64,' + b64 } },
+          { type: 'image_url', image_url: { url: 'data:image/png;base64,' + screenshot.base64 } },
         ],
       });
 
@@ -176,13 +233,21 @@ async function loop(goal, maxSteps) {
 
       // 3. Execute
       if (decision.action === 'done') {
-        steps.push({ step: i + 1, action: 'done', reason: decision.reason || 'Goal achieved' });
-        completed = true;
-        break;
+        const verification = await verifyGoal(providerUrl, apiKey, model, goal, screenshot);
+        const evidence = evaluateCompletionEvidence({ mutationCount, initialHash, currentHash: screenshot.hash, verification });
+        if (evidence.verified) {
+          steps.push({ step: i + 1, action: 'verified', evidence: evidence.evidence, confidence: evidence.confidence });
+          completionEvidence = evidence;
+          completed = true;
+          break;
+        }
+        steps.push({ step: i + 1, action: 'verification_failed', error: evidence.error });
+        continue;
       }
 
       const execResult = executeAction(decision.action, decision);
-      steps.push({ step: i + 1, action: decision.action, params: decision, result: execResult.success });
+      const safeParams = decision.action === 'type' ? { action: 'type', text: '[redacted]' } : decision;
+      steps.push({ step: i + 1, action: decision.action, params: safeParams, result: execResult.success });
 
       if (!execResult.success) {
         // Retry once with wait
@@ -193,6 +258,7 @@ async function loop(goal, maxSteps) {
           return { success: false, error: execResult.error, goal, totalSteps: steps.length, steps };
         }
       }
+      if (['click', 'type', 'keypress', 'scroll', 'drag'].includes(decision.action)) mutationCount++;
 
       // Small delay between actions
       require('child_process').execSync('sleep 0.5');
@@ -210,7 +276,7 @@ async function loop(goal, maxSteps) {
   if (!completed) {
     return { success: false, error: 'Goal was not verified', goal, totalSteps: steps.length, steps };
   }
-  return { success: true, goal, totalSteps: steps.length, steps };
+  return { success: true, verified: true, evidence: completionEvidence.evidence, confidence: completionEvidence.confidence, goal, totalSteps: steps.length, steps };
 }
 
 const name = 'computer_use_loop';
@@ -228,4 +294,4 @@ async function execute(params) {
   return await loop(params.goal, params.maxSteps || 30);
 }
 
-module.exports = { name, description, parameters, execute, executeAction };
+module.exports = { name, description, parameters, execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig };

@@ -353,7 +353,8 @@ async function workflow(params) {
           // Satırı burada bitir. Sonraki model çağrısının thinking göstergesi
           // mevcut satırı \r + erase-line ile temizlediği için newline yoksa
           // kullanıcı araç adını ve sonucunu hiç göremiyordu.
-          process.stdout.write((rec.status === 'done' ? ' \x1b[32m✓\x1b[0m' : ' \x1b[31m✗\x1b[0m') + '\n');
+          const error = rec.status === 'done' ? '' : String(rec.error || rec.result?.error || '').replace(/\s+/g, ' ').slice(0, 100);
+          process.stdout.write((rec.status === 'done' ? ' \x1b[32m✓\x1b[0m' : ' \x1b[31m✗\x1b[0m') + (error ? ' \x1b[31m' + error + '\x1b[0m' : '') + '\n');
         }
       } : null;
 

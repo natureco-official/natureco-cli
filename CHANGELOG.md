@@ -2,6 +2,21 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.64.3] - 2026-07-13 — Evidence-based GUI completion
+
+### Fixed
+- `computer_use_loop` no longer trusts the action model's `done` claim as proof of completion.
+- GUI success now requires a real state-changing action, a changed screenshot hash, and a separate visual-verification pass with explicit evidence and at least 80% confidence.
+- Failed GUI tools now display the error reason beside the persistent `✗` status line.
+- Typed values are redacted from GUI step history.
+- MiniMax M-series text models fail closed for screenshot tasks instead of hallucinating visual state; a dedicated OpenAI-compatible vision provider can be configured while keeping MiniMax for chat.
+
+### Configuration
+- Added `guiVisionProviderUrl`, `guiVisionApiKey`, and `guiVisionModel` settings for screenshot analysis and verification.
+
+### Tests
+- Added regression coverage for no-action claims, unchanged screens, weak evidence, verified completion, MiniMax fail-closed behavior, and dedicated vision-provider routing.
+
 ## [5.64.2] - 2026-07-13 — Visible and reliable macOS GUI automation
 
 ### Fixed
