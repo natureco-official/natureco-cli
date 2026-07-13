@@ -1,4 +1,4 @@
-const { executeAction, evaluateCompletionEvidence, resolveVisionConfig } = require('../../src/tools/computer_use_loop');
+const { executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall } = require('../../src/tools/computer_use_loop');
 
 describe('computer_use_loop macOS actions', () => {
   it('exposes the action executor for platform regression coverage', () => {
@@ -11,12 +11,14 @@ describe('computer_use_loop macOS actions', () => {
 });
 
 describe('computer_use_loop vision provider selection', () => {
-  it('fails closed for MiniMax M2.5 because it cannot inspect screenshots', () => {
+  it('routes MiniMax M2.5 screenshots to the Token Plan VLM using the same key', () => {
     const result = resolveVisionConfig({
       providerUrl: 'https://api.minimax.io/v1', providerApiKey: 'secret', providerModel: 'MiniMax-M2.5',
     });
-    expect(result.success).toBe(false);
-    expect(result.error).toContain('do not support screenshot input');
+    expect(result).toEqual({
+      success: true, dedicated: false, transport: 'minimax-vlm',
+      providerUrl: 'https://api.minimax.io/v1', apiKey: 'secret', model: 'MiniMax-M2.5',
+    });
   });
 
   it('keeps MiniMax for chat while using a dedicated vision provider', () => {
@@ -26,6 +28,42 @@ describe('computer_use_loop vision provider selection', () => {
     })).toEqual({
       success: true, dedicated: true, providerUrl: 'https://api.openai.com/v1', apiKey: 'vision-key', model: 'gpt-4.1-mini',
     });
+  });
+});
+
+describe('MiniMax VLM HTTP contract', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('uses the Token Plan vision endpoint and existing bearer key', async () => {
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: '{"action":"click","x":10,"y":20}', base_resp: { status_code: 0 } }),
+    });
+    const reply = await visionCall('https://api.minimax.io/v1', 'same-key', 'MiniMax-M2.5', 'inspect', { base64: 'aGVsbG8=' });
+    expect(reply).toContain('click');
+    expect(fetchMock).toHaveBeenCalledWith('https://api.minimax.io/v1/coding_plan/vlm', expect.objectContaining({
+      method: 'POST',
+      headers: expect.objectContaining({ Authorization: 'Bearer same-key' }),
+    }));
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).toEqual({ prompt: 'inspect', image_url: 'data:image/png;base64,aGVsbG8=' });
+  });
+});
+
+describe('Anthropic vision HTTP contract', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('uses native image blocks and x-api-key authentication', async () => {
+    const fetchMock = vi.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ content: [{ type: 'text', text: '{"action":"done"}' }] }),
+    });
+    await visionCall('https://api.anthropic.com/v1', 'claude-key', 'claude-sonnet-4', 'inspect', { base64: 'aGVsbG8=' });
+    expect(fetchMock).toHaveBeenCalledWith('https://api.anthropic.com/v1/messages', expect.objectContaining({
+      headers: expect.objectContaining({ 'x-api-key': 'claude-key' }),
+    }));
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.messages[0].content[0]).toEqual(expect.objectContaining({ type: 'image', source: expect.objectContaining({ type: 'base64' }) }));
   });
 });
 

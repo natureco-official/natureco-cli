@@ -11,7 +11,7 @@ module.exports = {
       imagePath: { type: 'string', description: 'Local image file path' },
       imageUrl: { type: 'string', description: 'Remote image URL (if no local file)' },
       prompt: { type: 'string', description: 'Analysis prompt (default: "Describe this image in detail")' },
-      provider: { type: 'string', description: 'Vision provider: openai, anthropic, groq (default: openai)', enum: ['openai', 'anthropic', 'groq'] },
+      provider: { type: 'string', description: 'Vision provider: minimax, openai, anthropic, gemini, groq (auto-detected)', enum: ['minimax', 'openai', 'anthropic', 'gemini', 'groq'] },
       model: { type: 'string', description: 'Model override' }
     }
   },
@@ -20,11 +20,10 @@ module.exports = {
     try {
       const config = getConfig();
       const prompt = params.prompt || 'Describe this image in detail';
-      let provider = params.provider || config.visionProvider || 'openai';
-
-      // v5.6.22: MiniMax, Ollama, local provider'lar vision desteklemiyor olabilir
       const providerUrl = (config.providerUrl || '').toLowerCase();
-      if (!params.provider && (providerUrl.includes('minimax') || providerUrl.includes('ollama') || providerUrl.includes('localhost'))) {
+      let provider = params.provider || config.visionProvider || (providerUrl.includes('minimax') ? 'minimax' : providerUrl.includes('generativelanguage.googleapis.com') || providerUrl.includes('gemini') ? 'gemini' : 'openai');
+
+      if (!params.provider && (providerUrl.includes('ollama') || providerUrl.includes('localhost'))) {
         return {
           success: false,
           error: `Görsel analiz bu provider (${providerUrl}) için desteklenmiyor. Lütfen OpenAI, Anthropic, Gemini veya Groq provider'ı kullanın.`,
@@ -58,6 +57,30 @@ module.exports = {
 
       const dataUrl = params.imageUrl || `data:${mediaType};base64,${imageBase64}`;
 
+      if (provider === 'minimax') {
+        const apiKey = params.apiKey || config.providerApiKey || process.env.MINIMAX_CODE_PLAN_KEY || process.env.MINIMAX_API_KEY;
+        if (!apiKey) return { success: false, error: 'MiniMax API key gerekli' };
+        let imageDataUrl = dataUrl;
+        if (/^https?:\/\//i.test(imageDataUrl)) {
+          const downloaded = await fetch(imageDataUrl);
+          if (!downloaded.ok) throw new Error(`Görsel indirilemedi: HTTP ${downloaded.status}`);
+          const mime = (downloaded.headers.get('content-type') || 'image/jpeg').split(';')[0];
+          imageDataUrl = `data:${mime};base64,${Buffer.from(await downloaded.arrayBuffer()).toString('base64')}`;
+        }
+        const base = (config.providerUrl || 'https://api.minimax.io').replace(/\/+$/, '').replace(/\/v1$/, '');
+        const response = await fetch(base + '/v1/coding_plan/vlm', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'MM-API-Source': 'NatureCo' },
+          body: JSON.stringify({ prompt, image_url: imageDataUrl }),
+          signal: AbortSignal.timeout(60000),
+        });
+        if (!response.ok) throw new Error(`MiniMax VLM error ${response.status}: ${(await response.text()).slice(0, 300)}`);
+        const data = await response.json();
+        if (data.base_resp?.status_code) throw new Error(data.base_resp.status_msg || `MiniMax VLM API error ${data.base_resp.status_code}`);
+        if (!data.content) throw new Error('MiniMax VLM boş yanıt döndürdü');
+        return { success: true, provider: 'minimax', model: 'MiniMax-VL-01', analysis: data.content };
+      }
+
       if (provider === 'openai') {
         const apiKey = params.apiKey || config.openaiApiKey || process.env.OPENAI_API_KEY;
         if (!apiKey) return { success: false, error: 'OpenAI API key gerekli' };
@@ -81,6 +104,23 @@ module.exports = {
         if (!response.ok) throw new Error(`OpenAI error ${response.status}`);
         const data = await response.json();
         return { success: true, provider: 'openai', analysis: data.choices?.[0]?.message?.content || '' };
+      }
+
+      if (provider === 'gemini') {
+        const apiKey = params.apiKey || config.providerApiKey || process.env.GEMINI_API_KEY;
+        if (!apiKey) return { success: false, error: 'Gemini API key gerekli' };
+        const base = (config.providerUrl || 'https://generativelanguage.googleapis.com/v1beta').replace(/\/+$/, '');
+        const response = await fetch(base + '/openai/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model: params.model || config.providerModel, messages: [{ role: 'user', content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: dataUrl } },
+          ] }], max_tokens: 1000 }),
+        });
+        if (!response.ok) throw new Error(`Gemini vision error ${response.status}`);
+        const data = await response.json();
+        return { success: true, provider: 'gemini', analysis: data.choices?.[0]?.message?.content || '' };
       }
 
       if (provider === 'anthropic') {

@@ -2,6 +2,21 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.64.4] - 2026-07-13 — Unified MiniMax media routing
+
+### Added
+- MiniMax chat configurations now automatically expose image understanding through `MiniMax-VL-01`, image generation through `image-01`, and video generation through `MiniMax-Hailuo-2.3` using the existing provider key.
+- Added provider-native GUI vision transports for MiniMax VLM and Anthropic image blocks; OpenAI-compatible and Gemini vision paths remain supported.
+- MiniMax video generation now submits an asynchronous task and polls its status until `Success`, `Fail`, or timeout.
+
+### Fixed
+- `media_understanding` no longer rejects MiniMax configurations or incorrectly claims Gemini support without an implementation.
+- Image and video generation automatically select MiniMax when the active provider is MiniMax, while explicit provider overrides remain respected.
+
+### Verification
+- Live MiniMax VLM smoke test read a unique string from a synthetic PNG using the existing NatureCo provider key.
+- Added HTTP contract and provider-routing regression tests for MiniMax VLM, Anthropic vision, MiniMax image generation, and MiniMax video generation selection.
+
 ## [5.64.3] - 2026-07-13 — Evidence-based GUI completion
 
 ### Fixed
@@ -9,13 +24,13 @@ All notable changes to NatureCo CLI will be documented in this file.
 - GUI success now requires a real state-changing action, a changed screenshot hash, and a separate visual-verification pass with explicit evidence and at least 80% confidence.
 - Failed GUI tools now display the error reason beside the persistent `✗` status line.
 - Typed values are redacted from GUI step history.
-- MiniMax M-series text models fail closed for screenshot tasks instead of hallucinating visual state; a dedicated OpenAI-compatible vision provider can be configured while keeping MiniMax for chat.
+- MiniMax M-series chat configurations automatically route screenshots to the Token Plan VLM endpoint using the existing provider key; no second API key is required.
 
 ### Configuration
-- Added `guiVisionProviderUrl`, `guiVisionApiKey`, and `guiVisionModel` settings for screenshot analysis and verification.
+- Added optional `guiVisionProviderUrl`, `guiVisionApiKey`, and `guiVisionModel` overrides; MiniMax users use the existing provider configuration by default.
 
 ### Tests
-- Added regression coverage for no-action claims, unchanged screens, weak evidence, verified completion, MiniMax fail-closed behavior, and dedicated vision-provider routing.
+- Added regression coverage for no-action claims, unchanged screens, weak evidence, verified completion, automatic MiniMax VLM routing, and dedicated vision-provider overrides.
 
 ## [5.64.2] - 2026-07-13 — Visible and reliable macOS GUI automation
 

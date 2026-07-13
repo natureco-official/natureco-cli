@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
-const { buildChatEndpoint, isMiniMax } = require('../utils/provider-detect');
+const { buildChatEndpoint, isMiniMax, isAnthropic } = require('../utils/provider-detect');
 
 function loadConfig() {
   try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; }
@@ -27,13 +27,57 @@ function resolveVisionConfig(cfg) {
     : null;
   if (explicit) return { success: true, ...explicit, dedicated: true };
   if (isMiniMax(main.providerUrl) || /^MiniMax-M/i.test(main.model)) {
-    return {
-      success: false,
-      error: 'MiniMax M-series text models do not support screenshot input. Configure an OpenAI-compatible vision model with guiVisionProviderUrl, guiVisionApiKey and guiVisionModel.',
-    };
+    if (!main.providerUrl || !main.apiKey) return { success: false, error: 'Provider not configured' };
+    return { success: true, ...main, dedicated: false, transport: 'minimax-vlm' };
   }
   if (!main.providerUrl || !main.apiKey) return { success: false, error: 'Provider not configured' };
   return { success: true, ...main, dedicated: false };
+}
+
+async function visionCall(providerUrl, apiKey, model, prompt, screenshot) {
+  if (isMiniMax(providerUrl) || /^MiniMax-M/i.test(model)) {
+    const base = providerUrl.replace(/\/+$/, '').replace(/\/v1$/, '');
+    const response = await fetch(base + '/v1/coding_plan/vlm', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, image_url: 'data:image/png;base64,' + screenshot.base64 }),
+      signal: AbortSignal.timeout(120000),
+    });
+    if (!response.ok) throw new Error('MiniMax VLM HTTP ' + response.status + ': ' + (await response.text()).slice(0, 300));
+    const data = await response.json();
+    if (data.base_resp?.status_code) throw new Error(data.base_resp.status_msg || 'MiniMax VLM request failed');
+    return String(data.content || '');
+  }
+
+  if (isAnthropic(providerUrl) || /^claude-/i.test(model)) {
+    const origin = new URL(providerUrl).origin;
+    const response = await fetch(origin + '/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        max_tokens: 500,
+        messages: [{ role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: screenshot.base64 } },
+          { type: 'text', text: prompt },
+        ] }],
+      }),
+      signal: AbortSignal.timeout(120000),
+    });
+    if (!response.ok) throw new Error('Anthropic vision HTTP ' + response.status + ': ' + (await response.text()).slice(0, 300));
+    const data = await response.json();
+    return String(data.content?.find(item => item.type === 'text')?.text || '');
+  }
+
+  const messages = [{
+    role: 'user',
+    content: [
+      { type: 'text', text: prompt },
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,' + screenshot.base64 } },
+    ],
+  }];
+  const result = await apiCall(providerUrl, apiKey, { model, messages, stream: false, temperature: 0, max_tokens: 500 });
+  return String(result.choices?.[0]?.message?.content || '');
 }
 
 function apiCall(providerUrl, apiKey, body) {
@@ -87,15 +131,8 @@ function evaluateCompletionEvidence({ mutationCount, initialHash, currentHash, v
 }
 
 async function verifyGoal(providerUrl, apiKey, model, goal, screenshot) {
-  const messages = [{
-    role: 'user',
-    content: [
-      { type: 'text', text: `You are a strict independent verifier. Inspect only the screenshot. Goal: ${goal}\nReturn JSON only: {"verified":boolean,"confidence":0..1,"evidence":"exact visible evidence","reason":"why not"}. Never infer success from the goal text. If the requested sent message, booking, purchase, or confirmation is not visibly present, verified must be false.` },
-      { type: 'image_url', image_url: { url: 'data:image/png;base64,' + screenshot.base64 } },
-    ],
-  }];
-  const result = await apiCall(providerUrl, apiKey, { model, messages, stream: false, temperature: 0, max_tokens: 300 });
-  const reply = result.choices?.[0]?.message?.content || '';
+  const prompt = `You are a strict independent verifier. Inspect only the screenshot. Goal: ${goal}\nReturn JSON only: {"verified":boolean,"confidence":0..1,"evidence":"exact visible evidence","reason":"why not"}. Never infer success from the goal text. If the requested sent message, booking, purchase, or confirmation is not visibly present, verified must be false.`;
+  const reply = await visionCall(providerUrl, apiKey, model, prompt, screenshot);
   try { return JSON.parse(reply); }
   catch {
     const match = reply.match(/\{[\s\S]*\}/);
@@ -192,35 +229,9 @@ async function loop(goal, maxSteps) {
       steps.push({ step: i + 1, action: 'screenshot' });
 
       // 2. LLM vision analysis
-      const messages = [
-        { role: 'system', content: SYSTEM_PROMPT },
-      ];
-
       const history = steps.filter(s => s.action && s.action !== 'screenshot' && s.action !== 'done').slice(-5);
-      if (history.length > 0) {
-        messages.push({ role: 'user', content: 'Onceki adimlar:\n' + history.map(h =>
-          'Adim ' + h.step + ': ' + JSON.stringify(h)
-        ).join('\n') });
-      }
-
-      messages.push({
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Gorev: ' + goal + '\n\nEkran goruntusunu analiz et. Siradaki action ne?' },
-          { type: 'image_url', image_url: { url: 'data:image/png;base64,' + screenshot.base64 } },
-        ],
-      });
-
-      const body = {
-        model,
-        messages,
-        stream: false,
-        temperature: 0.2,
-        max_tokens: 500,
-      };
-
-      const result = await apiCall(providerUrl, apiKey, body);
-      const reply = result.choices?.[0]?.message?.content || '';
+      const historyText = history.length > 0 ? '\nOnceki adimlar:\n' + history.map(h => 'Adim ' + h.step + ': ' + JSON.stringify(h)).join('\n') : '';
+      const reply = await visionCall(providerUrl, apiKey, model, SYSTEM_PROMPT + '\n\nGorev: ' + goal + historyText + '\n\nEkran goruntusunu analiz et. Siradaki action ne?', screenshot);
       let decision;
       try {
         decision = JSON.parse(reply);
@@ -294,4 +305,4 @@ async function execute(params) {
   return await loop(params.goal, params.maxSteps || 30);
 }
 
-module.exports = { name, description, parameters, execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig };
+module.exports = { name, description, parameters, execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall };

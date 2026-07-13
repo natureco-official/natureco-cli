@@ -1,6 +1,31 @@
 const { getConfig } = require('../utils/config');
+const fs = require('fs');
+const path = require('path');
 
 const PROVIDERS = {
+  minimax: {
+    name: 'MiniMax image-01',
+    async generate({ prompt, n, apiKey, model, aspectRatio, baseUrl }) {
+      const response = await fetch(baseUrl + '/v1/image_generation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({ model: model || 'image-01', prompt, n: n || 1, response_format: 'base64', ...(aspectRatio ? { aspect_ratio: aspectRatio } : {}) }),
+        signal: AbortSignal.timeout(120000),
+      });
+      if (!response.ok) throw new Error(`MiniMax image error ${response.status}: ${(await response.text()).slice(0, 300)}`);
+      const data = await response.json();
+      if (data.base_resp?.status_code) throw new Error(data.base_resp.status_msg || `MiniMax image API error ${data.base_resp.status_code}`);
+      const images = data.data?.image_base64 || [];
+      if (!images.length) throw new Error('MiniMax image generation returned no images');
+      const outDir = path.join(process.cwd(), 'minimax-output');
+      fs.mkdirSync(outDir, { recursive: true });
+      return images.map((base64, index) => {
+        const file = path.join(outDir, `image-${Date.now()}-${index + 1}.png`);
+        fs.writeFileSync(file, Buffer.from(base64, 'base64'));
+        return { file, mime: 'image/png' };
+      });
+    }
+  },
   // v4.8.4: Pollinations.ai — TAMAMEN ÜCRETSİZ, API key gerektirmez
   // Default provider olarak ayarlandı (herkes kullanabilsin)
   pollinations: {
@@ -56,6 +81,11 @@ const PROVIDERS = {
   }
 };
 
+function selectImageProvider(config, params = {}) {
+  if (params.provider || config.imageProvider) return params.provider || config.imageProvider;
+  return /minimax\.io|minimaxi\.com|minimax\.cn/i.test(config.providerUrl || '') ? 'minimax' : undefined;
+}
+
 module.exports = {
   name: 'image_generation',
   description: 'Generate images using AI. Supports OpenAI DALL-E, FAL.ai, and Together AI providers.',
@@ -63,7 +93,8 @@ module.exports = {
     type: 'object',
     properties: {
       prompt: { type: 'string', description: 'Text description of the image to generate' },
-      provider: { type: 'string', description: 'Image provider: openai, fal, together (default: openai)', enum: ['openai', 'fal', 'together'] },
+      provider: { type: 'string', description: 'Image provider: minimax, openai, fal, together, pollinations (auto-detected)', enum: ['minimax', 'openai', 'fal', 'together', 'pollinations'] },
+      aspectRatio: { type: 'string', description: 'Aspect ratio such as 1:1, 16:9 or 9:16' },
       model: { type: 'string', description: 'Model override (e.g. fast-sdxl for FAL, FLUX.1-schnell for Together)' },
       size: { type: 'string', description: 'Image size for DALL-E: 1024x1024, 1792x1024, 1024x1792 (default: 1024x1024)' },
       n: { type: 'number', description: 'Number of images to generate (default: 1, max: 4)' }
@@ -79,14 +110,17 @@ module.exports = {
       const openaiKey = params.apiKey || config.openaiApiKey || process.env.OPENAI_API_KEY;
       const falKey = params.apiKey || config.falApiKey || process.env.FAL_KEY;
       const togetherKey = params.apiKey || config.togetherApiKey || process.env.TOGETHER_API_KEY;
+      const minimaxKey = params.apiKey || config.providerApiKey || process.env.MINIMAX_API_KEY;
+      const isMiniMax = /minimax\.io|minimaxi\.com|minimax\.cn/i.test(config.providerUrl || '');
 
       // Explicit provider tercih edilmişse onu kullan
-      let provider = params.provider || config.imageProvider;
+      let provider = selectImageProvider(config, params) || (isMiniMax && minimaxKey ? 'minimax' : undefined);
       let apiKey;
 
       if (provider) {
         // Explicit provider
-        if (provider === 'openai') apiKey = openaiKey;
+        if (provider === 'minimax') apiKey = minimaxKey;
+        else if (provider === 'openai') apiKey = openaiKey;
         else if (provider === 'fal') apiKey = falKey;
         else if (provider === 'together') apiKey = togetherKey;
         else if (provider === 'pollinations') apiKey = 'free'; // key gereksiz
@@ -114,6 +148,8 @@ module.exports = {
         prompt: params.prompt,
         apiKey,
         model: params.model,
+        aspectRatio: params.aspectRatio,
+        baseUrl: (config.providerUrl || 'https://api.minimax.io').replace(/\/+$/, '').replace(/\/v1$/, ''),
         size: params.size,
         n: params.n
       });
@@ -122,11 +158,14 @@ module.exports = {
         success: true,
         prompt: params.prompt,
         provider: provider,
-        images: images.filter(i => i.url).map(i => ({ url: i.url, revisedPrompt: i.revised_prompt })),
-        count: images.filter(i => i.url).length
+        images: images.filter(i => i.url || i.file).map(i => ({ url: i.url, file: i.file, revisedPrompt: i.revised_prompt })),
+        count: images.filter(i => i.url || i.file).length
       };
     } catch (error) {
       return { success: false, error: error.message };
     }
   }
 };
+
+module.exports._providers = PROVIDERS;
+module.exports.selectImageProvider = selectImageProvider;

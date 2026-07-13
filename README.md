@@ -51,7 +51,8 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
-| **v5.64.3** | **Evidence-based GUI completion:** desktop actions require a changed screen plus independent visual evidence before success. MiniMax text models fail closed unless a dedicated vision model is configured. |
+| **v5.64.4** | **Unified MiniMax media:** the existing MiniMax key now powers `MiniMax-VL-01` analysis, `image-01` generation, `MiniMax-Hailuo-2.3` video, and verified GUI vision—no second key required. |
+| **v5.64.3** | **Evidence-based GUI completion:** desktop actions require a changed screen plus independent visual evidence before success. MiniMax screenshots use the Token Plan VLM with the existing provider key. |
 | **v5.64.2** | **Reliable macOS GUI automation:** tool names stay visible in REPL transcripts, visual tasks use a verified screenshot loop, MiniMax GUI routing avoids duplicate paths, and failed/unverified actions no longer claim success. |
 | **v5.64.1** | **Reliable follow-ups + lower token cost:** `natureco code` now preserves same-session context across workflow calls and caps repeated history by token budget (1,024 / 2,048 / 8,192). Provider labels are rendered correctly. |
 | **v5.64.0** | **Unified secure agent foundation:** one execution gateway, hard-stop guardrails, schema-validated tools, rollback/checkpoints, sourced memory, resilient channel delivery, OS keychains and encrypted sync. |
@@ -136,7 +137,7 @@ For a 32,000-character previous response, the Balanced profile bounds repeated h
 
 ### 👁️ Verified GUI Automation
 
-Screenshot-driven desktop automation requires a vision-capable OpenAI-compatible model. Text-only models such as MiniMax M-series remain available for chat, while GUI vision can use a separate provider:
+MiniMax Token Plan users need no extra key: NatureCo automatically sends screenshots to MiniMax VLM while keeping the M-series model for chat. A separate OpenAI-compatible vision provider remains an optional override:
 
 ```bash
 natureco config set guiVisionProviderUrl https://api.openai.com/v1
