@@ -2,6 +2,21 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.65.0] - 2026-07-13 — Persistent browser agent
+
+### Added
+- Replaced the one-shot headless browser with a persistent Chrome/Chromium agent using the installed system browser and a dedicated NatureCo profile.
+- Added a structured `open → snapshot → @ref click/fill → snapshot` workflow with visible mode by default, persistent login/storage, keyboard actions, screenshots, text extraction, and explicit session close.
+- Added cross-platform system-browser discovery without downloading a bundled Chromium; `playwright-core` supplies the automation protocol.
+- Added an end-to-end browser smoke test that opens a real page, produces a stable interactive reference, and closes the session.
+
+### Safety
+- Navigation accepts only HTTP(S), interactions require fresh snapshot references instead of guessed selectors, and the prompt distinguishes the NatureCo browser profile from the user's already-open Chrome window.
+- Added attribution for the MIT-licensed gstack browser architecture patterns reviewed during development.
+
+### Verification
+- Live system-Chrome smoke test completed `open → snapshot → close` and exposed the expected `@e1` reference.
+
 ## [5.64.7] - 2026-07-13 — Resilient GUI vision decisions
 
 ### Fixed

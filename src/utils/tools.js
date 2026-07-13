@@ -134,7 +134,7 @@ const TOOLSET_MAP = {
 // ── check_fn'ler (tool availability kontrolleri) ────────────────────────
 function _checkBrowser() {
   try {
-    require.resolve('playwright');
+    require.resolve('playwright-core');
     return true;
   } catch { return false; }
 }

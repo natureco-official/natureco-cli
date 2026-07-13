@@ -51,6 +51,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.65.0** | **Persistent browser agent:** visible system Chrome/Chromium, persistent login/storage, and reliable `snapshot → @ref click/fill → verify` automation replace one-shot headless browsing. |
 | **v5.64.7** | **Resilient GUI vision:** invalid action parameters and truncated vision JSON are rejected safely and retried instead of crashing macOS automation. |
 | **v5.64.6** | **Reliable MiniMax tool calls:** XML parameters are converted to their declared schema types, fixing `computer_use_loop` failures such as `maxSteps: expected number, got string`. |
 | **v5.64.5** | **Deterministic GUI recovery:** visible web tasks use one verified GUI loop; failures expose their concrete reason and stop blind browser/AppleScript fallback chains. |
