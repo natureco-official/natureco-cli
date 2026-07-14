@@ -51,6 +51,8 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.65.3** | **Real Windows mouse/scroll automation:** click and scroll now use a real `user32.dll` mouse event instead of a non-existent SendKeys code, and macOS screenshot permission failures are always detected. |
+| **v5.65.2** | **Reliable macOS automation recovery:** simple open requests stop after success, stale browser profiles retry once, and Screen Recording/Accessibility failures provide precise Cupertino Terminal permission guidance. |
 | **v5.65.0** | **Persistent browser agent:** visible system Chrome/Chromium, persistent login/storage, and reliable `snapshot → @ref click/fill → verify` automation replace one-shot headless browsing. |
 | **v5.64.7** | **Resilient GUI vision:** invalid action parameters and truncated vision JSON are rejected safely and retried instead of crashing macOS automation. |
 | **v5.64.6** | **Reliable MiniMax tool calls:** XML parameters are converted to their declared schema types, fixing `computer_use_loop` failures such as `maxSteps: expected number, got string`. |

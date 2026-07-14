@@ -11,7 +11,7 @@
 import { describe, it, expect } from 'vitest';
 import mod from '../../src/tools/agentic-runner.js';
 
-const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback, coerceArgsForSchema } = mod;
+const { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback, coerceArgsForSchema, isSimpleOpenTask } = mod;
 
 describe('parseAgenticCalls', () => {
   it('<minimax:tool_call> icindeki write_file (path+content) cagirisini cozer', () => {
@@ -378,6 +378,20 @@ describe('executeCall', () => {
 });
 
 describe('runAgentic dongusu', () => {
+  it('basit medya acma basarısından sonra gereksiz browser/GUI zincirini calistirmaz', async () => {
+    expect(isSimpleOpenTask('YouTube\'yi aç')).toBe(true);
+    expect(isSimpleOpenTask('WhatsApp aç ve anneme mesaj gönder')).toBe(false);
+    const content = '<invoke name="social_open"><parameter name="query">youtube</parameter></invoke>' +
+      '<invoke name="browser"><parameter name="action">open</parameter><parameter name="url">https://youtube.com</parameter></invoke>';
+    const executed = [];
+    const result = await runAgentic({
+      callModel: async () => ({ content, toolCalls: [] }), systemPrompt: 's', task: 'YouTube\'yi aç', execFull: true, maxIterations: 3,
+      loadTool: name => ({ execute: async () => { executed.push(name); return { success: true }; } }),
+    });
+    expect(executed).toEqual(['social_open']);
+    expect(result.reply).toContain('açıldı');
+  });
+
   it('arac cagirir, sonra duz final yanitta durur', async () => {
     const turns = [
       '<minimax:tool_call><invoke name="write_file"><parameter name="path">/tmp/x.txt</parameter><parameter name="content">hi</parameter></invoke></minimax:tool_call>',

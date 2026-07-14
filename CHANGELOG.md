@@ -2,6 +2,28 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.65.3] - 2026-07-15 — Real Windows mouse/scroll automation
+
+### Fixed
+- Windows `click`/`drag` in `computer_use` and `computer_use_loop` used `SendKeys::SendWait("{CLICK}")`, which is not a valid SendKeys code (SendKeys is keyboard-only) — clicks silently failed or errored on Windows. Replaced with a real `user32.dll` `mouse_event` call (left/right/middle, single/double click).
+- Windows `scroll` sent the literal text `"Up"`/`"Down"` via SendKeys instead of a bracketed key code, typing those letters instead of scrolling. Replaced with a real mouse-wheel `mouse_event`.
+- macOS `captureScreenshot` in `platform-gui.js` never checked the `screencapture` exit status, so a denied Screen Recording permission fell through to a generic "file not created" error instead of the actionable permission message.
+- Removed the duplicated, buggy Windows click/scroll implementation from `computer_use.js` in favor of the shared, tested helpers in `platform-gui.js`.
+
+### Tests
+- Added regressions asserting the generated Windows PowerShell scripts use `mouse_event` (not `SendKeys`) for click, double-click, right-click, and scroll.
+
+## [5.65.2] - 2026-07-13 — Honest macOS automation recovery
+
+### Fixed
+- Simple open-only requests now stop after `social_open` or `mac_app_open` succeeds instead of cascading into unnecessary browser and GUI calls.
+- Plain platform names such as `youtube` and `yt` open the platform homepage directly instead of falling back to a Google search.
+- Persistent browser launch failures reset stale state, retry once with an isolated recovery profile, and return a compact actionable error instead of raw Playwright browser logs.
+- macOS screenshot and AppleScript failures now identify missing Screen Recording or Accessibility permission and name Cupertino Terminal as the host application that needs access.
+
+### Tests
+- Added regressions for terminal open-only tool behavior, YouTube homepage routing, browser recovery classification, and macOS privacy-permission diagnostics.
+
 ## [5.65.0] - 2026-07-13 — Persistent browser agent
 
 ### Added

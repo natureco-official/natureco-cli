@@ -7,6 +7,7 @@
 
 const { spawn } = require("child_process");
 const os = require("os");
+const { classifyMacAutomationError } = require('../utils/macos-permissions');
 const fs = require("fs");
 const path = require("path");
 
@@ -19,6 +20,8 @@ async function captureScreen({ outputPath = null, region = "full" } = {}) {
   return new Promise((resolve) => {
     // screencapture -x: ses yok, -t png: png format
     const proc = spawn("screencapture", ["-x", "-t", "png", tmpFile]);
+    let stderr = '';
+    proc.stderr?.on('data', chunk => { stderr += chunk; });
     proc.on("close", (code) => {
       if (code === 0 && fs.existsSync(tmpFile)) {
         const buffer = fs.readFileSync(tmpFile);
@@ -32,7 +35,7 @@ async function captureScreen({ outputPath = null, region = "full" } = {}) {
           message: `Screenshot kaydedildi: ${tmpFile}`,
         });
       } else {
-        resolve({ success: false, error: `screencapture exit ${code}` });
+        resolve({ success: false, ...classifyMacAutomationError(stderr || `screencapture exit ${code}`) });
       }
     });
     proc.on("error", (e) => resolve({ success: false, error: e.message }));
@@ -50,6 +53,8 @@ async function captureWindow({ windowTitle = null, outputPath = null } = {}) {
     args.push(tmpFile);
 
     const proc = spawn("screencapture", args);
+    let stderr = '';
+    proc.stderr?.on('data', chunk => { stderr += chunk; });
     proc.on("close", (code) => {
       if (code === 0 && fs.existsSync(tmpFile)) {
         const buffer = fs.readFileSync(tmpFile);
@@ -62,7 +67,7 @@ async function captureWindow({ windowTitle = null, outputPath = null } = {}) {
           base64: buffer.toString("base64"),
         });
       } else {
-        resolve({ success: false, error: `screencapture exit ${code}` });
+        resolve({ success: false, ...classifyMacAutomationError(stderr || `screencapture exit ${code}`) });
       }
     });
     proc.on("error", (e) => resolve({ success: false, error: e.message }));

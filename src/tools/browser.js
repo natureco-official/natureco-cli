@@ -5,19 +5,54 @@ const path = require('path');
 let contextPromise = null;
 let activePage = null;
 
+const MISSING_CHROMIUM = [
+  'Could not find Chromium',
+  'browser.*not found',
+  'Failed to launch',
+  'Executable file.*not found',
+  "Executable doesn't exist",
+];
+
 function chromeCandidates(platform = process.platform) {
-  if (platform === 'darwin') return [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-  ];
-  if (platform === 'win32') return [
-    path.join(process.env.PROGRAMFILES || '', 'Google/Chrome/Application/chrome.exe'),
-    path.join(process.env['PROGRAMFILES(X86)'] || '', 'Google/Chrome/Application/chrome.exe'),
-    path.join(process.env.LOCALAPPDATA || '', 'Google/Chrome/Application/chrome.exe'),
-    path.join(process.env.PROGRAMFILES || '', 'Microsoft/Edge/Application/msedge.exe'),
-  ];
-  return ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge'];
+  const candidates = [];
+  if (platform === 'darwin') {
+    candidates.push(
+      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+      '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+    );
+  } else if (platform === 'win32') {
+    candidates.push(
+      path.join(process.env.PROGRAMFILES || '', 'Google/Chrome/Application/chrome.exe'),
+      path.join(process.env['PROGRAMFILES(X86)'] || '', 'Google/Chrome/Application/chrome.exe'),
+      path.join(process.env.LOCALAPPDATA || '', 'Google/Chrome/Application/chrome.exe'),
+      path.join(process.env.PROGRAMFILES || '', 'Microsoft/Edge/Application/msedge.exe'),
+    );
+  } else {
+    candidates.push(
+      '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium', '/usr/bin/chromium-browser',
+      '/usr/bin/microsoft-edge',
+    );
+  }
+
+  // PATH-based discovery via which/where
+  try {
+    const { spawnSync } = require('child_process');
+    const probe = platform === 'win32' ? 'where' : 'which';
+    const names = platform === 'win32'
+      ? ['chrome', 'chromium', 'msedge']
+      : ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge'];
+    for (const name of names) {
+      const r = spawnSync(probe, [name], { timeout: 2000, encoding: 'utf8' });
+      if (r.status === 0 && r.stdout) {
+        const resolved = r.stdout.trim().split('\n')[0].trim();
+        if (resolved && !candidates.includes(resolved)) candidates.push(resolved);
+      }
+    }
+  } catch {}
+
+  return candidates;
 }
 
 function findChrome(platform = process.platform, exists = fs.existsSync) {
@@ -30,30 +65,95 @@ function safeUrl(value) {
   return parsed.href;
 }
 
-async function getContext({ visible = true } = {}) {
+function isClosedBrowserError(error) {
+  return /target page, context or browser has been closed|browser has been closed|process failed to launch|singletonlock|profile.*in use/i.test(String(error?.message || error || ''));
+}
+
+function compactBrowserError(error) {
+  const first = String(error?.message || error || 'Browser failed').split(/\r?\n/).find(line => line.trim()) || 'Browser failed';
+  return first.replace(/^browserType\.launchPersistentContext:\s*/i, '').slice(0, 400);
+}
+
+async function getContext({ visible = true, recovery = false } = {}) {
   if (contextPromise) return contextPromise;
   contextPromise = (async () => {
     const { chromium } = require('playwright-core');
     const executablePath = findChrome();
-    if (!executablePath) throw new Error('Google Chrome, Chromium, or Microsoft Edge was not found');
-    const userDataDir = path.join(os.homedir(), '.natureco', 'browser-profile');
+    const userDataDir = path.join(os.homedir(), '.natureco', recovery ? `browser-profile-recovery-${process.pid}` : 'browser-profile');
     fs.mkdirSync(userDataDir, { recursive: true });
-    const context = await chromium.launchPersistentContext(userDataDir, {
-      executablePath,
-      headless: !visible,
-      viewport: null,
-      args: ['--no-first-run', '--no-default-browser-check'],
-    });
-    context.on('close', () => { contextPromise = null; activePage = null; });
-    const pages = context.pages();
-    activePage = pages[0] || await context.newPage();
-    return context;
+
+    const baseArgs = ['--no-first-run', '--no-default-browser-check'];
+
+    // Try system browser first, then fall back to Playwright's bundled Chromium
+    if (executablePath) {
+      try {
+        const context = await chromium.launchPersistentContext(userDataDir, {
+          executablePath,
+          headless: !visible,
+          viewport: null,
+          args: baseArgs,
+        });
+        context.on('close', () => { contextPromise = null; activePage = null; });
+        const pages = context.pages();
+        activePage = pages[0] || await context.newPage();
+        return context;
+      } catch (launchErr) {
+        // System browser failed — fall through to Playwright bundled Chromium
+        if (!isClosedBrowserError(launchErr)) {
+          // Non-recoverable error from system browser, try bundled
+        }
+      }
+    }
+
+    // Playwright bundled Chromium fallback (no executablePath → uses auto-installed Chromium)
+    try {
+      const context = await chromium.launchPersistentContext(userDataDir, {
+        headless: !visible,
+        viewport: null,
+        args: baseArgs,
+      });
+      context.on('close', () => { contextPromise = null; activePage = null; });
+      const pages = context.pages();
+      activePage = pages[0] || await context.newPage();
+      return context;
+    } catch (playwrightErr) {
+      if (isClosedBrowserError(playwrightErr)) {
+        contextPromise = null;
+        activePage = null;
+        // Retry once with a fresh profile directory
+        const freshDir = path.join(os.homedir(), '.natureco', 'browser-profile-fresh-' + process.pid);
+        fs.mkdirSync(freshDir, { recursive: true });
+        const context = await chromium.launchPersistentContext(freshDir, {
+          headless: !visible,
+          viewport: null,
+          args: baseArgs,
+        });
+        context.on('close', () => { contextPromise = null; activePage = null; });
+        const pages = context.pages();
+        activePage = pages[0] || await context.newPage();
+        return context;
+      }
+      const msg = String(playwrightErr?.message || '');
+      if (MISSING_CHROMIUM.some(p => new RegExp(p, 'i').test(msg))) {
+        const installErr = new Error(
+          'Tarayici bulunamadi. Sunucu sisteminde Chrome/Chromium yuklu degil.\n' +
+          'Playwright Chromium\'u kurmak icin calistirin:\n' +
+          '  npx playwright install chromium\n' +
+          'veya sisteme Chrome/Chromium yukleyin:\n' +
+          '  sudo apt install chromium-browser  (Linux)\n' +
+          '  brew install --cask chromium       (macOS)'
+        );
+        installErr.cause = playwrightErr;
+        throw installErr;
+      }
+      throw playwrightErr;
+    }
   })().catch(error => { contextPromise = null; throw error; });
   return contextPromise;
 }
 
 async function pageFor(params = {}) {
-  const context = await getContext({ visible: params.visible !== false });
+  const context = await getContext({ visible: params.visible !== false, recovery: params._recovery === true });
   if (!activePage || activePage.isClosed()) activePage = context.pages().find(page => !page.isClosed()) || await context.newPage();
   return activePage;
 }
@@ -137,7 +237,12 @@ async function execute(params) {
     }
     return { success: false, error: `Unknown browser action: ${params.action}` };
   } catch (error) {
-    return { success: false, error: error.message };
+    if (!params._retried && isClosedBrowserError(error)) {
+      contextPromise = null;
+      activePage = null;
+      return execute({ ...params, _retried: true, _recovery: true });
+    }
+    return { success: false, error: compactBrowserError(error), recoveryAttempted: Boolean(params._retried) };
   }
 }
 
@@ -155,5 +260,5 @@ module.exports = {
     required: ['action'],
   },
   execute,
-  _test: { chromeCandidates, findChrome, safeUrl, refSelector },
+  _test: { chromeCandidates, findChrome, safeUrl, refSelector, isClosedBrowserError, compactBrowserError, MISSING_CHROMIUM },
 };

@@ -1,9 +1,34 @@
 const { spawnSync } = require('child_process');
 const os = require('os');
+const { classifyMacAutomationError } = require('../utils/macos-permissions');
+const { windowsClick, windowsScroll } = require('../utils/platform-gui');
 const fs = require('fs');
 const path = require('path');
 
 const PLATFORM = os.platform();
+
+function checkTool(name) {
+  if (PLATFORM === 'win32') {
+    const r = spawnSync('where', [name], { timeout: 3000, encoding: 'utf8' });
+    return r.status === 0;
+  }
+  const r = spawnSync('which', [name], { timeout: 3000, encoding: 'utf8' });
+  return r.status === 0;
+}
+
+function requireXdotool() {
+  if (!checkTool('xdotool')) {
+    return { success: false, error: 'xdotool bulunamadi. Kurulum: sudo apt install xdotool' };
+  }
+  return null;
+}
+
+function requirePowershell() {
+  if (PLATFORM === 'win32' && !checkTool('powershell')) {
+    return { success: false, error: 'PowerShell bulunamadi' };
+  }
+  return null;
+}
 
 const KEY_MAP_DARWIN = {
   enter: 'return',
@@ -54,6 +79,8 @@ function osaScript(script, timeoutMs = 10000) {
   }
   if (result.status !== 0) {
     const msg = result.stderr || result.stdout || 'unknown error';
+    const permission = classifyMacAutomationError(msg);
+    if (permission.permission) return { success: false, ...permission };
     let friendly = msg;
     if (msg.includes('yardımcı erişime izin verilmiyor') || msg.includes('access for assistive devices')) {
       friendly = 'Accessibility izni gerekli. System Settings > Privacy & Security > Accessibility > Terminal/iTerm2\'ye izin verin.';
@@ -70,6 +97,10 @@ function checkAccessibility() {
   return r.success;
 }
 
+function accessibilityDenied() {
+  return { success: false, ...classifyMacAutomationError('Accessibility permission denied') };
+}
+
 async function computerUse(params) {
   const { action, x, y, key, text, button, clicks, file } = params;
 
@@ -79,17 +110,21 @@ async function computerUse(params) {
       if (PLATFORM === 'darwin') {
         const capture = spawnSync('screencapture', ['-x', outputFile], { timeout: 5000, encoding: 'utf8' });
         if (capture.error) throw capture.error;
-        if (capture.status !== 0) throw new Error(capture.stderr || `screencapture exit ${capture.status}`);
+        if (capture.status !== 0) return { success: false, ...classifyMacAutomationError(capture.stderr || `screencapture exit ${capture.status}`) };
       } else if (PLATFORM === 'win32') {
-        spawnSync('powershell', ['-Command',
+        const r = spawnSync('powershell', ['-Command',
           'Add-Type -AssemblyName System.Windows.Forms; ' +
           '$bmp = [System.Drawing.Bitmap]::new([System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width, [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height); ' +
           '$g = [System.Drawing.Graphics]::FromImage($bmp); ' +
           '$g.CopyFromScreen(0, 0, 0, 0, $bmp.Size); ' +
           '$bmp.Save("' + outputFile.replace(/"/g, '') + '", [System.Drawing.Imaging.ImageFormat]::Png)'
-        ], { timeout: 10000 });
+        ], { timeout: 10000, encoding: 'utf8' });
+        if (r.error) return { success: false, error: 'Windows screenshot hatasi: ' + r.error.message };
+        if (r.status !== 0) return { success: false, error: 'Windows screenshot hatasi: ' + (r.stderr || 'exit ' + r.status) };
       } else {
-        spawnSync('import', ['-window', 'root', outputFile], { timeout: 5000 });
+        const r = spawnSync('import', ['-window', 'root', outputFile], { timeout: 5000, encoding: 'utf8' });
+        if (r.error) return { success: false, error: 'Linux screenshot hatasi (ImageMagick): ' + r.error.message };
+        if (r.status !== 0) return { success: false, error: 'Linux screenshot hatasi: ' + (r.stderr || 'exit ' + r.status) };
       }
       if (!fs.existsSync(outputFile)) throw new Error('Screenshot file was not created');
       return {
@@ -108,20 +143,25 @@ async function computerUse(params) {
     const btn = button || 'left';
     if (PLATFORM === 'darwin') {
       const acc = checkAccessibility();
-      if (!acc) return { success: false, error: 'Accessibility izni gerekli. System Settings > Privacy & Security > Accessibility > Terminal\'e izin verin.' };
+      if (!acc) return accessibilityDenied();
       const r = osaScript('tell application "System Events" to click at {' + x + ', ' + y + '}');
       if (!r.success) return r;
       return { success: true, action: 'click', x, y, button: btn };
     }
     if (PLATFORM === 'win32') {
+      const rp = requirePowershell();
+      if (rp) return rp;
       const c = clicks || 1;
-      spawnSync('powershell', ['-Command',
-        '[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(' + x + ', ' + y + '); ' +
-        '[System.Windows.Forms.SendKeys]::SendWait("' + (c > 1 ? '{DOUBLECLICK}' : '{CLICK}') + '")'
-      ], { timeout: 5000 });
+      const r = windowsClick(x, y, { doubleClick: c > 1, button: btn });
+      if (r.error) return { success: false, error: 'Windows click hatasi: ' + r.error.message };
+      if (r.status !== 0) return { success: false, error: 'Windows click hatasi: ' + (r.stderr || 'exit ' + r.status) };
       return { success: true, action: 'click', x, y, button: btn };
     }
-    spawnSync('xdotool', ['mousemove', String(x), String(y), 'click', '1'], { timeout: 5000 });
+    const rx = requireXdotool();
+    if (rx) return rx;
+    const r = spawnSync('xdotool', ['mousemove', String(x), String(y), 'click', '1'], { timeout: 5000, encoding: 'utf8' });
+    if (r.error) return { success: false, error: 'xdotool click hatasi: ' + r.error.message };
+    if (r.status !== 0) return { success: false, error: 'xdotool click hatasi: ' + (r.stderr || 'exit ' + r.status) };
     return { success: true, action: 'click', x, y, button: btn };
   }
 
@@ -129,18 +169,27 @@ async function computerUse(params) {
     if (!text) return { success: false, error: 'text gerekli' };
     if (PLATFORM === 'darwin') {
       const acc = checkAccessibility();
-      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+      if (!acc) return accessibilityDenied();
       const r = osaScript('tell application "System Events" to keystroke "' + escapeText(text) + '"');
       if (!r.success) return r;
       return { success: true, action: 'type', text };
     }
     if (PLATFORM === 'win32') {
-      spawnSync('powershell', ['-Command',
-        '[System.Windows.Forms.SendKeys]::SendWait("' + text.replace(/[{}()^+% ~]/g, '{$&}') + '")'
-      ], { timeout: 5000 });
+      const rp = requirePowershell();
+      if (rp) return rp;
+      const escaped = text.replace(/[{}()^+%~]/g, '{$&}');
+      const r = spawnSync('powershell', ['-Command',
+        '[System.Windows.Forms.SendKeys]::SendWait("' + escaped + '")'
+      ], { timeout: 5000, encoding: 'utf8' });
+      if (r.error) return { success: false, error: 'Windows type hatasi: ' + r.error.message };
+      if (r.status !== 0) return { success: false, error: 'Windows type hatasi: ' + (r.stderr || 'exit ' + r.status) };
       return { success: true, action: 'type', text };
     }
-    spawnSync('xdotool', ['type', text], { timeout: 5000 });
+    const rx = requireXdotool();
+    if (rx) return rx;
+    const r = spawnSync('xdotool', ['type', '--clearmodifiers', text], { timeout: 5000, encoding: 'utf8' });
+    if (r.error) return { success: false, error: 'xdotool type hatasi: ' + r.error.message };
+    if (r.status !== 0) return { success: false, error: 'xdotool type hatasi: ' + (r.stderr || 'exit ' + r.status) };
     return { success: true, action: 'type', text };
   }
 
@@ -148,7 +197,7 @@ async function computerUse(params) {
     if (!key) return { success: false, error: 'key gerekli' };
     if (PLATFORM === 'darwin') {
       const acc = checkAccessibility();
-      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+      if (!acc) return accessibilityDenied();
 
       const parts = key.toLowerCase().split('+').map(p => p.trim());
       const mods = [];
@@ -176,17 +225,26 @@ async function computerUse(params) {
       return { success: true, action: 'keypress', key };
     }
     if (PLATFORM === 'win32') {
+      const rp = requirePowershell();
+      if (rp) return rp;
       const keyMap = {
         enter: '{ENTER}', tab: '{TAB}', escape: '{ESC}', up: '{UP}', down: '{DOWN}',
         left: '{LEFT}', right: '{RIGHT}', backspace: '{BACKSPACE}', delete: '{DELETE}',
         home: '{HOME}', end: '{END}', pageup: '{PGUP}', pagedown: '{PGDN}',
       };
-      spawnSync('powershell', ['-Command',
-        '[System.Windows.Forms.SendKeys]::SendWait("' + (keyMap[key.toLowerCase()] || key) + '")'
-      ], { timeout: 5000 });
+      const psKey = keyMap[key.toLowerCase()] || key;
+      const r = spawnSync('powershell', ['-Command',
+        '[System.Windows.Forms.SendKeys]::SendWait("' + psKey.replace(/"/g, '`"') + '")'
+      ], { timeout: 5000, encoding: 'utf8' });
+      if (r.error) return { success: false, error: 'Windows keypress hatasi: ' + r.error.message };
+      if (r.status !== 0) return { success: false, error: 'Windows keypress hatasi: ' + (r.stderr || 'exit ' + r.status) };
       return { success: true, action: 'keypress', key };
     }
-    spawnSync('xdotool', ['key', key], { timeout: 5000 });
+    const rx = requireXdotool();
+    if (rx) return rx;
+    const r = spawnSync('xdotool', ['key', key], { timeout: 5000, encoding: 'utf8' });
+    if (r.error) return { success: false, error: 'xdotool keypress hatasi: ' + r.error.message };
+    if (r.status !== 0) return { success: false, error: 'xdotool keypress hatasi: ' + (r.stderr || 'exit ' + r.status) };
     return { success: true, action: 'keypress', key };
   }
 
@@ -194,18 +252,26 @@ async function computerUse(params) {
     if (typeof x !== 'number' || typeof y !== 'number') return { success: false, error: 'x ve y gerekli' };
     if (PLATFORM === 'darwin') {
       const acc = checkAccessibility();
-      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+      if (!acc) return accessibilityDenied();
       const r = osaScript('tell application "System Events" to set position of mouse to {' + x + ', ' + y + '}');
       if (!r.success) return r;
       return { success: true, action: 'mouse_move', x, y };
     }
     if (PLATFORM === 'win32') {
-      spawnSync('powershell', ['-Command',
+      const rp = requirePowershell();
+      if (rp) return rp;
+      const r = spawnSync('powershell', ['-Command',
         '[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(' + x + ', ' + y + ')'
-      ], { timeout: 5000 });
+      ], { timeout: 5000, encoding: 'utf8' });
+      if (r.error) return { success: false, error: 'Windows mouse_move hatasi: ' + r.error.message };
+      if (r.status !== 0) return { success: false, error: 'Windows mouse_move hatasi: ' + (r.stderr || 'exit ' + r.status) };
       return { success: true, action: 'mouse_move', x, y };
     }
-    spawnSync('xdotool', ['mousemove', String(x), String(y)], { timeout: 5000 });
+    const rx = requireXdotool();
+    if (rx) return rx;
+    const r = spawnSync('xdotool', ['mousemove', String(x), String(y)], { timeout: 5000, encoding: 'utf8' });
+    if (r.error) return { success: false, error: 'xdotool mouse_move hatasi: ' + r.error.message };
+    if (r.status !== 0) return { success: false, error: 'xdotool mouse_move hatasi: ' + (r.stderr || 'exit ' + r.status) };
     return { success: true, action: 'mouse_move', x, y };
   }
 
@@ -217,13 +283,17 @@ async function computerUse(params) {
       return { success: true, x: mx, y: my };
     }
     if (PLATFORM === 'win32') {
-      const result = spawnSync('powershell', ['-Command',
+      const r = spawnSync('powershell', ['-Command',
         '[System.Windows.Forms.Cursor]::Position.X.ToString() + ", " + [System.Windows.Forms.Cursor]::Position.Y.ToString()'
       ], { timeout: 5000, encoding: 'utf8' });
-      const [mx, my] = result.stdout.trim().split(', ').map(Number);
+      if (r.error) return { success: false, error: 'Windows mouse_position hatasi: ' + r.error.message };
+      if (r.status !== 0) return { success: false, error: 'Windows mouse_position hatasi: ' + (r.stderr || 'exit ' + r.status) };
+      const [mx, my] = r.stdout.trim().split(', ').map(Number);
       return { success: true, x: mx, y: my };
     }
     const result = spawnSync('xdotool', ['getmouselocation'], { timeout: 5000, encoding: 'utf8' });
+    if (result.error) return { success: false, error: 'xdotool mouse_position hatasi: ' + result.error.message };
+    if (result.status !== 0) return { success: false, error: 'xdotool mouse_position hatasi: ' + (result.stderr || 'exit ' + result.status) };
     const mx = parseInt(result.stdout.match(/x:(\d+)/)?.[1] || '0');
     const my = parseInt(result.stdout.match(/y:(\d+)/)?.[1] || '0');
     return { success: true, x: mx, y: my };
@@ -233,7 +303,7 @@ async function computerUse(params) {
     if (typeof y !== 'number') return { success: false, error: 'y (pixels) gerekli' };
     if (PLATFORM === 'darwin') {
       const acc = checkAccessibility();
-      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+      if (!acc) return accessibilityDenied();
       const direction = y > 0 ? 'up' : 'down';
       const times = Math.abs(Math.ceil(y / 40));
       const r = osaScript('tell application "System Events" to repeat ' + times + ' times\n  key code 125\nend repeat');
@@ -241,7 +311,21 @@ async function computerUse(params) {
 
       return { success: true, action: 'scroll', y, note: 'Scrolled ' + direction + ' ' + times + ' steps' };
     }
-    spawnSync('xdotool', ['click', y < 0 ? '4' : '5', '--repeat', String(Math.abs(Math.ceil(y / 50)))], { timeout: 5000 });
+    if (PLATFORM === 'win32') {
+      const rp = requirePowershell();
+      if (rp) return rp;
+      const direction = y < 0 ? 'Up' : 'Down';
+      const times = Math.abs(Math.ceil(y / 40));
+      const r = windowsScroll(y);
+      if (r.error) return { success: false, error: 'Windows scroll hatasi: ' + r.error.message };
+      if (r.status !== 0) return { success: false, error: 'Windows scroll hatasi: ' + (r.stderr || 'exit ' + r.status) };
+      return { success: true, action: 'scroll', y, note: 'Scrolled ' + direction + ' ' + times + ' steps' };
+    }
+    const rx = requireXdotool();
+    if (rx) return rx;
+    const r = spawnSync('xdotool', ['click', y < 0 ? '4' : '5', '--repeat', String(Math.abs(Math.ceil(y / 50)))], { timeout: 5000, encoding: 'utf8' });
+    if (r.error) return { success: false, error: 'xdotool scroll hatasi: ' + r.error.message };
+    if (r.status !== 0) return { success: false, error: 'xdotool scroll hatasi: ' + (r.stderr || 'exit ' + r.status) };
     return { success: true, action: 'scroll', y };
   }
 
@@ -251,13 +335,17 @@ async function computerUse(params) {
     if (typeof x2 !== 'number' || typeof y2 !== 'number') return { success: false, error: 'x2 ve y2 (bitis) gerekli' };
     if (PLATFORM === 'darwin') {
       const acc = checkAccessibility();
-      if (!acc) return { success: false, error: 'Accessibility izni gerekli' };
+      if (!acc) return accessibilityDenied();
       const r = osaScript('tell application "System Events"\n  set mousePos to {' + x + ', ' + y + '}\n  set mousePos2 to {' + x2 + ', ' + y2 + '}\n  set position of mouse to mousePos\n  delay 0.1\n  mouse down\n  set position of mouse to mousePos2\n  delay 0.1\n  mouse up\nend tell');
       if (!r.success) return r;
       return { success: true, action: 'drag', from: { x, y }, to: { x: x2, y: y2 } };
     }
     if (PLATFORM === 'linux') {
-      spawnSync('xdotool', ['mousemove', String(x), String(y), 'mousedown', '1', 'mousemove', String(x2), String(y2), 'mouseup', '1'], { timeout: 5000 });
+      const rx = requireXdotool();
+      if (rx) return rx;
+      const r = spawnSync('xdotool', ['mousemove', String(x), String(y), 'mousedown', '1', 'mousemove', String(x2), String(y2), 'mouseup', '1'], { timeout: 5000, encoding: 'utf8' });
+      if (r.error) return { success: false, error: 'xdotool drag hatasi: ' + r.error.message };
+      if (r.status !== 0) return { success: false, error: 'xdotool drag hatasi: ' + (r.stderr || 'exit ' + r.status) };
       return { success: true, action: 'drag', from: { x, y }, to: { x: x2, y: y2 } };
     }
     return { success: false, error: 'drag only supported on macOS and Linux' };

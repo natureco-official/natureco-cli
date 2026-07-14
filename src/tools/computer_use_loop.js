@@ -9,8 +9,8 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
 const { buildChatEndpoint, isMiniMax, isAnthropic } = require('../utils/provider-detect');
+const { captureScreenshot: platformScreenshot, executeAction: platformExecute } = require('../utils/platform-gui');
 
 function loadConfig() {
   try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; }
@@ -104,15 +104,9 @@ function apiCall(providerUrl, apiKey, body) {
 }
 
 function captureScreenshot() {
-  if (os.platform() !== 'darwin') throw new Error('computer_use_loop currently requires macOS');
-  const file = path.join(os.tmpdir(), 'ncloop_' + Date.now() + '.png');
-  require('child_process').execSync('screencapture -x "' + file + '"', { timeout: 5000 });
-  const buf = fs.readFileSync(file);
-  fs.unlinkSync(file);
-  return {
-    base64: buf.toString('base64'),
-    hash: crypto.createHash('sha256').update(buf).digest('hex'),
-  };
+  const result = platformScreenshot();
+  try { fs.rmSync(result.file, { force: true }); } catch {}
+  return { base64: result.base64, hash: result.hash };
 }
 
 function evaluateCompletionEvidence({ mutationCount, initialHash, currentHash, verification }) {
@@ -163,57 +157,9 @@ function validateAction(action, params = {}) {
 }
 
 function executeAction(action, params) {
-  const { spawnSync } = require('child_process');
-  const PLATFORM = os.platform();
-
   const invalid = validateAction(action, params);
   if (invalid) return { success: false, error: invalid };
-  const ESC = (s) => s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-
-  function osaScript(script, timeoutMs = 10000) {
-    const r = spawnSync('osascript', ['-e', script], { timeout: timeoutMs, encoding: 'utf8', maxBuffer: 1024 * 1024 });
-    if (r.error) return { success: false, error: r.error.code === 'ETIMEDOUT' ? 'osascript timed out' : r.error.message };
-    if (r.status !== 0) return { success: false, error: r.stderr || r.stdout || 'error' };
-    return { success: true };
-  }
-
-  try {
-    switch (action) {
-      case 'click':
-        return osaScript('tell application "System Events" to click at {' + params.x + ', ' + params.y + '}');
-      case 'type':
-        return osaScript('tell application "System Events" to keystroke "' + ESC(params.text) + '"');
-      case 'keypress': {
-        const KEY_CODES = { enter: 36, return: 36, tab: 48, escape: 53, up: 126, down: 125, left: 123, right: 124, backspace: 51, delete: 117, space: 49 };
-        const MOD_MAP = { cmd: 'command down', command: 'command down', option: 'option down', alt: 'option down', ctrl: 'control down', shift: 'shift down' };
-        const parts = params.key.toLowerCase().split('+').map(p => p.trim());
-        const mods = [];
-        let actual = '';
-        for (const p of parts) {
-          if (MOD_MAP[p]) mods.push(MOD_MAP[p]);
-          else actual = p;
-        }
-        const using = mods.length > 0 ? ' using {' + mods.join(', ') + '}' : '';
-        if (Object.prototype.hasOwnProperty.call(KEY_CODES, actual)) {
-          return osaScript('tell application "System Events" to key code ' + KEY_CODES[actual] + using);
-        }
-        if (!actual) return { success: false, error: 'A key is required with the modifier' };
-        return osaScript('tell application "System Events" to keystroke "' + ESC(actual) + '"' + using);
-      }
-      case 'mouse_move':
-        return osaScript('tell application "System Events" to set position of mouse to {' + params.x + ', ' + params.y + '}');
-      case 'scroll': {
-        const times = Math.abs(Math.ceil((params.y || 0) / 40));
-        return osaScript('tell application "System Events"\n  repeat ' + times + ' times\n    key code 125\n  end repeat\nend tell');
-      }
-      case 'wait':
-        return { success: true };
-      default:
-        return { success: false, error: 'Unknown action: ' + action };
-    }
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
+  return platformExecute(action, params);
 }
 
 const SYSTEM_PROMPT = `Sen bir GUI otomasyon asistanisin. Gorev: Ekran goruntusunu analiz et ve siradaki action'i JSON olarak belirle.
@@ -235,10 +181,6 @@ async function loop(goal, maxSteps) {
   const vision = resolveVisionConfig(cfg);
   if (!vision.success) return vision;
   const { providerUrl, apiKey, model } = vision;
-
-  if (os.platform() !== 'darwin') {
-    return { success: false, error: 'computer_use_loop currently requires macOS' };
-  }
 
   const steps = [];
   let completed = false;
@@ -288,7 +230,7 @@ async function loop(goal, maxSteps) {
 
       if (!execResult.success) {
         // Retry once with wait
-        require('child_process').execSync('sleep 1');
+        require('child_process').execSync(os.platform() === 'win32' ? 'timeout /t 1 /nobreak >nul' : 'sleep 1', { stdio: 'ignore', shell: true });
         const retryResult = executeAction(decision.action, decision);
         if (!retryResult.success) {
           steps.push({ step: i + 1, action: 'error', error: execResult.error });
@@ -298,7 +240,7 @@ async function loop(goal, maxSteps) {
       if (['click', 'type', 'keypress', 'scroll', 'drag'].includes(decision.action)) mutationCount++;
 
       // Small delay between actions
-      require('child_process').execSync('sleep 0.5');
+      require('child_process').execSync(os.platform() === 'win32' ? 'timeout /t 1 /nobreak >nul' : 'sleep 0.5', { stdio: 'ignore', shell: true });
 
       // Safety: if too many steps, break
       if (i >= maxSteps - 1) {

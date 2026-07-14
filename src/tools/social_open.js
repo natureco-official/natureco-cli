@@ -2,6 +2,12 @@ const { spawn, execFileSync } = require("child_process");
 const os = require("os");
 
 const IS_MAC = os.platform() === "darwin";
+const PLATFORM_HOME = {
+  youtube: 'https://www.youtube.com', twitter: 'https://x.com', instagram: 'https://www.instagram.com',
+  tiktok: 'https://www.tiktok.com', linkedin: 'https://www.linkedin.com', github: 'https://github.com',
+  reddit: 'https://www.reddit.com', facebook: 'https://www.facebook.com', twitch: 'https://www.twitch.tv',
+  medium: 'https://medium.com', spotify: 'https://open.spotify.com',
+};
 
 const PLATFORMS = {
   youtube: {
@@ -71,7 +77,11 @@ function getOpenBrowser() {
 }
 
 function detectPlatform(input) {
-  const lower = input.toLowerCase().trim();
+  const lower = String(input || '').toLowerCase().trim();
+
+  for (const [name, p] of Object.entries(PLATFORMS)) {
+    if (p.match.includes(lower)) return { platform: name, id: '', url: PLATFORM_HOME[name] };
+  }
 
   // Already a URL
   if (lower.startsWith("http://") || lower.startsWith("https://")) {
@@ -139,7 +149,12 @@ async function socialOpen(params) {
   }
 
   let url, platformName, note;
-  if (platform && username) {
+  if (platform && !username && !query) {
+    const key = platform.toLowerCase();
+    if (!PLATFORM_HOME[key]) return { success: false, error: `Bilinmeyen platform: ${platform}` };
+    url = PLATFORM_HOME[key];
+    platformName = key;
+  } else if (platform && username) {
     const p = PLATFORMS[platform.toLowerCase()];
     if (!p) return { success: false, error: `Bilinmeyen platform: ${platform}. Desteklenenler: ${Object.keys(PLATFORMS).join(", ")}` };
     url = p.url(username);
@@ -188,4 +203,5 @@ module.exports = {
   async execute(params) {
     return await socialOpen(params);
   },
+  _test: { detectPlatform, PLATFORM_HOME },
 };

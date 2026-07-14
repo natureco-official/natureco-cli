@@ -21,4 +21,25 @@ describe('persistent browser agent helpers', () => {
     const actions = browser.inputSchema.properties.action.enum;
     for (const action of ['open', 'snapshot', 'click', 'fill', 'type', 'press', 'current_url', 'close']) expect(actions).toContain(action);
   });
+
+  it('classifies closed-profile launch failures and compacts Playwright logs', () => {
+    const error = new Error('browserType.launchPersistentContext: Target page, context or browser has been closed\nBrowser logs: huge');
+    expect(browser._test.isClosedBrowserError(error)).toBe(true);
+    expect(browser._test.compactBrowserError(error)).toBe('Target page, context or browser has been closed');
+  });
+
+  it('recognizes all known Playwright missing-binary message formats', () => {
+    const { MISSING_CHROMIUM } = browser._test;
+    const messages = [
+      'Could not find Chromium',
+      'browser was not found',
+      'Failed to launch browser',
+      "Executable file not found at /usr/bin/chrome",
+      "Executable doesn't exist at /opt/pw-browsers/chromium-1228/chrome-linux64/chrome",
+    ];
+    for (const msg of messages) {
+      const hit = MISSING_CHROMIUM.some(p => new RegExp(p, 'i').test(msg));
+      expect(hit).toBe(true);
+    }
+  });
 });

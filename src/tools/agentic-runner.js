@@ -319,6 +319,12 @@ function coerceArgsForSchema(args, schema) {
   return result;
 }
 
+function isSimpleOpenTask(task) {
+  const text = String(task || '').toLocaleLowerCase('tr-TR');
+  if (!/(^|\s)(aç|ac|open)(\s|$|[.!?])/.test(text)) return false;
+  return !/(mesaj|yaz|gönder|gonder|tıkla|tikla|doldur|giriş|giris|login|satın|satin|rezerv|ödeme|odeme|ara\b|bul\b|oynat)/.test(text);
+}
+
 /**
  * Tek bir parse edilmis cagriyi calistir.
  * Donus: { records: [...], feedback: '...' }
@@ -465,12 +471,22 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
 
     messages.push({ role: 'assistant', content: content || '' });
     const feedbacks = [];
+    let simpleOpenCompleted = null;
     for (const call of calls) {
       if (onEvent) { try { onEvent({ phase: 'start', tool: call.tool, args: call.args }); } catch {} }
       const { records, feedback } = await executeCall(call, { toolsDir, loadTool, allowed: allowedSet, execFull });
       if (onEvent) { try { onEvent({ phase: 'end', tool: call.tool, args: call.args, records }); } catch {} }
       allRecords.push(...records);
       feedbacks.push(feedback);
+      const completed = records.find(record => record.status === 'done' && ['social_open', 'mac_app_open'].includes(record.tool));
+      if (completed && isSimpleOpenTask(task)) {
+        simpleOpenCompleted = completed;
+        break;
+      }
+    }
+    if (simpleOpenCompleted) {
+      finalReply = 'İstediğiniz uygulama veya sayfa açıldı.';
+      break;
     }
     // A verified GUI loop is the authority for visible multi-step desktop work.
     // If it fails, do not let the text model fan out into blind screenshots,
@@ -495,4 +511,4 @@ async function runAgentic({ callModel, systemPrompt, historyMessages, task, tool
   return { records: allRecords, reply: finalReply, iterations };
 }
 
-module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback, coerceArgsForSchema, TOOL_ALIASES, DEFAULT_ALLOWED };
+module.exports = { parseAgenticCalls, stripProtocolTokens, executeCall, runAgentic, expandHome, makeStreamFilter, makeSanitizeStream, agentExecAllowed, buildFeedback, coerceArgsForSchema, isSimpleOpenTask, TOOL_ALIASES, DEFAULT_ALLOWED };
