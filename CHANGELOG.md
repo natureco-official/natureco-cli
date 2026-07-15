@@ -2,6 +2,11 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.65.5] - 2026-07-15 — Fewer false-negative AppleScript timeouts
+
+### Fixed
+- `osascript` calls (click/type/keypress/save on macOS) used a 10s timeout, which real GUI actions (typing into an app that's still finishing launch, waiting on iCloud sync before a note save) can exceed even though the action actually succeeds. Raised to 20s in both `computer_use` and `computer_use_loop`'s shared `osaScript` helper to reduce these false-negative failures.
+
 ## [5.65.4] - 2026-07-15 — Classify the undefined-mouse Accessibility error
 
 ### Fixed

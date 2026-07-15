@@ -30,7 +30,7 @@ function classifyMacError(stderr) {
   try { return require('./macos-permissions').classifyMacAutomationError(stderr); } catch { return { permission: false, error: String(stderr) }; }
 }
 
-function osaScript(script, timeoutMs = 10000) {
+function osaScript(script, timeoutMs = 20000) {
   const r = spawnSync('osascript', ['-e', script], { timeout: timeoutMs, encoding: 'utf8', maxBuffer: 1024 * 1024 });
   if (r.error) {
     if (r.error.code === 'ETIMEDOUT') return { success: false, error: 'osascript timed out after ' + timeoutMs + 'ms' };

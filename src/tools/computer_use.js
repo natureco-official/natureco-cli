@@ -65,7 +65,7 @@ function escapeText(s) {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-function osaScript(script, timeoutMs = 10000) {
+function osaScript(script, timeoutMs = 20000) {
   const result = spawnSync('osascript', ['-e', script], {
     timeout: timeoutMs,
     encoding: 'utf8',
