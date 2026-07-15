@@ -2,6 +2,14 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.65.4] - 2026-07-15 — Classify the undefined-mouse Accessibility error
+
+### Fixed
+- `computer_use`'s `mouse_position` action raised a raw, unclassified AppleScript error (`mouse değişkeni tanımlanmamış (-2753)`) when macOS Accessibility permission was missing, instead of the same actionable permission message every other GUI action already gives. This is a known AppleScript symptom of missing Accessibility access for System Events UI-scripting reads; `classifyMacAutomationError` now recognizes it (and the classic "assistive devices" wording) and routes it to the standard Accessibility guidance.
+
+### Tests
+- Added regressions for the `(-2753)` undefined-mouse-variable and "assistive devices" error strings.
+
 ## [5.65.3] - 2026-07-15 — Real Windows mouse/scroll automation
 
 ### Fixed

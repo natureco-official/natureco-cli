@@ -51,6 +51,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.65.4** | **Accessible mouse_position errors:** the raw "mouse variable undefined" AppleScript error is now classified as a missing Accessibility permission, with the same actionable guidance as every other GUI action. |
 | **v5.65.3** | **Real Windows mouse/scroll automation:** click and scroll now use a real `user32.dll` mouse event instead of a non-existent SendKeys code, and macOS screenshot permission failures are always detected. |
 | **v5.65.2** | **Reliable macOS automation recovery:** simple open requests stop after success, stale browser profiles retry once, and Screen Recording/Accessibility failures provide precise Cupertino Terminal permission guidance. |
 | **v5.65.0** | **Persistent browser agent:** visible system Chrome/Chromium, persistent login/storage, and reliable `snapshot → @ref click/fill → verify` automation replace one-shot headless browsing. |

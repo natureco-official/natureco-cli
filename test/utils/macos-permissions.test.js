@@ -13,4 +13,15 @@ describe('macOS automation permission diagnostics', () => {
     expect(result.permission).toBe('accessibility');
     expect(result.settingsUrl).toContain('Privacy_Accessibility');
   });
+
+  it('maps the undefined-"mouse"-variable AppleScript error to Accessibility settings', () => {
+    const result = classifyMacAutomationError('55:60: execution error: mouse değişkeni tanımlanmamış. (-2753)');
+    expect(result.permission).toBe('accessibility');
+    expect(result.settingsUrl).toContain('Privacy_Accessibility');
+  });
+
+  it('maps the classic "assistive devices" AppleScript error to Accessibility settings', () => {
+    const result = classifyMacAutomationError('System Events got an error: osascript is not allowed access for assistive devices.');
+    expect(result.permission).toBe('accessibility');
+  });
 });
