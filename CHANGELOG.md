@@ -2,6 +2,15 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.65.6] - 2026-07-15 — Survive the just-launched-app race condition
+
+### Fixed
+- Immediately clicking/typing into an app right after `mac_app_open` launched it could fail with a raw `kAXErrorFailure (-25200)` — a transient macOS Accessibility API error that happens when the target app's UI hasn't finished registering with the accessibility tree yet. `osaScript` (shared by `computer_use` and `computer_use_loop`) now retries once after a short delay on this specific, known-transient error instead of failing immediately.
+- `mac_app_open` now waits ~700ms after the app process launches before reporting success, giving its UI time to settle before a follow-up GUI action targets it.
+
+### Tests
+- Added regressions for classifying `(-25200)` as the known-transient Accessibility failure signature.
+
 ## [5.65.5] - 2026-07-15 — Fewer false-negative AppleScript timeouts
 
 ### Fixed

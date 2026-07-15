@@ -1,4 +1,14 @@
-const { buildWindowsClickScript, buildWindowsScrollScript } = require('../../src/utils/platform-gui');
+const { buildWindowsClickScript, buildWindowsScrollScript, TRANSIENT_AX_ERROR } = require('../../src/utils/platform-gui');
+
+describe('transient Accessibility API failure detection', () => {
+  it('recognizes kAXErrorFailure (-25200), a transient failure common right after an app launches', () => {
+    expect(TRANSIENT_AX_ERROR.test('36:54: execution error: System Events got an error: -25200. (-25200)')).toBe(true);
+  });
+
+  it('does not misclassify unrelated AppleScript errors as transient', () => {
+    expect(TRANSIENT_AX_ERROR.test('Not authorized to send Apple events. (-1743)')).toBe(false);
+  });
+});
 
 describe('Windows GUI automation scripts', () => {
   it('clicks via user32 mouse_event, not SendKeys (SendKeys has no {CLICK} code)', () => {

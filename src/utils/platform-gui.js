@@ -30,7 +30,12 @@ function classifyMacError(stderr) {
   try { return require('./macos-permissions').classifyMacAutomationError(stderr); } catch { return { permission: false, error: String(stderr) }; }
 }
 
-function osaScript(script, timeoutMs = 20000) {
+// kAXErrorFailure: a transient Accessibility API failure, commonly hit when
+// the target app's UI hasn't finished registering with the accessibility
+// tree yet (e.g. right after launch). Safe to retry once after a short wait.
+const TRANSIENT_AX_ERROR = /\(-25200\)/;
+
+function osaScript(script, timeoutMs = 20000, _retried = false) {
   const r = spawnSync('osascript', ['-e', script], { timeout: timeoutMs, encoding: 'utf8', maxBuffer: 1024 * 1024 });
   if (r.error) {
     if (r.error.code === 'ETIMEDOUT') return { success: false, error: 'osascript timed out after ' + timeoutMs + 'ms' };
@@ -38,6 +43,10 @@ function osaScript(script, timeoutMs = 20000) {
   }
   if (r.status !== 0) {
     const msg = r.stderr || r.stdout || 'unknown error';
+    if (!_retried && TRANSIENT_AX_ERROR.test(msg)) {
+      spawnSync('/bin/sleep', ['0.5']);
+      return osaScript(script, timeoutMs, true);
+    }
     const permission = classifyMacError(msg);
     if (permission.permission) return { success: false, ...permission };
     let friendly = msg;
@@ -303,6 +312,7 @@ module.exports = {
   classifyMacError,
   windowsClick,
   windowsScroll,
+  TRANSIENT_AX_ERROR,
   buildWindowsClickScript,
   buildWindowsScrollScript,
 };

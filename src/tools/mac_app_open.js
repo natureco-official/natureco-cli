@@ -14,9 +14,17 @@ async function macAppOpen(params) {
 
   return new Promise((resolve) => {
     const proc = spawn("open", ["-a", appName]);
-    proc.on("close", code => {
-      if (code === 0) resolve({ success: true, message: `"${appName}" acildi` });
-      else resolve({ success: false, error: `Uygulama acilamadi: ${appName}` });
+    proc.on("close", async code => {
+      if (code === 0) {
+        // `open` returns as soon as the app process launches, before its UI
+        // has registered with the accessibility tree — immediate GUI actions
+        // (computer_use/computer_use_loop) can otherwise hit a transient
+        // kAXErrorFailure (-25200). Give the UI a moment to settle.
+        await new Promise(r => setTimeout(r, 700));
+        resolve({ success: true, message: `"${appName}" acildi` });
+      } else {
+        resolve({ success: false, error: `Uygulama acilamadi: ${appName}` });
+      }
     });
     proc.on("error", e => resolve({ success: false, error: e.message }));
   });

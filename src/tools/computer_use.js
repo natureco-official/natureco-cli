@@ -65,7 +65,12 @@ function escapeText(s) {
   return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-function osaScript(script, timeoutMs = 20000) {
+// kAXErrorFailure: a transient Accessibility API failure, commonly hit when
+// the target app's UI hasn't finished registering with the accessibility
+// tree yet (e.g. right after launch). Safe to retry once after a short wait.
+const TRANSIENT_AX_ERROR = /\(-25200\)/;
+
+function osaScript(script, timeoutMs = 20000, _retried = false) {
   const result = spawnSync('osascript', ['-e', script], {
     timeout: timeoutMs,
     encoding: 'utf8',
@@ -79,6 +84,10 @@ function osaScript(script, timeoutMs = 20000) {
   }
   if (result.status !== 0) {
     const msg = result.stderr || result.stdout || 'unknown error';
+    if (!_retried && TRANSIENT_AX_ERROR.test(msg)) {
+      spawnSync('/bin/sleep', ['0.5']);
+      return osaScript(script, timeoutMs, true);
+    }
     const permission = classifyMacAutomationError(msg);
     if (permission.permission) return { success: false, ...permission };
     let friendly = msg;

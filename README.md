@@ -51,6 +51,8 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.65.6** | **Survives the just-launched-app race:** GUI actions right after opening an app no longer fail on a transient `kAXErrorFailure (-25200)` — `osaScript` retries once, and `mac_app_open` waits for the UI to settle. |
+| **v5.65.5** | **Fewer false-negative timeouts:** `osascript` timeout raised from 10s to 20s so slow-but-successful GUI actions (typing, saving) aren't misreported as failures. |
 | **v5.65.4** | **Accessible mouse_position errors:** the raw "mouse variable undefined" AppleScript error is now classified as a missing Accessibility permission, with the same actionable guidance as every other GUI action. |
 | **v5.65.3** | **Real Windows mouse/scroll automation:** click and scroll now use a real `user32.dll` mouse event instead of a non-existent SendKeys code, and macOS screenshot permission failures are always detected. |
 | **v5.65.2** | **Reliable macOS automation recovery:** simple open requests stop after success, stale browser profiles retry once, and Screen Recording/Accessibility failures provide precise Cupertino Terminal permission guidance. |
