@@ -12,6 +12,7 @@ const detector = require('../utils/pattern-detector');
 const audit = require('../utils/audit');
 
 async function skills(args) {
+  args = args || [];
   const [action, ...params] = args;
 
   if (!action || action === 'list') {

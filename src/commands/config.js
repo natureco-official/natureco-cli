@@ -12,6 +12,7 @@ const TB = require('../utils/token-budget');
 const tui = require('../utils/tui');
 
 function config(args) {
+  args = args || [];
   const [action, key, ...valueParts] = args;
 
   if (!action) {

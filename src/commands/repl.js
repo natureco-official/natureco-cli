@@ -1056,6 +1056,7 @@ function runCliCommand(args) {
 }
 
 async function startRepl(args) {
+  args = args || [];
   ensureDir(MEMORY_DIR); ensureDir(SESSION_DIR);
 
   const cfg = getConfig();

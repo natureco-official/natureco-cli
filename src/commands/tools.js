@@ -16,6 +16,7 @@ const { loadToolDefinitions, EMOJI_MAP, TOOLSET_MAP } = require('../utils/tools'
 const { getConfig, setConfigValue } = require('../utils/config');
 
 function main(args) {
+  args = args || [];
   const action = args[0] || 'list';
 
   switch (action) {

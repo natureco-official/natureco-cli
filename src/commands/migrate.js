@@ -35,6 +35,7 @@ function addUniqueFact(facts, newFact) {
 }
 
 async function migrate(options) {
+  options = options || {};
   const from = options.from || 'openclaw';
   
   if (from === 'claude-code' || from === 'claude') {

@@ -258,7 +258,7 @@ program
 
 program
   .command('code [file]')
-  .description('Agentic coding modu v5 — Claude Code alternative (47 tools, TUI, auto tool selection)')
+  .description('Agentic coding modu v5 — Claude Code alternative (91 tools, TUI, auto tool selection)')
   .option('--dir <path>', 'çalışma dizini', process.cwd())
   .option('--no-stream', 'streaming devre dışı')
   .option('--dry-run', 'değişiklikleri göster ama uygulama')
@@ -476,7 +476,7 @@ program
 
 program
   .command('webhooks <action>')
-  .description('Webhook management (list|gmail)')
+  .description('Webhook management (list|gmail setup|gmail run)')
   .action((action) => {
     const webhooksCmd = require('../src/commands/webhooks');
     webhooksCmd(process.argv.slice(3));
@@ -721,7 +721,7 @@ program
 
 program
   .command('security [action]')
-  .description('Security audit (audit)')
+  .description('Security management (audit|allowlist|policy|secrets)')
   .option('--fix', 'Auto-fix issues')
   .option('--json', 'JSON output')
   .action((action) => {
@@ -841,7 +841,7 @@ program
 
 program
   .command('directory <action>')
-  .description('Directory query (query|search)')
+  .description('Directory management (self|peers|search|register|remove|groups)')
   .action((action) => {
     const args = process.argv.slice(3);
     directory(args);
@@ -896,7 +896,7 @@ program
 
 program
   .command('nodes [action]')
-  .description('Node network management (list|pending|approve|reject|remove|rename|status|describe|invoke|notify|push|canvas|camera|screen|location)')
+  .description('Node network management (list|pair|approve|reject|remove|rename|status|describe|invoke|notify|push|canvas|camera|screen|location)')
   .action((action) => {
     const args = process.argv.slice(3);
     nodes(args);
@@ -927,7 +927,7 @@ program
 
 program
   .command('sandbox <action> [params...]')
-  .description('Sandbox container management (list|create|destroy)')
+  .description('Sandbox container management (list|create|destroy|exec)')
   .action((action, params) => {
     sandbox([action, ...(params || [])]);
   });

@@ -2,6 +2,7 @@ const chalk = require('chalk');
 const { execSync } = require('child_process');
 
 async function crestodian(args) {
+  args = args || [];
   const fixMode = args.includes('--fix') || args.includes('-f');
 
   console.log(chalk.cyan('\n  🛠️  Crestodian — Setup & Repair Assistant\n'));

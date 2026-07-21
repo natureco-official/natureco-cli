@@ -9,7 +9,8 @@ const { listSecretRefs, resolveSecretRef, coerceSecretRef } = require('../utils/
 const { NatureCoError, handleError } = require('../utils/errors');
 
 async function security(args) {
-  const [action, ...params] = (args || []);
+  args = args || [];
+  const [action, ...params] = args;
 
   if (!action || action === 'audit') return audit(args);
 

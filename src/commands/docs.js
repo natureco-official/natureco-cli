@@ -9,6 +9,7 @@ const DOC_SOURCES = [
 ];
 
 async function docs(args) {
+  args = args || [];
   const query = args.join(' ').trim();
 
   if (!query) {

@@ -142,6 +142,7 @@ function checkChannelConfig(config, channel) {
 }
 
 async function message(args) {
+  args = args || [];
   const flags = parseFlags(args);
   const action = getAction(args);
   const config = getConfig();

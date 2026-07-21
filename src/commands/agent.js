@@ -9,6 +9,7 @@ const BINDINGS_FILE = path.join(os.homedir(), '.natureco', 'agent-bindings.json'
 const IDENTITIES_FILE = path.join(os.homedir(), '.natureco', 'agent-identities.json');
 
 async function agent(args) {
+  args = args || [];
   const opts = {};
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--to' || args[i] === '-t') opts.to = args[++i];

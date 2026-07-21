@@ -70,6 +70,10 @@ function listSandboxes() {
 
 function createSandbox(name) {
   const sandboxName = name || `sandbox-${Date.now()}`;
+  if (!isSafeSandboxName(sandboxName)) {
+    console.log(chalk.red(L('\n  Gecersiz sandbox adi\n', '\n  Invalid sandbox name\n')));
+    return false;
+  }
   const dir = path.join(SANDBOX_DIR, sandboxName);
 
   if (fs.existsSync(dir)) {

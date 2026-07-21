@@ -2,6 +2,32 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.68.6] - 2026-07-21 — CLI polish: crash guards, dead code, help drift, sandbox validation
+
+The 4 Low-severity findings from `AUDIT_FINDINGS_3.md` — this closes out every finding from all
+three audits (`AUDIT_FINDINGS_1.md`, `AUDIT_FINDINGS_2.md`, `AUDIT_FINDINGS_3.md`) except the
+explicitly intentional-by-design items.
+
+### Fixed
+- Ten command entry points (`agent`, `config`, `crestodian`, `docs`, `message`, `migrate`, `repl`,
+  `security`, `skills`, `tools`) threw a raw `TypeError` on a missing/undefined argument instead
+  of a clean usage message.
+- `sandbox create` lacked the same traversal-name validation `sandbox destroy` already had,
+  allowing a name like `../escape` to potentially create a directory outside the sandbox root.
+  Now validated identically before use.
+- Several `bin/natureco.js` help descriptions had drifted from what their commands actually
+  implement (`security`, `directory`, `nodes`, `sandbox`, `webhooks`, and `code`'s stale tool
+  count) — all now accurately list their real actions/counts.
+
+### Removed
+- Three dead command files never reachable through any real registration
+  (`src/commands/acp.js`, `memory.js`, `tui.js` — the real `acp`/`memory` CLI commands point to
+  `code.js`/`memory-cmd.js`).
+
+### Tests
+- New `test/security/audit-findings-3-low.test.js`: 18 real-execution proofs, including real
+  spawned CLI processes for the help-text and sandbox-traversal fixes.
+
 ## [5.68.5] - 2026-07-21 — Honest command results and CLI argument fixes (Medium-severity)
 
 The 8 Medium-severity findings from the `src/commands/` audit (`AUDIT_FINDINGS_3.md`):
