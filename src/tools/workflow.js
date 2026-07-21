@@ -2,6 +2,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const { executeThroughGateway } = require('../utils/tool-execution-gateway');
+const { loadToolManifest } = require('../utils/tool-manifest');
 const os = require('os');
 
 const WORKFLOW_DIR = path.join(os.homedir(), '.natureco', 'workflows');
@@ -17,10 +18,7 @@ function isMiniMax(url) { return url && (url.includes('minimax.io') || url.inclu
 function isGemini(url) { return url && (url.includes('generativelanguage.googleapis.com') || url.includes('gemini')); }
 
 function allToolNames() {
-  try {
-    const toolsDir = path.join(__dirname, '..', 'tools');
-    return fs.readdirSync(toolsDir).filter(f => f.endsWith('.js')).map(f => path.basename(f, '.js'));
-  } catch { return []; }
+  return Array.from(loadToolManifest().keys());
 }
 
 function loadUserMemory(username) {
@@ -693,4 +691,5 @@ module.exports = {
     required: ['action'],
   },
   async execute(params) { return await workflow(params); },
+  _internal: { allToolNames },
 };

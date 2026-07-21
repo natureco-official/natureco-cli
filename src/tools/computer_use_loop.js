@@ -262,7 +262,7 @@ async function loop(goal, maxSteps) {
 
 const name = 'computer_use_loop';
 const description = 'Otonom GUI etkilesimi: bir hedef ver, loop halinde screenshot → LLM analizi → action → screenshot... hedef tamamlanana kadar devam eder. Web formlari, login, menus islemleri icin ideal.';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     goal: { type: 'string', description: 'Yapilacak islem (ornek: "natureco.me/login sayfasinda kullanici adi ve sifre girerek giris yap")' },
@@ -272,7 +272,10 @@ const parameters = {
 };
 
 async function execute(params) {
+  if (typeof params?.goal !== 'string' || !params.goal.trim()) {
+    return { success: false, error: 'goal required' };
+  }
   return await loop(params.goal, params.maxSteps || 30);
 }
 
-module.exports = { name, description, parameters, execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall, parseVisionDecision, validateAction };
+module.exports = { name, description, inputSchema, execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall, parseVisionDecision, validateAction };

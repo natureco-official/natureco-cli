@@ -1,4 +1,21 @@
-const { executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall, parseVisionDecision, validateAction } = require('../../src/tools/computer_use_loop');
+const fs = require('fs');
+const https = require('https');
+const { execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall, parseVisionDecision, validateAction } = require('../../src/tools/computer_use_loop');
+
+describe('computer_use_loop input validation', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([{}, { goal: '' }, { goal: '   ' }])('rejects a missing/empty goal before config or network work: %j', async params => {
+    const configRead = vi.spyOn(fs, 'readFileSync');
+    const httpsRequest = vi.spyOn(https, 'request');
+    const fetchRequest = vi.spyOn(global, 'fetch');
+
+    await expect(execute(params)).resolves.toEqual({ success: false, error: 'goal required' });
+    expect(configRead).not.toHaveBeenCalled();
+    expect(httpsRequest).not.toHaveBeenCalled();
+    expect(fetchRequest).not.toHaveBeenCalled();
+  });
+});
 
 describe('computer_use_loop macOS actions', () => {
   it('exposes the action executor for platform regression coverage', () => {

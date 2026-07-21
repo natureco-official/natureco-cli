@@ -109,6 +109,7 @@ function buildSkillIndex() {
 }
 
 function skillLookup(name) {
+  if (typeof name !== 'string' || !name.trim()) return null;
   const skills = _discoverSkills();
   const exact = skills.find(s => s.name === name || s.fullName === name);
   if (exact) return exact;

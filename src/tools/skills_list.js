@@ -6,7 +6,7 @@ const { skillsList } = require('../utils/skill-index');
 
 const name = 'skills_list';
 const description = 'List available skills with name and description. Use skill_view(name) to load full content.';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     category: { type: 'string', description: 'Optional category filter' },
@@ -18,4 +18,4 @@ async function execute(args) {
   return skillsList(args.category || null);
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, inputSchema, execute };

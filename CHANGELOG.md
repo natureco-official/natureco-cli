@@ -2,6 +2,35 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.67.2] - 2026-07-21 — Tool-interface correctness and fast, safe validation
+
+### Fixed
+- `memory_provider` reproducibly threw `Provider is not a constructor` on the documented
+  `{action:'status'}` call because its built-in providers were never loaded/registered before
+  lookup. Built-ins now register on load; a resolved value that isn't actually a constructor
+  returns a structured error instead of throwing.
+- `computer_use_loop` and `sub_agent` could reach a real configured provider/network request and
+  do real work (screenshot capture, HTTP calls) before failing on a missing required `goal`/`task`
+  — a malformed call could incur real API cost. Both now validate their required argument first,
+  before any configuration read or network activity; proven with a real call showing zero network
+  calls for missing/empty/whitespace input.
+- `skill_view` and `skills_autoload` threw an uncaught `TypeError` reading `.toLowerCase()` on a
+  missing required argument instead of returning a structured error.
+- Eleven built-in tools exported the older `parameters` key instead of the `inputSchema` key every
+  other tool uses; they only worked via a compatibility fallback. All 91 executable built-in tools
+  now export `inputSchema` directly (the fallback itself is untouched, for genuinely external tool
+  shapes).
+- `workflow`'s tool list/count was derived from a raw directory scan and incorrectly counted the
+  internal `agentic-runner.js` helper as a callable tool. It now derives from the same tool
+  manifest every other part of the codebase treats as the source of truth.
+
+### Tests
+- New `test/tools/tool-interface-validation.test.js` and additions to
+  `test/tools/computer-use-loop.test.js` / `test/utils/tool-manifest.test.js`: real end-to-end
+  memory-provider add/search/clear, zero-network-call proof for both fast-fail tools, structural
+  proof that all 91 tools export `inputSchema` directly and that workflow's and the manifest's
+  tool lists match exactly.
+
 ## [5.67.1] - 2026-07-21 — Reliable process invocation across 10 tools/commands
 
 ### Fixed

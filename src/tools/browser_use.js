@@ -231,7 +231,7 @@ async function handleCliAction(params) {
 
 const name = 'browser_use';
 const description = 'Bulut tarayici otomasyonu — Browser Use altyapisi ile web islemleri. API modu: task tanimla, otonom yapilsin. CLI modu: direkt tarayici kontrolu (navigate, click, type, screenshot).';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     action: {
@@ -279,4 +279,4 @@ async function execute(params) {
   return { success: false, error: 'Bilinmeyen action: ' + action };
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, inputSchema, execute };

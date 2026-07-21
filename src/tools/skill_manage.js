@@ -13,7 +13,7 @@ const USER_SKILLS_DIR = path.join(os.homedir(), '.natureco', 'skills');
 
 const name = 'skill_manage';
 const description = 'Create, update (patch), or delete skills. Use skill_view(name) to read skill content first, then skill_manage to create/patch it. Skills contain reusable workflows, instructions, and conventions.';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     action: {
@@ -101,4 +101,4 @@ async function execute(args) {
   }
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, inputSchema, execute };

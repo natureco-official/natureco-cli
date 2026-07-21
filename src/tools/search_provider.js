@@ -9,7 +9,7 @@ require('../providers/search/exa');
 
 const name = 'search_provider';
 const description = 'Unified search backend with pluggable providers. search/status/switch/list. Supports Tavily, DuckDuckGo, SearXNG, Exa. Switch via NATURECO_SEARCH_PROVIDER env or config.searchProvider. Default: tavily (falls back to others if no API key).';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     action: {
@@ -76,4 +76,4 @@ async function execute(params) {
   }
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, inputSchema, execute };

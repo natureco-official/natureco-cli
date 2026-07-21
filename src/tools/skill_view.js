@@ -8,7 +8,7 @@ const { skillView, skillLookup } = require('../utils/skill-index');
 
 const name = 'skill_view';
 const description = 'Load full skill content by name. Use skills_list to discover available skills. First call returns SKILL.md body plus linked_files. Call again with filePath to access references/templates/scripts.';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     name: { type: 'string', description: 'The skill name (use skills_list to see available skills)' },
@@ -18,6 +18,9 @@ const parameters = {
 };
 
 async function execute(args) {
+  if (typeof args?.name !== 'string' || !args.name.trim()) {
+    return JSON.stringify({ success: false, error: 'name required' });
+  }
   const skill = skillLookup(args.name);
   if (!skill) {
     return JSON.stringify({ success: false, error: `Skill not found: ${args.name}` });
@@ -34,4 +37,4 @@ async function execute(args) {
   return skillView(args.name);
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, inputSchema, execute };

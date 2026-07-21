@@ -86,6 +86,9 @@ module.exports = {
     required: ["message"],
   },
   async execute(params) {
+    if (typeof params?.message !== 'string' || !params.message.trim()) {
+      return { success: false, error: 'message required' };
+    }
     // v5.43 GÜVENLİK: eskiden tespit edilen skill'lerin HAM içeriği doğrulama olmadan
     // system prompt'a enjekte ediliyordu (skillContext) → prompt injection yüzeyi.
     // Artık sadece İSİMLERİ tespit edip döndürür; ajan gerçekten gerekiyorsa

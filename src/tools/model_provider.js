@@ -6,7 +6,7 @@ require('../providers/model/ollama');
 
 const name = 'model_provider';
 const description = 'Model provider management. status/switch/list — view or switch between model providers (openai, anthropic, gemini, minimax, ollama). Also supports model-specific queries.';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     action: {
@@ -68,4 +68,4 @@ async function execute(params) {
   }
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, inputSchema, execute };

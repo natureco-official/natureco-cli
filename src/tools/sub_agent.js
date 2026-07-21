@@ -48,7 +48,7 @@ function apiCall(providerUrl, apiKey, body) {
 
 const name = 'sub_agent';
 const description = 'Spawn a sub-agent to handle a specific sub-task independently. Returns the sub-agent\'s response. Use for parallel research, focused debugging, or complex sub-problems.';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     task: { type: 'string', description: 'The sub-task for the sub-agent to complete' },
@@ -61,6 +61,9 @@ const parameters = {
 };
 
 async function execute(params) {
+  if (typeof params?.task !== 'string' || !params.task.trim()) {
+    return JSON.stringify({ success: false, error: 'task required' });
+  }
   const cfg = loadConfig();
   const providerUrl = cfg.providerUrl;
   const providerApiKey = cfg.providerApiKey;
@@ -93,4 +96,4 @@ async function execute(params) {
   }
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, inputSchema, execute };

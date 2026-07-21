@@ -14,7 +14,7 @@ const os = require('os');
 
 const name = 'memory';
 const description = 'Persistent memory across sessions. action=add to save facts, action=list to see everything, action=remove to delete by substring, action=search to query all past sessions and memory files. target=memory for environment facts, target=user for user preferences.';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     action: {
@@ -197,4 +197,4 @@ async function execute(args) {
   }
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, inputSchema, execute };

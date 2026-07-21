@@ -248,7 +248,7 @@ async function execute(params) {
 
 const name = 'skills_download';
 const description = 'Download skills from skills.sh ecosystem or GitHub repos. Bulk-import Agent Skills from anthropics/skills, vercel-labs/agent-skills, supabase/agent-skills and more. Actions: list_sources, list_skills, download, download_all.';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     action: { type: 'string', enum: ['list_sources', 'list_skills', 'download', 'download_all'] },
@@ -259,4 +259,4 @@ const parameters = {
   required: ['action'],
 };
 
-module.exports = { name, description, parameters, execute, isKnownRepo, downloadSkill, _isInside, KNOWN_REPOS };
+module.exports = { name, description, inputSchema, execute, isKnownRepo, downloadSkill, _isInside, KNOWN_REPOS };

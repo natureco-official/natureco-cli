@@ -15,13 +15,17 @@
  */
 
 const { getActiveProvider, getProviderNames } = require('../utils/memory-provider');
+require('../providers/file-memory');
+require('../providers/mem0-memory');
+require('../providers/supermemory-memory');
+require('../providers/rest-memory');
 const loadConfig = () => {
   try { return JSON.parse(require('fs').readFileSync(require('path').join(require('os').homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; }
 };
 
 const name = 'memory_provider';
 const description = 'Unified memory backend with pluggable providers. add/search/list/remove/clear/status. Default is file-based. Switch via NATURECO_MEMORY_PROVIDER env or config.memoryProvider.';
-const parameters = {
+const inputSchema = {
   type: 'object',
   properties: {
     action: {
@@ -45,10 +49,16 @@ async function execute(params) {
   if (providerName) {
     const { getProvider } = require('../utils/memory-provider');
     Provider = getProvider(providerName);
+    if (typeof Provider !== 'function') {
+      return { success: false, error: `Memory provider not available: ${providerName}` };
+    }
   }
   if (!Provider) {
     // Load default (file)
     Provider = getActiveProvider(cfg);
+  }
+  if (typeof Provider !== 'function') {
+    return { success: false, error: 'No memory provider is available' };
   }
   const provider = new Provider(cfg);
   const userId = params.userId || cfg.userName || 'default';
@@ -88,4 +98,4 @@ async function execute(params) {
   }
 }
 
-module.exports = { name, description, parameters, execute };
+module.exports = { name, description, inputSchema, execute };
