@@ -1,4 +1,4 @@
-const { buildWindowsClickScript, buildWindowsScrollScript, TRANSIENT_AX_ERROR } = require('../../src/utils/platform-gui');
+const { buildWindowsClickScript, buildWindowsScrollScript, buildWindowsTypeScript, buildWindowsKeypressScript, TRANSIENT_AX_ERROR } = require('../../src/utils/platform-gui');
 
 describe('transient Accessibility API failure detection', () => {
   it('recognizes kAXErrorFailure (-25200), a transient failure common right after an app launches', () => {
@@ -34,5 +34,24 @@ describe('Windows GUI automation scripts', () => {
     const script = buildWindowsScrollScript(-80);
     expect(script).not.toContain('SendKeys');
     expect(script).toContain('mouse_event(0x0800');
+  });
+});
+
+describe('Windows SendKeys assembly loading (real regression: computer_use_loop failed live)', () => {
+  // [System.Windows.Forms.SendKeys] is not loaded by default in a fresh PowerShell process;
+  // calling it without first loading the assembly fails with
+  // "Unable to find type [System.Windows.Forms.SendKeys]" — reproduced live while actually
+  // using the agent for a real GUI task. computer_use.js already had this fix; platform-gui.js
+  // (used by computer_use_loop.js) had a separate, unfixed copy of the same SendKeys calls.
+  it('type script loads the System.Windows.Forms assembly before calling SendKeys', () => {
+    const script = buildWindowsTypeScript('hello');
+    expect(script.indexOf('Add-Type -AssemblyName System.Windows.Forms')).toBeGreaterThanOrEqual(0);
+    expect(script.indexOf('Add-Type -AssemblyName System.Windows.Forms')).toBeLessThan(script.indexOf('SendKeys'));
+  });
+
+  it('keypress script loads the System.Windows.Forms assembly before calling SendKeys', () => {
+    const script = buildWindowsKeypressScript('{ENTER}');
+    expect(script.indexOf('Add-Type -AssemblyName System.Windows.Forms')).toBeGreaterThanOrEqual(0);
+    expect(script.indexOf('Add-Type -AssemblyName System.Windows.Forms')).toBeLessThan(script.indexOf('SendKeys'));
   });
 });

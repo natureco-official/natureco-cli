@@ -92,6 +92,14 @@ function buildWindowsScrollScript(y) {
     'for ($i = 0; $i -lt ' + times + '; $i++) { [NcWin32.Mouse]::mouse_event(0x0800, 0, 0, [uint32][int32]' + wheelDelta + ', 0); Start-Sleep -Milliseconds 15 }';
 }
 
+function buildWindowsTypeScript(escapedText) {
+  return 'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("' + escapedText + '")';
+}
+
+function buildWindowsKeypressScript(psKey) {
+  return 'Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait("' + psKey.replace(/"/g, '`"') + '")';
+}
+
 function windowsClick(x, y, opts = {}) {
   return spawnSync('powershell', ['-Command', buildWindowsClickScript(x, y, opts)], { timeout: 5000, encoding: 'utf8' });
 }
@@ -195,9 +203,8 @@ function executeAction(action, params = {}) {
     }
     if (PLATFORM === 'win32') {
       const escaped = text.replace(/[{}()^+%~]/g, '{$&}');
-      const r = spawnSync('powershell', ['-Command',
-        '[System.Windows.Forms.SendKeys]::SendWait("' + escaped + '")'
-      ], { timeout: 5000, encoding: 'utf8' });
+      const r = spawnSync('powershell', ['-Command', buildWindowsTypeScript(escaped)],
+        { timeout: 5000, encoding: 'utf8' });
       if (r.error) return { success: false, error: 'Windows type hatasi: ' + r.error.message };
       if (r.status !== 0) return { success: false, error: 'Windows type hatasi: ' + (r.stderr || 'exit ' + r.status) };
       return { success: true };
@@ -238,9 +245,8 @@ function executeAction(action, params = {}) {
       };
       const lower = key.toLowerCase();
       const psKey = keyMap[lower] || key;
-      const r = spawnSync('powershell', ['-Command',
-        '[System.Windows.Forms.SendKeys]::SendWait("' + psKey.replace(/"/g, '`"') + '")'
-      ], { timeout: 5000, encoding: 'utf8' });
+      const r = spawnSync('powershell', ['-Command', buildWindowsKeypressScript(psKey)],
+        { timeout: 5000, encoding: 'utf8' });
       if (r.error) return { success: false, error: 'Windows keypress hatasi: ' + r.error.message };
       if (r.status !== 0) return { success: false, error: 'Windows keypress hatasi: ' + (r.stderr || 'exit ' + r.status) };
       return { success: true };
@@ -315,4 +321,6 @@ module.exports = {
   TRANSIENT_AX_ERROR,
   buildWindowsClickScript,
   buildWindowsScrollScript,
+  buildWindowsTypeScript,
+  buildWindowsKeypressScript,
 };

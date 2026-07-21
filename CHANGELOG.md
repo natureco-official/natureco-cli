@@ -2,6 +2,28 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.69.3] - 2026-07-21 — Fix duplicated SendKeys assembly bug in platform-gui.js
+
+Found live, in the same real GUI-automation task as v5.69.2 — after that fix, `computer_use_loop`
+got much further (over 100 real steps) but `keypress` still failed with
+`Unable to find type [System.Windows.Forms.SendKeys]`.
+
+### Fixed
+- `computer_use.js` already loads `Add-Type -AssemblyName System.Windows.Forms` before calling
+  `[System.Windows.Forms.SendKeys]` (fixed in an earlier audit round) — but `computer_use_loop.js`
+  actually uses a separate, duplicated GUI-automation implementation in
+  `src/utils/platform-gui.js`, whose own `type` and `keypress` PowerShell calls never got the
+  same fix. Both now load the assembly first, matching `computer_use.js`. Verified live: typed
+  real text into a real Notepad window successfully.
+- Extracted `type`/`keypress`'s PowerShell script construction into pure, exported builder
+  functions (`buildWindowsTypeScript`, `buildWindowsKeypressScript`), matching this file's
+  existing `buildWindowsClickScript`/`buildWindowsScrollScript` pattern — makes the assembly-load
+  ordering directly testable without needing to mock a destructured `child_process` import (which
+  does not intercept correctly in this codebase's CommonJS module style).
+
+### Tests
+- Extended `test/utils/platform-gui.test.js` with 2 new regressions on the extracted builders.
+
 ## [5.69.2] - 2026-07-21 — Fix computer_use_loop's fragile Windows delay mechanism
 
 Found live, while actually using the agent to perform a real browser task (login + send a
