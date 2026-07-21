@@ -19,7 +19,7 @@ const path = require('path');
 const os = require('os');
 const { foldTr } = require('../utils/tr-text');
 const { tokens, jaccard } = require('../utils/memory-lint');
-const { urdrAppendLeaf } = require('../utils/urdr-engine');
+const { urdrAppendLeaf, urdrSearch } = require('../utils/urdr-engine');
 
 const ROOTS = [
   { id: '1-kisisel', title: 'Kişisel & Tercihler', branches: ['Kimlik', 'Tercihler', 'İletişim Kalıpları'] },
@@ -92,7 +92,7 @@ function buildDigest(username, maxChars = 2600) {
   return out;
 }
 
-function search(username, query) {
+function legacySearch(username, query) {
   ensureTree(username);
   // v5.45.1: Türkçe-güvenli eşleşme (foldTr). Eski `line.toLowerCase().includes(q)` locale
   // duyarsızdı → "İstanbul" .toLowerCase() = "i̇stanbul" olur ve "istanbul" sorgusuyla EŞLEŞMEZDİ;
@@ -109,6 +109,17 @@ function search(username, query) {
     }
   }
   return hits;
+}
+
+async function search(username, query) {
+  ensureTree(username);
+  try {
+    const result = await urdrSearch(treeDir(username), query, { maxResults: Number.MAX_SAFE_INTEGER });
+    if (result && !result.error && !result.timeout) {
+      return result.results.map(({ file, branch, text }) => `${file.replace(/\.md$/i, '')}/${branch}: ${text}`);
+    }
+  } catch {}
+  return legacySearch(username, query);
 }
 
 // Oturum basinda proaktif hatirlatma icin: 3-kararlar / "Bekleyen İşler" dalindaki yapraklar.
@@ -236,7 +247,7 @@ module.exports = {
     try {
       if (p.action === 'index') return { success: true, index: buildIndex(u) };
       if (p.action === 'read') return { success: true, content: readRoot(u, p.root || '1-kisisel') };
-      if (p.action === 'search') return { success: true, results: search(u, p.query || p.content || '') };
+      if (p.action === 'search') return { success: true, results: await search(u, p.query || p.content || '') };
       if (p.action === 'append') {
         if (!p.content) return { success: false, error: 'content (yaprak metni) gerekli' };
         return append(u, p.root || '1-kisisel', p.branch || 'Genel', p.content);

@@ -87,7 +87,7 @@ describe('memory_tree Urðr engine integration', () => {
     ensureTree(user);
     const result = await append(user, '1-kisisel', 'Tercihler', 'prefers concise ocean reports');
     const content = readRoot(user, '1-kisisel');
-    const outputs = [search(user, 'ocean reports'), buildIndex(user), buildDigest(user)];
+    const outputs = [await search(user, 'ocean reports'), buildIndex(user), buildDigest(user)];
 
     expect(result.engine).toBe('urdr');
     expect(content).toMatch(/<!-- urdr:id:[^>]+-->\r?\n- prefers concise ocean reports/);
@@ -148,6 +148,73 @@ describe('memory_tree Urðr engine integration', () => {
     expect((content.match(/pre-existing legacy alpha/g) || [])).toHaveLength(1);
     expect((content.match(/pre-existing legacy beta/g) || [])).toHaveLength(1);
     expect((content.match(/first Urdr leaf/g) || [])).toHaveLength(1);
+  });
+
+  it('searches real appended leaves through Urðr in the legacy-compatible format', async () => {
+    const user = 'hybrid-search';
+    process.env.NATURECO_MEMORY_ENGINE = 'urdr';
+    expect((await append(user, '1-kisisel', 'Tercihler', 'prefers concise ocean reports')).engine).toBe('urdr');
+    expect((await append(user, '2-teknik', 'Projeler', 'builds coastal sensor networks')).engine).toBe('urdr');
+
+    const results = await search(user, 'ocean reports');
+    expect(results).toEqual(['1-kisisel/Tercihler: - prefers concise ocean reports']);
+    expect(await search(user, 'ocen reports')).toEqual(results);
+    expect(results.join('\n')).not.toContain('<!-- urdr:id:');
+  });
+
+  it('forces the live legacy search fallback with equivalent results', async () => {
+    const user = 'legacy-search';
+    process.env.NATURECO_MEMORY_ENGINE = 'urdr';
+    await append(user, '1-kisisel', 'Tercihler', 'prefers concise ocean reports');
+    process.env.NATURECO_MEMORY_ENGINE = 'legacy';
+
+    expect(await search(user, 'ocean reports')).toEqual([
+      '1-kisisel/Tercihler: - prefers concise ocean reports',
+    ]);
+  });
+
+  it.each(['urdr', 'legacy'])('finds İstanbul with lowercase Turkish folding through %s search', async (searchEngine) => {
+    const user = `turkish-${searchEngine}`;
+    process.env.NATURECO_MEMORY_ENGINE = 'urdr';
+    await append(user, '1-kisisel', 'Tercihler', 'İstanbul kıyı raporlarını tercih eder');
+    process.env.NATURECO_MEMORY_ENGINE = searchEngine;
+
+    const results = await search(user, 'istanbul');
+    expect(results).toEqual([
+      '1-kisisel/Tercihler: - İstanbul kıyı raporlarını tercih eder',
+    ]);
+    console.log(`TURKISH_SEARCH_PROOF engine=${searchEngine} results=${JSON.stringify(results)}`);
+  });
+
+  it.each(['urdr', 'legacy'])('returns an empty array for a miss through %s search', async (searchEngine) => {
+    const user = `search-miss-${searchEngine}`;
+    process.env.NATURECO_MEMORY_ENGINE = 'urdr';
+    await append(user, '2-teknik', 'Projeler', 'coastal sensor network');
+    process.env.NATURECO_MEMORY_ENGINE = searchEngine;
+
+    expect(await search(user, 'unfindable zephyr quartz')).toEqual([]);
+  });
+
+  it('falls back to the linear scan when Urðr reports a search error', async () => {
+    const user = 'search-error-fallback';
+    process.env.NATURECO_MEMORY_ENGINE = 'urdr';
+    await append(user, '1-kisisel', 'Tercihler', 'literal [ bracket memory');
+
+    expect(await search(user, '[')).toEqual([
+      '1-kisisel/Tercihler: - literal [ bracket memory',
+    ]);
+  });
+
+  it('searches pre-existing plain Markdown through Urðr after adoption', async () => {
+    const user = 'search-legacy-adoption';
+    process.env.NATURECO_MEMORY_ENGINE = 'legacy';
+    await append(user, '2-teknik', 'Projeler', 'pre-existing plain Markdown leaf');
+    process.env.NATURECO_MEMORY_ENGINE = 'urdr';
+    expect((await append(user, '2-teknik', 'Projeler', 'first Urdr-backed leaf')).engine).toBe('urdr');
+
+    expect(await search(user, 'pre-existing plain Markdown')).toEqual([
+      '2-teknik/Projeler: - pre-existing plain Markdown leaf',
+    ]);
   });
 
   it('remove strips the paired ID comment and a later Urðr append reconciles cleanly', async () => {

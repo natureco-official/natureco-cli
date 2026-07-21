@@ -38,7 +38,7 @@ describe('memory_tree (ağaç-hafıza)', () => {
 
   it('search yaprakları kök/dal etiketiyle bulur', async () => {
     await append(U, '1-kisisel', 'Tercihler', 'favori renk kırmızı');
-    const hits = search(U, 'kırmızı');
+    const hits = await search(U, 'kırmızı');
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]).toMatch(/1-kisisel\/Tercihler/);
   });
@@ -112,7 +112,7 @@ describe('memory_tree — yazma-anı hijyen (v5.46) + Türkçe recall (v5.45.1)'
 
   it('search Türkçe büyük-harf duyarsız (İstanbul == istanbul) [v5.45.1]', async () => {
     await append(U, '2-teknik', 'Projeler', 'İstanbul ofisi prod sunucusu');
-    expect(search(U, 'istanbul').length).toBeGreaterThan(0);
-    expect(search(U, 'İSTANBUL').length).toBeGreaterThan(0);
+    expect((await search(U, 'istanbul')).length).toBeGreaterThan(0);
+    expect((await search(U, 'İSTANBUL')).length).toBeGreaterThan(0);
   });
 });

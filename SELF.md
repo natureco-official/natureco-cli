@@ -55,6 +55,10 @@
   Node<22 veya motor kullanılamıyorsa (ya da dal daha önce hiç yoksa) otomatik ve sessizce eski
   düz-yazma yoluna düşer (`engine:'legacy'` sonuçta işaretlenir) — veri kaybı asla olmaz.
   `NATURECO_MEMORY_ENGINE=urdr|legacy` zorlar. `natureco status` aktif motoru gösterir.
+- **Arama motoru (v5.67.0):** `search()` artık aynı `urdr-engine.js`'in `urdrSearch`'ü ile Urðr'ın
+  gerçek hibrit (tam+bulanık, hiyerarşi-önce) eşleştiricisini kullanır — eski düz Türkçe-duyarlı
+  alt-dize taramasından daha güçlü (yazım hatalarını da bulur). Motor yoksa/hata verirse eski
+  taramaya sessizce düşer, sonuç asla eskisinden kötü olmaz.
 - Türkçe arama: `src/utils/tr-text.js` `foldTr` (İ/I/ı/i tek form — JS toLowerCase
   Türkçe'de GÜVENİLMEZ). Hafıza hijyeni: `src/utils/memory-lint.js` (`natureco memory lint`).
 - Bekleyen işler: 3-kararlar/"Bekleyen İşler" dalı; repl açılışta hatırlatır.

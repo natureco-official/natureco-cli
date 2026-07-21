@@ -1,6 +1,7 @@
 const NODE_MAJOR = Number.parseInt(process.versions.node.split('.')[0], 10);
 
 let importProbe;
+let searchProbe;
 let reconcileProbe;
 
 function loadUrdr() {
@@ -24,6 +25,18 @@ function loadReconcile() {
       });
   }
   return reconcileProbe;
+}
+
+function loadUrdrSearch() {
+  if (!searchProbe) {
+    searchProbe = import('urdr-mcp-server/scripts/search.mjs')
+      .then((mod) => {
+        if (typeof mod.searchMemory !== 'function') throw new Error('searchMemory export is missing');
+        return { mod, error: null };
+      })
+      .catch((error) => ({ mod: null, error }));
+  }
+  return searchProbe;
 }
 
 function mode() {
@@ -66,6 +79,20 @@ async function urdrAppendLeaf(memoryDir, rootFile, branch, leafText) {
   }
 }
 
+async function urdrSearch(memoryDir, query, opts = {}) {
+  const resolved = await resolveEngine();
+  if (!resolved.mod) return null;
+
+  const loaded = await loadUrdrSearch();
+  if (loaded.mod) return loaded.mod.searchMemory(memoryDir, query, opts);
+
+  const detail = loaded.error?.message || 'dynamic import failed';
+  if (mode() === 'urdr') {
+    throw new Error(`Urdr search engine was forced but is unavailable: ${detail}`, { cause: loaded.error });
+  }
+  return null;
+}
+
 async function describeEngine() {
   try {
     const resolved = await resolveEngine();
@@ -79,4 +106,4 @@ async function describeEngine() {
   }
 }
 
-module.exports = { urdrAppendLeaf, describeEngine };
+module.exports = { urdrAppendLeaf, urdrSearch, describeEngine };

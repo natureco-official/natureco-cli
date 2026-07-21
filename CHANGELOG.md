@@ -2,6 +2,24 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.67.0] - 2026-07-21 — Tree memory search now uses Urðr's real hybrid engine
+
+### Added
+- `memory_tree`'s `search()` now searches through the published `urdr-mcp-server` engine's real
+  hybrid ranked matcher (exact + fuzzy, hierarchy-first) when available, instead of only a plain
+  Turkish-aware substring scan. Typo-tolerant queries (e.g. "ocen reports") now find leaves the
+  old linear scan could not. Falls back transparently to the exact previous substring-scan
+  behavior when the engine is unavailable or reports an error — search can never return worse
+  results than before.
+- Live-verified against the actual globally-installed binary (not just the test suite): appended
+  and searched a real leaf through the real `natureco` command, confirmed `engine:"urdr"`, a real
+  `.urdr/` event-log directory on disk, and a correct search hit.
+
+### Tests
+- Extended `test/utils/urdr-memory-engine.test.js`: fuzzy-match proof, Turkish case-folding proof
+  through both engines, miss/empty-result handling, forced-error fallback, and pre-existing
+  plain-Markdown tree searchability after adoption.
+
 ## [5.66.0] - 2026-07-21 — Tree memory now writes through the real Urðr engine
 
 ### Added
