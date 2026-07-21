@@ -2,6 +2,29 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.66.0] - 2026-07-21 — Tree memory now writes through the real Urðr engine
+
+### Added
+- `memory_tree`'s append path now writes through the published `urdr-mcp-server` engine
+  (`natureco-official/urdr`) when Node.js 22+ is available: fsync + atomic rename, lease-lock
+  concurrency safety, and stable leaf IDs, instead of a plain unsynchronized file write. A
+  pre-existing plain-Markdown tree is adopted automatically on its first Urðr-backed append, with
+  no data loss. `NATURECO_MEMORY_ENGINE=urdr|legacy` can force either path; unset auto-detects by
+  Node version. `natureco status` reports the active engine (`Memory engine    urdr (available)`).
+- Genuine engine failures (never mere unavailability) fall back to the previous plain-write path
+  so a memory write can never be lost, and expose the reason for troubleshooting.
+- `memory_tree remove()` now also strips the paired `<!-- urdr:id:... -->` comment when deleting
+  a leaf written by the Urðr engine, instead of leaving it orphaned.
+
+### Compatibility
+- `engines.node` remains `>=18.0.0`. Node 18–21 (and any environment where the dependency can't
+  load) transparently keeps today's exact behavior — this is additive, not a requirement bump.
+
+### Tests
+- New `test/utils/urdr-memory-engine.test.js`: real concurrent-writer proof via two separate
+  spawned Node processes appending to the same file, legacy-tree adoption, forced-fallback and
+  forced-failure paths, remove/reconcile round-trip, and a clean-process-exit check.
+
 ## [5.65.6] - 2026-07-15 — Survive the just-launched-app race condition
 
 ### Fixed

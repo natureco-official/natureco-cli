@@ -25,7 +25,7 @@ function status(args) {
   process.exit(1);
 }
 
-function cmdRun() {
+async function cmdRun() {
   let version = '—';
   try { version = require('../../package.json').version; } catch {}
 
@@ -83,6 +83,11 @@ function cmdRun() {
     toolCount = String(fs.readdirSync(toolsDir).filter(f => f.endsWith('.js')).length);
   } catch {}
   lines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Tools            ') + tui.styled(String(toolCount).padEnd(36), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
+
+  const { describeEngine } = require('../utils/urdr-engine');
+  const memoryEngine = await describeEngine();
+  const memoryInfo = `${memoryEngine.engine} (${memoryEngine.reason})`.slice(0, 36);
+  lines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Memory engine    ') + tui.styled(memoryInfo.padEnd(36), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
 
   lines.push(tui.styled('  ╰' + '─'.repeat(cardW) + '╯', { color: tui.PALETTE.border }));
   console.log('\n' + tui.styled(L('  🩺 Sistem Durumu', '  🩺 System Status'), { color: tui.PALETTE.primary, bold: true }));

@@ -19,6 +19,7 @@ const path = require('path');
 const os = require('os');
 const { foldTr } = require('../utils/tr-text');
 const { tokens, jaccard } = require('../utils/memory-lint');
+const { urdrAppendLeaf } = require('../utils/urdr-engine');
 
 const ROOTS = [
   { id: '1-kisisel', title: 'Kişisel & Tercihler', branches: ['Kimlik', 'Tercihler', 'İletişim Kalıpları'] },
@@ -132,7 +133,11 @@ function remove(username, root, query) {
   const kept = [];
   let removed = 0;
   for (const line of txt.split('\n')) {
-    if (/^\s*-\s+/.test(line) && foldTr(line).includes(q)) { removed++; continue; }
+    if (/^\s*-\s+/.test(line) && foldTr(line).includes(q)) {
+      if (/^\s*<!--\s*urdr:id:[^>]+-->\s*$/.test(kept[kept.length - 1] || '')) kept.pop();
+      removed++;
+      continue;
+    }
     kept.push(line);
   }
   if (removed) fs.writeFileSync(rootPath(username, r.id), kept.join('\n'), 'utf8');
@@ -152,7 +157,7 @@ function leavesInBranch(txt, branchName) {
   return out;
 }
 
-function append(username, root, branch, content) {
+async function append(username, root, branch, content) {
   ensureTree(username);
   const r = resolveRoot(root);
   const p = rootPath(username, r.id);
@@ -180,6 +185,22 @@ function append(username, root, branch, content) {
 
   const bRe = new RegExp(`^##[ \\t]+${br.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[ \\t]*$`, 'mi');
   const m = txt.match(bRe);
+  let urdrFallbackReason;
+  if (m) {
+    try {
+      const urdrResult = await urdrAppendLeaf(treeDir(username), path.basename(p), br, leaf);
+      if (urdrResult) {
+        const result = { success: true, root: r.id, branch: br, saved: leaf, engine: 'urdr' };
+        if (best.sim >= 0.5) {
+          result.warning = `Aynı konuda farklı bir kayıt var (%${Math.round(best.sim * 100)}): "${best.leaf}". İkisi de saklandı; doğru olan kalsın, gerekirse memory_tree remove ile eskisini sil.`;
+        }
+        return result;
+      }
+    } catch (error) {
+      urdrFallbackReason = error.message;
+    }
+  }
+
   if (m) {
     const idx = txt.indexOf(m[0]) + m[0].length;
     txt = txt.slice(0, idx) + '\n' + leaf + txt.slice(idx);
@@ -187,7 +208,8 @@ function append(username, root, branch, content) {
     txt = txt.trimEnd() + `\n\n## ${br}\n${leaf}\n`;
   }
   fs.writeFileSync(p, txt, 'utf8');
-  const result = { success: true, root: r.id, branch: br, saved: leaf };
+  const result = { success: true, root: r.id, branch: br, saved: leaf, engine: 'legacy' };
+  if (urdrFallbackReason) result._urdrFallbackReason = urdrFallbackReason;
   if (best.sim >= 0.5) {
     result.warning = `Aynı konuda farklı bir kayıt var (%${Math.round(best.sim * 100)}): "${best.leaf}". İkisi de saklandı; doğru olan kalsın, gerekirse memory_tree remove ile eskisini sil.`;
   }

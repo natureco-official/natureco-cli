@@ -49,6 +49,12 @@
 - Ağaç hafıza: `~/.natureco/memory/tree/<kullanıcı>/` (1-kisisel/2-teknik/3-kararlar
   → ## dal → yaprak). Araç: `src/tools/memory_tree.js` (index|read|search|append|remove;
   yazma-anı dedup/çelişki uyarısı içerir). Digest her istekte sysMsg'e gömülür.
+- **Yazma motoru (v5.66.0):** `append()` artık önceden tanımlı bir dala yazarken gerçek
+  `urdr-mcp-server` (natureco-official/urdr) paketinin `appendLeaf`'ini çağırır — fsync+atomik
+  rename, lease-lock eşzamanlı-yazıcı güvenliği, kararlı yaprak ID'leri (`src/utils/urdr-engine.js`).
+  Node<22 veya motor kullanılamıyorsa (ya da dal daha önce hiç yoksa) otomatik ve sessizce eski
+  düz-yazma yoluna düşer (`engine:'legacy'` sonuçta işaretlenir) — veri kaybı asla olmaz.
+  `NATURECO_MEMORY_ENGINE=urdr|legacy` zorlar. `natureco status` aktif motoru gösterir.
 - Türkçe arama: `src/utils/tr-text.js` `foldTr` (İ/I/ı/i tek form — JS toLowerCase
   Türkçe'de GÜVENİLMEZ). Hafıza hijyeni: `src/utils/memory-lint.js` (`natureco memory lint`).
 - Bekleyen işler: 3-kararlar/"Bekleyen İşler" dalı; repl açılışta hatırlatır.
