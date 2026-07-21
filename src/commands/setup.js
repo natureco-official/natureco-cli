@@ -3,6 +3,7 @@ const { getLang: _gl } = require('../utils/i18n');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const path = require('path');
+const { writePrivateFile } = require('../utils/config');
 const os = require('os');
 const { foldTr } = require('../utils/tr-text');
 const readline = require('readline');
@@ -278,8 +279,7 @@ function getConfig() {
 }
 
 function saveConfig(data) {
-  if (!fs.existsSync(BASE_DIR)) fs.mkdirSync(BASE_DIR, { recursive: true });
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2), 'utf8');
+  writePrivateFile(CONFIG_FILE, JSON.stringify(data, null, 2));
 }
 
 async function setup(params) {
@@ -587,7 +587,7 @@ function cmdConfig() {
     return;
   }
 
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(defaults, null, 2), 'utf8');
+  writePrivateFile(CONFIG_FILE, JSON.stringify(defaults, null, 2));
   console.log(chalk.green('\n  Config created at: ' + CONFIG_FILE + '\n'));
 }
 

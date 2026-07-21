@@ -19,7 +19,7 @@ function config(args) {
     process.exit(1);
   }
 
-  const SENSITIVE_KEYS = ['apiKey', 'providerApiKey', 'providerApiKey1', 'providerApiKey2', 'secret', 'token', 'password', 'webhookSecret'];
+  const SENSITIVE_KEYS = ['key', 'token', 'secret', 'password', 'passwd', 'credential', 'authorization', 'bearer'];
 
   function maskSensitive(key, value) {
     if (typeof value !== 'string' || value.length < 8) return value;
@@ -96,7 +96,8 @@ function config(args) {
     } catch {}
 
     setConfigValue(key, parsedValue);
-    F.success(`${key} = ${JSON.stringify(parsedValue)}`);
+    const sensitive = SENSITIVE_KEYS.some(sk => key.toLowerCase().includes(sk.toLowerCase()));
+    F.success(sensitive ? `${key} = •••• saved` : `${key} = ${JSON.stringify(parsedValue)}`);
     return;
   }
 

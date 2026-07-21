@@ -105,6 +105,10 @@ async function trySendViaGateway(channel, target, messageText, mediaPath) {
   }
 }
 
+function reportDispatchFailure(action) {
+  F.error(`${action} failed: gateway unavailable or the external channel did not confirm the action. Audit history was recorded; no retry was queued.`);
+}
+
 function showPreview(channel, target, messageText, extra) {
   F.kv('Channel', channel);
   F.kv('Target', target);
@@ -170,11 +174,8 @@ async function message(args) {
     F.info('Preparing to send ' + channelDisplayName(channel) + ' message...');
     showPreview(channel, target, messageText, mediaPath ? { Media: mediaPath } : null);
     const sent = await trySendViaGateway(channel, target, messageText, mediaPath);
-    if (!sent) {
-      F.info('(Gateway not available -- message logged for later dispatch)');
-    }
     logHistory({ action: 'send', channel, target, message: messageText, media: mediaPath, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Message dispatch'); process.exit(1); }
     return;
   }
 
@@ -186,6 +187,7 @@ async function message(args) {
       process.exit(1);
     }
     const channelsToUse = flags['channel-all'] ? VALID_CHANNELS : (channel ? [channel] : VALID_CHANNELS);
+    let dispatchFailed = false;
     for (const ch of channelsToUse) {
       if (!VALID_CHANNELS.includes(ch)) continue;
       const cfgOk = (() => {
@@ -199,12 +201,11 @@ async function message(args) {
         F.info('Broadcasting to ' + ch + ' / ' + tgt + '...');
         showPreview(ch, tgt, messageText, null);
         const sent = await trySendViaGateway(ch, tgt, messageText, mediaPath);
-        if (!sent) {
-          F.info('(Gateway not available -- message logged)');
-        }
+        if (!sent) dispatchFailed = true;
         logHistory({ action: 'broadcast', channel: ch, target: tgt, message: messageText, media: mediaPath, dispatched: sent });
       }
     }
+    if (dispatchFailed) { reportDispatchFailure('Broadcast'); process.exit(1); }
     return;
   }
 
@@ -227,11 +228,8 @@ async function message(args) {
       ['Options', options.join(' | ')],
     ]);
     const sent = await trySendViaGateway(channel, target, '[POLL] ' + question + ' (' + options.join(', ') + ')', mediaPath);
-    if (!sent) {
-      F.info('(Gateway not available -- poll logged for later dispatch)');
-    }
     logHistory({ action: 'poll', channel, target, question, options, media: mediaPath, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Poll dispatch'); process.exit(1); }
     return;
   }
 
@@ -248,11 +246,8 @@ async function message(args) {
     F.info('Preparing reaction on ' + channelDisplayName(channel) + '...');
     showPreview(channel, target, null, { 'Message ID': messageId, Emoji: emoji });
     const sent = await trySendViaGateway(channel, target, '[REACT] ' + messageId + ' ' + emoji, null);
-    if (!sent) {
-      F.info('(Gateway not available -- reaction logged for later dispatch)');
-    }
     logHistory({ action: 'react', channel, target, messageId, emoji, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Reaction'); process.exit(1); }
     return;
   }
 
@@ -306,11 +301,8 @@ async function message(args) {
     F.info('Preparing to edit message on ' + channelDisplayName(channel) + '...');
     showPreview(channel, target, messageText, { 'Edit ID': editId });
     const sent = await trySendViaGateway(channel, target, '[EDIT ' + editId + '] ' + messageText, null);
-    if (!sent) {
-      F.info('(Gateway not available -- edit logged for later dispatch)');
-    }
     logHistory({ action: 'edit', channel, target, editId, message: messageText, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Edit'); process.exit(1); }
     return;
   }
 
@@ -327,11 +319,8 @@ async function message(args) {
     F.info('Preparing to delete message on ' + channelDisplayName(channel) + '...');
     showPreview(channel, target, null, { 'Delete ID': deleteId });
     const sent = await trySendViaGateway(channel, target, '[DELETE ' + deleteId + ']', null);
-    if (!sent) {
-      F.info('(Gateway not available -- deletion logged for later dispatch)');
-    }
     logHistory({ action: 'delete', channel, target, deleteId, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Delete'); process.exit(1); }
     return;
   }
 
@@ -382,9 +371,8 @@ async function message(args) {
     F.info('Pinning message on ' + channelDisplayName(channel) + '...');
     showPreview(channel, target, null, { 'Message ID': messageId });
     const sent = await trySendViaGateway(channel, target, '[PIN] ' + messageId, null);
-    if (!sent) F.info('(Gateway not available -- pin logged)');
     logHistory({ action: 'pin', channel, target, messageId, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Pin'); process.exit(1); }
     return;
   }
 
@@ -397,9 +385,8 @@ async function message(args) {
     F.info('Unpinning message on ' + channelDisplayName(channel) + '...');
     showPreview(channel, target, null, { 'Message ID': messageId });
     const sent = await trySendViaGateway(channel, target, '[UNPIN] ' + messageId, null);
-    if (!sent) F.info('(Gateway not available -- unpin logged)');
     logHistory({ action: 'unpin', channel, target, messageId, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Unpin'); process.exit(1); }
     return;
   }
 
@@ -413,9 +400,8 @@ async function message(args) {
     F.info('Replying in thread on ' + channelDisplayName(channel) + '...');
     showPreview(channel, target, messageText, { 'Thread ID': threadId });
     const sent = await trySendViaGateway(channel, target, '[THREAD ' + threadId + '] ' + messageText, mediaPath);
-    if (!sent) F.info('(Gateway not available -- thread reply logged)');
     logHistory({ action: 'thread', channel, target, threadId, message: messageText, media: mediaPath, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Thread reply'); process.exit(1); }
     return;
   }
 
@@ -429,9 +415,8 @@ async function message(args) {
     F.info('Sending sticker on ' + channelDisplayName(channel) + '...');
     showPreview(channel, target, null, { 'Sticker': stickerId });
     const sent = await trySendViaGateway(channel, target, '[STICKER] ' + stickerId, mediaPath);
-    if (!sent) F.info('(Gateway not available -- sticker logged)');
     logHistory({ action: 'sticker', channel, target, sticker: stickerId, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Sticker dispatch'); process.exit(1); }
     return;
   }
 
@@ -447,9 +432,8 @@ async function message(args) {
     F.info('Managing role on ' + channelDisplayName(channel) + '...');
     showPreview(channel, target, null, { User: roleUser, Role: roleName, Action: roleAction });
     const sent = await trySendViaGateway(channel, target, '[ROLE ' + roleAction + '] ' + roleUser + ' ' + roleName, null);
-    if (!sent) F.info('(Gateway not available -- role change logged)');
     logHistory({ action: 'role', channel, target, user: roleUser, role: roleName, roleAction, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Role change'); process.exit(1); }
     return;
   }
 
@@ -465,9 +449,8 @@ async function message(args) {
     F.warning('Moderating message on ' + channelDisplayName(channel) + '...');
     showPreview(channel, target, null, { 'Message ID': modMessageId, Action: modAction, Reason: modReason });
     const sent = await trySendViaGateway(channel, target, '[MOD ' + modAction + '] ' + modMessageId + ': ' + modReason, null);
-    if (!sent) F.info('(Gateway not available -- moderation logged)');
     logHistory({ action: 'moderation', channel, target, messageId: modMessageId, modAction, modReason, dispatched: sent });
-    if (!sent) process.exit(0);
+    if (!sent) { reportDispatchFailure('Moderation action'); process.exit(1); }
     return;
   }
 
@@ -605,8 +588,9 @@ async function message(args) {
     const dir = path.dirname(file);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const entry = { action: 'event create', channel: ch, name, time: time || null, timestamp: new Date().toISOString() };
-    try { fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf8'); F.success('Event "' + name + '" created on ' + ch); } catch (err) { console.log(chalk.red('Error: ' + err.message + '\n')); process.exit(1); }
-    return;
+    try { fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf8'); } catch (err) { console.log(chalk.red('Error: ' + err.message + '\n')); process.exit(1); }
+    reportDispatchFailure('Event creation');
+    process.exit(1);
   }
 
   // ── thread create ─────────────────────────────────────────────────
@@ -632,8 +616,9 @@ async function message(args) {
     const threadId = flags['thread-id'] || nonFlagArgs[3];
     const text = flags.message || nonFlagArgs[4];
     if (!ch || !threadId || !text) { console.log(chalk.red('\nUsage: message thread reply <channel> <threadId> <text>\n')); process.exit(1); }
-    F.info('Would reply to ' + threadId + ' in ' + ch + ': ' + text);
-    return;
+    logHistory({ action: 'thread reply', channel: ch, threadId, message: text, dispatched: false });
+    reportDispatchFailure('Thread reply');
+    process.exit(1);
   }
 
   // ── emoji list ──────────────────────────────────────────────────
@@ -657,8 +642,9 @@ async function message(args) {
     const ch = flags.channel || nonFlagArgs[2];
     const stickerId = flags['sticker-id'] || flags.sticker || nonFlagArgs[3];
     if (!ch || !stickerId) { console.log(chalk.red('\nUsage: message sticker send <channel> <stickerId>\n')); process.exit(1); }
-    F.info('Would send sticker ' + stickerId + ' to ' + ch);
-    return;
+    logHistory({ action: 'sticker send', channel: ch, sticker: stickerId, dispatched: false });
+    reportDispatchFailure('Sticker dispatch');
+    process.exit(1);
   }
 
   // ── sticker upload ──────────────────────────────────────────────
@@ -680,8 +666,9 @@ async function message(args) {
     const dir = path.dirname(file);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const entry = { action: 'timeout', channel: ch, user, duration, timestamp: new Date().toISOString() };
-    try { fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf8'); F.warning(user + ' timed out on ' + ch + ' for ' + duration); } catch (err) { console.log(chalk.red('Error: ' + err.message + '\n')); process.exit(1); }
-    return;
+    try { fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf8'); } catch (err) { console.log(chalk.red('Error: ' + err.message + '\n')); process.exit(1); }
+    reportDispatchFailure('Timeout');
+    process.exit(1);
   }
 
   // ── kick ─────────────────────────────────────────────────────────
@@ -693,8 +680,9 @@ async function message(args) {
     const dir = path.dirname(file);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const entry = { action: 'kick', channel: ch, user, timestamp: new Date().toISOString() };
-    try { fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf8'); F.warning(user + ' kicked from ' + ch); } catch (err) { console.log(chalk.red('Error: ' + err.message + '\n')); process.exit(1); }
-    return;
+    try { fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf8'); } catch (err) { console.log(chalk.red('Error: ' + err.message + '\n')); process.exit(1); }
+    reportDispatchFailure('Kick');
+    process.exit(1);
   }
 
   // ── ban ──────────────────────────────────────────────────────────
@@ -707,8 +695,9 @@ async function message(args) {
     const dir = path.dirname(file);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const entry = { action: 'ban', channel: ch, user, reason, timestamp: new Date().toISOString() };
-    try { fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf8'); F.warning(user + ' banned from ' + ch + ': ' + reason); } catch (err) { console.log(chalk.red('Error: ' + err.message + '\n')); process.exit(1); }
-    return;
+    try { fs.appendFileSync(file, JSON.stringify(entry) + '\n', 'utf8'); } catch (err) { console.log(chalk.red('Error: ' + err.message + '\n')); process.exit(1); }
+    reportDispatchFailure('Ban');
+    process.exit(1);
   }
 
   console.log(chalk.red('\nUnknown action: ' + (compoundAction || action) + '\n'));

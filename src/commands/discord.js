@@ -5,7 +5,7 @@ const inquirer = require('../utils/inquirer-wrapper');
 const { getApiKey, getConfig, saveConfig } = require('../utils/config');
 const { getBots } = require('../utils/api');
 
-const { checkExistingToken } = require('./channel-helper');
+const { checkExistingToken, maskToken } = require('./channel-helper');
 
 async function discord(action) {
   if (!action || action === 'connect') {
@@ -57,7 +57,7 @@ async function connectDiscord() {
   
   console.log(chalk.green(L('✅ Discord token kaydedildi!\n', '✅ Discord token saved!\n')));
   console.log(chalk.cyan('Bot ID:'), chalk.white(botId));
-  console.log(chalk.cyan('Token:'), chalk.white(answers.token.slice(0, 20) + '...'));
+  console.log(chalk.cyan('Token:'), chalk.white(maskToken(answers.token)));
   console.log(chalk.gray(L('\nNot: Discord botunuzu Discord Developer Portal\'dan yapılandırmanız gerekiyor.', '\nNote: You need to configure your Discord bot from the Discord Developer Portal.')));
   console.log(chalk.gray(L('Token config\'e kaydedildi: ~/.natureco/config.json\n', 'Token saved to config: ~/.natureco/config.json\n')));
 }
@@ -106,7 +106,7 @@ function statusDiscord() {
   }
   
   console.log(chalk.green('\n✅ Discord connected\n'));
-  console.log(chalk.cyan('Token:'), chalk.white(config.discordToken.slice(0, 20) + '...'));
+  console.log(chalk.cyan('Token:'), chalk.white(maskToken(config.discordToken)));
   
   if (config.discordBotId) {
     console.log(chalk.cyan('Bot ID:'), chalk.white(config.discordBotId));

@@ -3,6 +3,7 @@ const { getLang: _gl } = require('../utils/i18n');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const inquirer = require('../utils/inquirer-wrapper');
 const { getConfig, saveConfig } = require('../utils/config');
+const { maskToken } = require('./channel-helper');
 
 async function mattermost(action) {
   if (!action || action === 'connect') return connectMattermost();
@@ -55,7 +56,7 @@ async function connectMattermost() {
   console.log(chalk.green(L('\n✅ Mattermost bağlantısı kaydedildi!\n', '\n✅ Mattermost connection saved!\n')));
   console.log(chalk.cyan('Bot ID:'), chalk.white(botId));
   console.log(chalk.cyan(L('Sunucu:', 'Server:')), chalk.white(config.mattermostBaseUrl));
-  console.log(chalk.cyan('Token:'), chalk.white((answers.token || '').slice(0, 20) + '...'));
+  console.log(chalk.cyan('Token:'), chalk.white(maskToken(answers.token)));
   console.log(chalk.gray(L('\nGateway ile başlatmak için: natureco gateway start\n', '\nTo start with the gateway: natureco gateway start\n')));
 }
 
@@ -89,7 +90,7 @@ function statusMattermost() {
   console.log(chalk.green('\n✅ Mattermost connected\n'));
   console.log(chalk.cyan('Bot ID:'), chalk.white(config.mattermostBotId));
   console.log(chalk.cyan(L('Sunucu:', 'Server:')), chalk.white(config.mattermostBaseUrl));
-  console.log(chalk.cyan('Token:'), chalk.white((config.mattermostToken || '').slice(0, 20) + '...'));
+  console.log(chalk.cyan('Token:'), chalk.white(maskToken(config.mattermostToken)));
   console.log(chalk.cyan(L('Slash Komutları:', 'Slash Commands:')), chalk.white(config.mattermostSlashEnabled !== false ? L('Aktif', 'Active') : L('Devre Dışı', 'Disabled')));
   console.log(chalk.cyan(L('DM Politikası:', 'DM Policy:')), chalk.white(config.mattermostDmPolicy || 'pairing'));
 

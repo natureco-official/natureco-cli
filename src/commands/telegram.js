@@ -3,6 +3,7 @@ const { getLang: _gl } = require('../utils/i18n');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const inquirer = require('../utils/inquirer-wrapper');
 const { getConfig, saveConfig } = require('../utils/config');
+const { maskToken } = require('./channel-helper');
 
 async function telegram(action, chatId) {
   if (!action || action === 'connect') {
@@ -46,7 +47,7 @@ async function connectTelegram() {
 
   // v5.4.21: Eğer zaten token kaydedilmişse, kullanıcıya sor — değiştirmek ister mi?
   if (config.telegramToken) {
-    const masked = config.telegramToken.slice(0, 15) + '...' + config.telegramToken.slice(-5);
+    const masked = maskToken(config.telegramToken);
     console.log(chalk.green(L('\n✓ Telegram token zaten kayıtlı: ', '\n✓ Telegram token already saved: ') + masked));
     console.log(chalk.gray('  Bot ID: ' + (config.telegramBotId || L('yok', 'none'))));
     console.log(chalk.gray(L('  İzinli chat: ', '  Allowed chat: ') + (config.telegramAllowedChats || []).join(', ') + '\n'));
@@ -116,7 +117,7 @@ async function connectTelegram() {
   
   console.log(chalk.green(L('✅ Telegram bot token kaydedildi!\n', '✅ Telegram bot token saved!\n')));
   console.log(chalk.cyan('Bot ID:'), chalk.white(botId));
-  console.log(chalk.cyan('Token:'), chalk.white(answers.token.slice(0, 20) + '...'));
+  console.log(chalk.cyan('Token:'), chalk.white(maskToken(answers.token)));
   console.log(chalk.cyan(L('İzin verilen chat:', 'Allowed chat:')), chalk.white(chatIdAnswer.chatId.trim()));
   console.log(chalk.gray(L('\nSession kaydedildi: ~/.natureco/config.json', '\nSession saved: ~/.natureco/config.json')));
   console.log(chalk.gray(L('Başka chat eklemek için: natureco telegram allow <chatId>', 'To add another chat: natureco telegram allow <chatId>')));
@@ -171,7 +172,7 @@ function statusTelegram() {
   }
   
   console.log(chalk.green('\n✅ Telegram connected\n'));
-  console.log(chalk.cyan('Token:'), chalk.white(config.telegramToken.slice(0, 20) + '...'));
+  console.log(chalk.cyan('Token:'), chalk.white(maskToken(config.telegramToken)));
   
   if (config.telegramBotId) {
     console.log(chalk.cyan('Bot ID:'), chalk.white(config.telegramBotId));

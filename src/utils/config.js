@@ -36,12 +36,22 @@ const ACTIVE_CONFIG_FILE = path.join(ACTIVE_CONFIG_DIR, 'config.json');
 
 // v5.43 GÜVENLİK: config.json API anahtarları tutar; dizin/dosya dünya-okunabilir
 // (0755/0644) olmamalı — ssh anahtarları gibi 0700/0600. chmod fallback eski kurulumlar için.
-function ensureConfigDir() {
-  if (!fs.existsSync(ACTIVE_CONFIG_DIR)) {
-    fs.mkdirSync(ACTIVE_CONFIG_DIR, { recursive: true, mode: 0o700 });
+function ensurePrivateDir(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   } else {
-    try { fs.chmodSync(ACTIVE_CONFIG_DIR, 0o700); } catch { /* best-effort */ }
+    try { fs.chmodSync(dir, 0o700); } catch { /* best-effort */ }
   }
+}
+
+function ensureConfigDir() {
+  ensurePrivateDir(ACTIVE_CONFIG_DIR);
+}
+
+function writePrivateFile(file, content, encoding = 'utf8') {
+  ensurePrivateDir(path.dirname(file));
+  fs.writeFileSync(file, content, { encoding, mode: 0o600 });
+  try { fs.chmodSync(file, 0o600); } catch { /* best-effort */ }
 }
 
 function computeHash(data) {
@@ -99,7 +109,7 @@ function saveConfig(data, options = {}) {
   if (!skipValidation) validateConfig(data);
   if (!skipBackup) createBackup();
   const content = JSON.stringify(data, null, 2);
-  fs.writeFileSync(ACTIVE_CONFIG_FILE, content, { encoding: 'utf8', mode: 0o600 });
+  writePrivateFile(ACTIVE_CONFIG_FILE, content);
   // mode yalnızca dosya YENİ oluşturulunca uygulanır; mevcut dosya için chmod şart.
   try { fs.chmodSync(ACTIVE_CONFIG_FILE, 0o600); } catch { /* best-effort */ }
   _configCache = data;
@@ -215,7 +225,7 @@ function restoreConfig(backupFile) {
   createBackup();
   // v5.43.1 GÜVENLİK: saveConfig gibi 0600 — restore, API key'li config.json'ı
   // dünya-okunabilir hale getirmemeli. mode yalnızca yeni dosyaya uygulanır; chmod şart.
-  fs.writeFileSync(ACTIVE_CONFIG_FILE, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600 });
+  writePrivateFile(ACTIVE_CONFIG_FILE, JSON.stringify(data, null, 2));
   try { fs.chmodSync(ACTIVE_CONFIG_FILE, 0o600); } catch { /* best-effort */ }
   _configCache = data;
   _configHash = computeHash(data);
@@ -235,6 +245,7 @@ module.exports = {
   getConfigHash,
   listBackups,
   restoreConfig,
+  writePrivateFile,
   CONFIG_FILE: ACTIVE_CONFIG_FILE,
   CONFIG_DIR: ACTIVE_CONFIG_DIR,
   CONFIG_BACKUP_DIR,

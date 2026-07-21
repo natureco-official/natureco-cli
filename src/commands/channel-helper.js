@@ -6,6 +6,11 @@
 const inquirer = require('../utils/inquirer-wrapper');
 const { getLang: _gl } = require('../utils/i18n');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
+
+function maskToken(value) {
+  const token = String(value || '');
+  return token.length > 8 ? `${token.slice(0, 3)}****${token.slice(-3)}` : '****';
+}
 const chalk = require('chalk');
 
 /**
@@ -20,10 +25,7 @@ async function checkExistingToken(config, channelKey, channelName) {
   }
 
   // Mevcut token goster (maskelenmis)
-  const token = String(config[channelKey]);
-  const masked = token.length > 20
-    ? token.slice(0, 15) + '...' + token.slice(-5)
-    : token.slice(0, 3) + '***';
+  const masked = maskToken(config[channelKey]);
 
   console.log(chalk.green('\n✓ ' + channelName + L(' token zaten kayıtlı: ', ' token already saved: ') + masked));
 
@@ -50,4 +52,4 @@ async function checkExistingToken(config, channelKey, channelName) {
   return true; // Yeni alinacak
 }
 
-module.exports = { checkExistingToken };
+module.exports = { checkExistingToken, maskToken };

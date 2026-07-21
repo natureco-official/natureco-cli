@@ -246,13 +246,21 @@ async function probeImessage() {
 
   // Try to send a test message (dry run)
   try {
-    const result = execSync(`"${imsgPath}" --help 2>&1`, { encoding: 'utf-8', timeout: 5000 });
+    const result = probeImsgBinary(imsgPath);
     console.log(chalk.gray(`\nimsg version: ${result.split('\n')[0]}`));
   } catch {
     console.log(chalk.yellow(L('⚠️  imsg çalıştırılamadı', '⚠️  imsg could not be run')));
   }
 
   console.log('');
+}
+
+function probeImsgBinary(imsgPath, executor = execFileSync) {
+  return executor(imsgPath, ['--help'], {
+    encoding: 'utf-8',
+    timeout: 5000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 }
 
 function findImsgBinary(config) {
@@ -268,3 +276,4 @@ function findImsgBinary(config) {
 }
 
 module.exports = imessage;
+module.exports.probeImsgBinary = probeImsgBinary;

@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const readline = require('readline');
+const { writePrivateFile } = require('../utils/config');
 
 const BASE_DIR = path.join(os.homedir(), '.natureco');
 const CONFIG_FILE = path.join(BASE_DIR, 'config.json');
@@ -14,8 +15,7 @@ function getConfig() {
 }
 
 function saveConfig(data) {
-  if (!fs.existsSync(BASE_DIR)) fs.mkdirSync(BASE_DIR, { recursive: true });
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2), 'utf8');
+  writePrivateFile(CONFIG_FILE, JSON.stringify(data, null, 2));
 }
 
 function rlQuestion(query) {

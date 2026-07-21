@@ -194,7 +194,7 @@ async function callMethod(method, jsonParams) {
     const { setConfigValue } = require('../utils/config');
     if (!params.key) { console.log(chalk.red(L('\n  ❌ params.key gerekli\n', '\n  ❌ params.key required\n'))); process.exit(1); }
     setConfigValue(params.key, params.value);
-    console.log(chalk.green(`\n  ✅ config.${params.key} = ${JSON.stringify(params.value)}\n`));
+    console.log(chalk.green(`\n  ✅ config.${params.key} = •••• saved\n`));
     return;
   }
 
@@ -324,7 +324,7 @@ function startAdmin(portStr, opts = {}) {
         } else if (rpc.method === 'config.set') {
           const { setConfigValue } = require('../utils/config');
           setConfigValue(rpc.params.key, rpc.params.value);
-          payload = { ok: true, key: rpc.params.key, value: rpc.params.value };
+          payload = { ok: true, key: rpc.params.key, value: '****' };
         } else if (rpc.method === 'channels.status' || rpc.method === 'channels.start' || rpc.method === 'channels.stop') {
           const channels = ['telegram', 'discord', 'slack', 'whatsapp'];
           const status = {};
@@ -356,10 +356,9 @@ function startAdmin(portStr, opts = {}) {
     if (expose) {
       console.log(chalk.red('  ⚠️  --expose ile TÜM ağ arayüzlerinde (0.0.0.0) dinliyor. Bearer token ZORUNLU; yine de yalnızca güvendiğin ağda kullan.'));
     }
-    console.log(chalk.gray('  Bearer token (~/.natureco/admin-token):'));
-    console.log(chalk.white(`    ${adminToken}`));
+    console.log(chalk.gray('  Bearer token stored at ~/.natureco/admin-token (value hidden).'));
     console.log(chalk.gray('  Örnek istek:'));
-    console.log(chalk.white(`    curl -H "Authorization: Bearer ${adminToken.slice(0, 8)}..." -d '{"method":"health"}' http://127.0.0.1:${port}`));
+    console.log(chalk.white(`    curl -H "Authorization: Bearer <token-from-file>" -d '{"method":"health"}' http://127.0.0.1:${port}`));
     console.log(chalk.gray('\n  Press Ctrl+C to stop\n'));
   });
 

@@ -5,7 +5,7 @@ const inquirer = require('../utils/inquirer-wrapper');
 const { getApiKey, getConfig, saveConfig } = require('../utils/config');
 const { getBots } = require('../utils/api');
 
-const { checkExistingToken } = require('./channel-helper');
+const { checkExistingToken, maskToken } = require('./channel-helper');
 
 async function slack(action) {
   if (!action || action === 'connect') {
@@ -62,7 +62,7 @@ async function connectSlack() {
   
   console.log(chalk.green(L('✅ Slack token kaydedildi!\n', '✅ Slack token saved!\n')));
   console.log(chalk.cyan('Bot ID:'), chalk.white(botId));
-  console.log(chalk.cyan('Token:'), chalk.white(answers.token.slice(0, 20) + '...'));
+  console.log(chalk.cyan('Token:'), chalk.white(maskToken(answers.token)));
   console.log(chalk.gray(L('\nNot: Slack botunuzu Slack App settings\'ten yapılandırmanız gerekiyor.', '\nNote: You need to configure your Slack bot from the Slack App settings.')));
   console.log(chalk.gray(L('Token config\'e kaydedildi: ~/.natureco/config.json\n', 'Token saved to config: ~/.natureco/config.json\n')));
 }
@@ -111,7 +111,7 @@ function statusSlack() {
   }
   
   console.log(chalk.green('\n✅ Slack connected\n'));
-  console.log(chalk.cyan('Token:'), chalk.white(config.slackToken.slice(0, 20) + '...'));
+  console.log(chalk.cyan('Token:'), chalk.white(maskToken(config.slackToken)));
   
   if (config.slackBotId) {
     console.log(chalk.cyan('Bot ID:'), chalk.white(config.slackBotId));

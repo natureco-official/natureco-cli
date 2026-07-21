@@ -5,6 +5,7 @@ const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const path = require('path');
 const os = require('os');
 const { execFileSync } = require('child_process');
+const { writePrivateFile } = require('../utils/config');
 
 const NATURECO_DIR = path.join(os.homedir(), '.natureco');
 
@@ -23,7 +24,8 @@ function backup(args) {
 
 function createBackup() {
   const backupDir = path.join(os.homedir(), '.natureco-backups');
-  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true, mode: 0o700 });
+  try { fs.chmodSync(backupDir, 0o700); } catch { /* best-effort */ }
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const backupFile = path.join(backupDir, `natureco-backup-${timestamp}.tar.gz`);
@@ -37,6 +39,7 @@ function createBackup() {
         encoding: 'utf8',
         timeout: 30000
       });
+      try { fs.chmodSync(backupFile, 0o600); } catch { /* best-effort */ }
       const size = fs.statSync(backupFile).size;
       console.log(chalk.green(`  ✅ Backup created: ${backupFile}`));
       console.log(chalk.gray(`  Size: ${(size / 1024).toFixed(1)} KB`));
@@ -44,7 +47,7 @@ function createBackup() {
       console.log(chalk.yellow('  ⚠️  tar backup failed, trying copy...'));
       const fallbackFile = backupFile.replace('.tar.gz', '.json');
       const config = require('../utils/config').getConfig();
-      fs.writeFileSync(fallbackFile, JSON.stringify(config, null, 2));
+      writePrivateFile(fallbackFile, JSON.stringify(config, null, 2));
       console.log(chalk.green(`  ✅ Config backup: ${fallbackFile}`));
     }
   } else {

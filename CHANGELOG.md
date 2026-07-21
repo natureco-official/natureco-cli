@@ -2,6 +2,42 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.68.4] - 2026-07-21 — Credential handling and honest dispatch reporting (High-severity)
+
+A first-ever audit of `src/commands/` (107 CLI command files — not previously covered by the
+`src/tools/` audits) found 16 issues. This release fixes the 4 High-severity ones
+(`AUDIT_FINDINGS_3.md`):
+
+### Fixed
+- **Secret-bearing files created without restrictive permissions.** `setup`, `configure`,
+  `backup`, and `onboard` wrote provider API keys, channel tokens, and config backups via plain
+  `writeFileSync` with default permissions, bypassing the hardened `0700`/`0600` writer already
+  used elsewhere in this codebase. All now go through that same shared hardened writer
+  (`src/utils/config.js`'s new `writePrivateFile`), including tar/JSON backup fallbacks.
+- **Full credentials and long token prefixes printed to stdout.** `config set` echoed the full
+  value for any key, including secrets; Admin RPC printed the complete bearer token on server
+  start and echoed arbitrary `config.set` values; Discord/Slack/Telegram/Mattermost status and
+  connect commands showed a 20-character token prefix. All now use a short, consistent masked
+  form (or a fixed "saved" confirmation for sensitive `config set` keys) via a shared `maskToken`
+  helper.
+- **Configured iMessage binary path was shell-injectable.** The `imessage probe` command's
+  `--help` check still built a shell string with `2>&1` redirection (a different call site in the
+  same file was already fixed in an earlier rock); now uses `execFileSync` with a separate stdio
+  pipe, matching the established pattern.
+- **Messaging/moderation commands reported success without actually dispatching or confirming
+  anything.** When a channel dispatch couldn't be confirmed, `message` (send, broadcast, poll,
+  react, edit, delete, pin, unpin, thread reply, sticker, role, moderation, event/timeout/kick/ban)
+  logged locally and exited 0 as if it had succeeded. All now exit non-zero and report the
+  dispatch failure honestly, while still keeping the local JSONL audit trail.
+
+### Tests
+- New `test/security/audit-findings-3-high.test.js`: 5 real-execution proofs, including the exact
+  `mkdir`/`writeFile`/`chmod` mode calls, live masked output for every listed channel, a
+  metacharacter-bearing path passed literally through `execFileSync`, and non-zero exit codes for
+  unreachable send/kick with the audit trail intact.
+
+Medium and Low findings from the same audit are tracked for follow-up.
+
 ## [5.68.3] - 2026-07-21 — Fix soul info returning empty files
 
 ### Fixed
