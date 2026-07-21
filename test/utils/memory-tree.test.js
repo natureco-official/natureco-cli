@@ -77,8 +77,14 @@ describe('memory_tree (ağaç-hafıza)', () => {
     await append(U, '3-kararlar', 'Bekleyen İşler', 'test gorevi tamamla');
     expect(mod._internal.getPending(U).some((x) => /test gorevi/.test(x))).toBe(true);
     const r = mod._internal.remove(U, '3-kararlar', 'test gorevi');
+    expect(r.success).toBe(true);
     expect(r.removed).toBeGreaterThan(0);
     expect(mod._internal.getPending(U).some((x) => /test gorevi/.test(x))).toBe(false);
+  });
+
+  it('remove returns success=false and removed=0 when no leaf matches', () => {
+    const r = mod._internal.remove(U, '3-kararlar', 'missing task');
+    expect(r).toMatchObject({ success: false, removed: 0, root: '3-kararlar' });
   });
 });
 

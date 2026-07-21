@@ -42,8 +42,9 @@ async function fileState(params) {
   }
 
   if (action === 'untrack') {
-    FILE_STATES.delete(targetFile);
-    return { success: true, message: targetFile + ' takipten cikarildi' };
+    const untracked = FILE_STATES.delete(targetFile);
+    if (!untracked) return { success: false, untracked: false, error: targetFile + ' takip edilmiyor' };
+    return { success: true, untracked: true, message: targetFile + ' takipten cikarildi' };
   }
 
   if (action === 'diff') {

@@ -152,7 +152,7 @@ function remove(username, root, query) {
     kept.push(line);
   }
   if (removed) fs.writeFileSync(rootPath(username, r.id), kept.join('\n'), 'utf8');
-  return { success: true, removed, root: r.id };
+  return { success: removed > 0, removed, root: r.id };
 }
 
 // Belirli bir daldaki mevcut yaprakları döndür (yazma-anı hijyen kontrolü için). Türkçe-güvenli dal eşleşmesi.

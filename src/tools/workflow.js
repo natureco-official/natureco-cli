@@ -651,8 +651,11 @@ async function workflow(params) {
     const wfId = workflowId || name;
     if (!wfId) return { success: false, error: 'workflowId gerekli' };
     const wfFile = path.join(WORKFLOW_DIR, wfId + '.json');
-    if (fs.existsSync(wfFile)) fs.unlinkSync(wfFile);
-    return { success: true, message: wfId + ' silindi' };
+    if (!fs.existsSync(wfFile)) {
+      return { success: false, deleted: false, error: 'Workflow bulunamadi: ' + wfId };
+    }
+    fs.unlinkSync(wfFile);
+    return { success: true, deleted: true, message: wfId + ' silindi' };
   }
 
   // ── RETRY: Regenerate and rerun a specific step ──────────────────────

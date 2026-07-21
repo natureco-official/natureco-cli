@@ -196,8 +196,11 @@ function addMemory({ username, fact, score = 5, category = "general", botName, n
 function clearMemory({ username }) {
   if (!username) return { success: false, error: "username gerekli" };
   const file = getMemoryFile(username);
-  if (fs.existsSync(file)) fs.unlinkSync(file);
-  return { success: true, message: `Memory temizlendi: ${username}` };
+  if (!fs.existsSync(file)) {
+    return { success: false, cleared: false, error: `Temizlenecek memory bulunamadi: ${username}` };
+  }
+  fs.unlinkSync(file);
+  return { success: true, cleared: true, message: `Memory temizlendi: ${username}` };
 }
 
 function showMemory({ username }) {

@@ -97,49 +97,64 @@ function installFromGitHub(repoUrl) {
   const [, user, repo] = match;
   const rawBase = `https://raw.githubusercontent.com/${user}/${repo}/main`;
 
-  return new Promise((resolve) => {
-    https.get(`${rawBase}/plugin.json`, { timeout: 10000 }, (res) => {
-      let data = "";
-      res.on("data", c => data += c);
-      res.on("end", () => {
-        try {
-          const meta = JSON.parse(data);
-          const targetDir = path.join(PLUGIN_DIR, meta.name);
-          if (fs.existsSync(targetDir)) {
-            return resolve({ success: false, error: `Plugin zaten kurulu: ${meta.name}` });
-          }
-          fs.mkdirSync(targetDir, { recursive: true });
-
-          // Tum dosyalari indir
-          const files = ["plugin.json", "index.js", "README.md"];
-          let downloaded = 0;
-          for (const f of files) {
-            const url = `${rawBase}/${f}`;
-            https.get(url, { timeout: 10000 }, (fileRes) => {
-              let fd = "";
-              fileRes.on("data", c => fd += c);
-              fileRes.on("end", () => {
-                if (fileRes.statusCode === 200) {
-                  fs.writeFileSync(path.join(targetDir, f), fd, "utf8");
-                }
-                downloaded++;
-                if (downloaded === files.length) {
-                  resolve({ success: true, name: meta.name, path: targetDir, meta });
-                }
-              });
-            }).on("error", () => {
-              downloaded++;
-              if (downloaded === files.length) {
-                resolve({ success: true, name: meta.name, path: targetDir, meta, note: "Bazi dosyalar indirilemedi" });
-              }
-            });
-          }
-        } catch (e) {
-          resolve({ success: false, error: "plugin.json parse hatasi: " + e.message });
-        }
+  function download(url) {
+    return new Promise((resolve, reject) => {
+      const req = https.get(url, { timeout: 10000 }, (res) => {
+        let data = "";
+        res.on("data", c => data += c);
+        res.on("end", () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) resolve(data);
+          else reject(new Error(`HTTP ${res.statusCode}`));
+        });
       });
-    }).on("error", e => resolve({ success: false, error: e.message }));
-  });
+      req.on("error", reject);
+      req.on("timeout", () => { req.destroy(); reject(new Error("Timeout")); });
+    });
+  }
+
+  return (async () => {
+    let meta;
+    try {
+      meta = JSON.parse(await download(`${rawBase}/plugin.json`));
+    } catch (e) {
+      return { success: false, error: "plugin.json indirilemedi veya parse edilemedi: " + e.message, failures: [{ file: "plugin.json", error: e.message }] };
+    }
+
+    const targetDir = path.join(PLUGIN_DIR, meta.name);
+    if (fs.existsSync(targetDir)) {
+      return { success: false, error: `Plugin zaten kurulu: ${meta.name}` };
+    }
+
+    fs.mkdirSync(targetDir, { recursive: true });
+    const files = ["plugin.json", "index.js", "README.md"];
+    const outcomes = await Promise.all(files.map(async (file) => {
+      try {
+        const data = await download(`${rawBase}/${file}`);
+        fs.writeFileSync(path.join(targetDir, file), data, "utf8");
+        return { file, success: true, written: true };
+      } catch (e) {
+        return { file, success: false, written: false, error: e.message };
+      }
+    }));
+    const mandatory = ["plugin.json", "index.js"];
+    const failures = outcomes.filter(outcome => !outcome.success);
+    const missingMandatory = mandatory.filter(file => !fs.existsSync(path.join(targetDir, file)));
+
+    if (failures.length > 0 || missingMandatory.length > 0) {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+      return {
+        success: false,
+        error: `Plugin kurulumu tamamlanamadi: ${failures.length} dosya basarisiz`,
+        name: meta.name,
+        downloaded: outcomes.filter(outcome => outcome.success).map(outcome => outcome.file),
+        failures,
+        missingMandatory,
+        cleanedUp: true,
+      };
+    }
+
+    return { success: true, name: meta.name, path: targetDir, meta, downloaded: files, outcomes };
+  })();
 }
 
 /**
@@ -326,3 +341,4 @@ module.exports = {
 
 // Diger tool'lardan cagirilabilir
 module.exports.loadAllPluginTools = loadAllPluginTools;
+module.exports.installFromGitHub = installFromGitHub;

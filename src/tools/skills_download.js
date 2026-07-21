@@ -64,12 +64,15 @@ function _isInside(base, target) {
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
-function httpsGet(url) {
+function httpsGet(url, options = {}) {
   return new Promise((resolve, reject) => {
-    https.get(url, { timeout: 15000 }, (res) => {
+    https.get(url, { timeout: 15000, ...options }, (res) => {
       let data = '';
       res.on('data', c => data += c);
-      res.on('end', () => resolve(data));
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) resolve(data);
+        else reject(new Error(`HTTP ${res.statusCode}`));
+      });
     }).on('error', reject).on('timeout', function() { this.destroy(); reject(new Error('Timeout')); });
   });
 }
@@ -174,18 +177,35 @@ async function downloadSkill(skill, targetDir) {
   fs.writeFileSync(path.join(skillDir, 'SKILL.md'), frontmatter, 'utf8');
 
   // Download additional files
+  const fileOutcomes = [];
   for (const af of (skill.additionalFiles || [])) {
     try {
       // v5.43 GÜVENLİK: af.path traversal ("../../../../etc/x") → skillDir DIŞINA yazma.
       const dest = path.resolve(skillDir, af.path);
-      if (!_isInside(skillDir, dest)) continue; // traversal → atla
+      if (!_isInside(skillDir, dest)) {
+        fileOutcomes.push({ path: af.path, success: false, status: 'rejected', error: 'Path traversal reddedildi' });
+        continue;
+      }
       const data = await httpsGet(af.url);
       fs.mkdirSync(path.dirname(dest), { recursive: true });
       fs.writeFileSync(dest, data, 'utf8');
-    } catch {}
+      fileOutcomes.push({ path: af.path, success: true, status: 'downloaded' });
+    } catch (e) {
+      fileOutcomes.push({ path: af.path, success: false, status: 'failed', error: e.message });
+    }
   }
 
-  return { success: true, path: skillDir, name: safeName };
+  const failedFiles = fileOutcomes.filter(outcome => !outcome.success).length;
+  return {
+    success: failedFiles === 0,
+    partial: failedFiles > 0,
+    path: skillDir,
+    name: safeName,
+    downloadedFiles: fileOutcomes.length - failedFiles,
+    failedFiles,
+    fileOutcomes,
+    ...(failedFiles > 0 ? { error: `Skill ana dosyasi yazildi, ancak ${failedFiles} ek dosya indirilemedi` } : {}),
+  };
 }
 
 async function execute(params) {
@@ -222,7 +242,8 @@ async function execute(params) {
       results.push({ name: skill.name, ...result });
     }
     const succeeded = results.filter(r => r.success).length;
-    return JSON.stringify({ success: true, source, total: results.length, succeeded, failed: results.length - succeeded, results });
+    const failed = results.length - succeeded;
+    return JSON.stringify({ success: failed === 0, partial: succeeded > 0 && failed > 0, source, total: results.length, succeeded, failed, results });
   }
 
   if (action === 'download_all') {
@@ -240,7 +261,8 @@ async function execute(params) {
       }
     }
     const succeeded = allResults.filter(r => r.success).length;
-    return JSON.stringify({ success: true, total: allResults.length, succeeded, failed: allResults.length - succeeded, results: allResults });
+    const failed = allResults.length - succeeded;
+    return JSON.stringify({ success: failed === 0, partial: succeeded > 0 && failed > 0, total: allResults.length, succeeded, failed, results: allResults });
   }
 
   return JSON.stringify({ success: false, error: 'Unknown action. Use: list_sources, list_skills, download, download_all' });

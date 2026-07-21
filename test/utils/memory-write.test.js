@@ -140,3 +140,18 @@ describe('addMemory end-to-end', () => {
     expect(entries).toContain('u3.json');
   });
 });
+
+describe('clearMemory honest outcome', () => {
+  it('reports success and cleared=true when a memory file is removed', () => {
+    mod._internals.addMemory({ username: 'clear-me', fact: 'temporary fact' });
+    const result = mod._internals.clearMemory({ username: 'clear-me' });
+    expect(result).toMatchObject({ success: true, cleared: true });
+    expect(fs.existsSync(mod._internals.getMemoryFile('clear-me'))).toBe(false);
+  });
+
+  it('reports failure and cleared=false when there is nothing to clear', () => {
+    const result = mod._internals.clearMemory({ username: 'missing-memory' });
+    expect(result).toMatchObject({ success: false, cleared: false });
+    expect(result.error).toMatch(/bulunamadi/i);
+  });
+});

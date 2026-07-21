@@ -2,6 +2,26 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.67.4] - 2026-07-21 — Honest success/failure reporting for mutating operations
+
+### Fixed
+- Several delete/clear/install operations reported `success: true` even when nothing was actually
+  changed or a partial failure occurred, found by `AUDIT_FINDINGS_1.md`: `memory_write`'s `clear`
+  and `workflow`'s `delete` on an already-missing target, `file_state`'s `untrack` ignoring
+  `Map.delete()`'s real result, `memory_tree`'s `remove` reporting success with `removed:0`,
+  GitHub plugin installation counting non-2xx/failed downloads toward completion and resolving
+  success even with missing mandatory files (now cleans up the partial install and reports which
+  files failed), skill marketplace additional-file downloads silently swallowing per-file
+  failures, and the cross-session JSON memory bridge discarding its own write errors while the
+  caller saw a clean success. All now report the true outcome — explicit `success:false` (or an
+  honest `cleared`/`untracked`/`partial` detail) when nothing or only part of the operation
+  actually happened.
+
+### Tests
+- New `test/utils/honest-mutation-results.test.js` plus additions to `memory-tree.test.js`,
+  `memory-write.test.js`, and `skills-download-security.test.js`: 12 new regressions proving both
+  the normal-success case and the honest no-op/partial-failure case for each fixed operation.
+
 ## [5.67.3] - 2026-07-21 — Turkish capital-İ text matching fixed across 25 files
 
 ### Fixed

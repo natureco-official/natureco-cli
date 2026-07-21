@@ -140,7 +140,10 @@ function _saveJsonFact(username, fact, category) {
     if (mem.facts.length > 50) mem.facts.sort((a,b) => (b.score||0)-(a.score||0)).slice(0, 50);
     if (!fs.existsSync(path.dirname(file))) fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, JSON.stringify(mem, null, 2));
-  } catch {}
+    return { success: true, file };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 }
 
 async function execute(args) {
@@ -148,11 +151,21 @@ async function execute(args) {
   const { action, target = 'memory', content, oldContent, scope, maxResults = 10, username } = args;
 
   switch (action) {
-    case 'add':
+    case 'add': {
       if (!content) return JSON.stringify({ success: false, error: 'content required for add' });
       // Bridge: also save to JSON fact store for target=user
-      if (target === 'user') _saveJsonFact(username || 'default', content, 'personal');
-      return store.add(target, content);
+      const bridge = target === 'user' ? _saveJsonFact(username || 'default', content, 'personal') : null;
+      const storeResult = store.add(target, content);
+      if (!bridge) return storeResult;
+      const parsed = typeof storeResult === 'string' ? JSON.parse(storeResult) : storeResult;
+      parsed.bridge = bridge;
+      if (!bridge.success) {
+        parsed.partial = parsed.success;
+        parsed.success = false;
+        parsed.error = parsed.error || 'Memory entry ana depoya yazildi, ancak JSON bridge yazimi basarisiz oldu';
+      }
+      return typeof storeResult === 'string' ? JSON.stringify(parsed) : parsed;
+    }
     case 'remove':
       if (!content) return JSON.stringify({ success: false, error: 'content required for remove' });
       return store.remove(target, content);
