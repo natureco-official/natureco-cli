@@ -13,7 +13,10 @@ async function runShell({ command, cwd = null, timeoutMs = 10000 }) {
   if (!command) return { success: false, error: 'command gerekli' };
 
   return new Promise((resolve) => {
-    const proc = spawn('bash', ['-c', command], {
+    const isWin = process.platform === 'win32';
+    const shell = isWin ? (process.env.ComSpec || 'cmd.exe') : 'bash';
+    const shellArgs = isWin ? ['/d', '/s', '/c', command] : ['-c', command];
+    const proc = spawn(shell, shellArgs, {
       cwd: cwd || os.homedir(),
       timeout: timeoutMs,
       env: { ...process.env, FORCE_COLOR: '0' },
@@ -71,4 +74,5 @@ module.exports = {
     }
     return await runShell(params);
   },
+  _runShell: runShell,
 };

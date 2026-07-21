@@ -65,8 +65,9 @@ function apiRequest(method, endpoint, body) {
   });
 }
 
-function checkCli() {
-  const r = spawnSync('which', ['browser-use'], { timeout: 3000, encoding: 'utf8' });
+function checkCli(name = 'browser-use') {
+  const finder = process.platform === 'win32' ? 'where' : 'which';
+  const r = spawnSync(finder, [name], { timeout: 3000, encoding: 'utf8' });
   return r.status === 0;
 }
 
@@ -279,4 +280,4 @@ async function execute(params) {
   return { success: false, error: 'Bilinmeyen action: ' + action };
 }
 
-module.exports = { name, description, inputSchema, execute };
+module.exports = { name, description, inputSchema, execute, _checkCli: checkCli };

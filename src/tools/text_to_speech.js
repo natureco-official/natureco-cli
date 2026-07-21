@@ -9,6 +9,7 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { _getInterpreterCandidates: getInterpreterCandidates } = require("./code_execution");
 
 const EDGE_TTS_SCRIPT = `
 import asyncio, sys
@@ -41,17 +42,28 @@ async function speak({ text, provider = "auto", voice = "tr-TR", savePath = null
 }
 
 async function edgeTTS(text, voice, savePath) {
-  return new Promise((resolve) => {
-    const out = savePath || path.join(os.tmpdir(), `tts-${Date.now()}.mp3`);
-    const proc = spawn("python3", ["-c", EDGE_TTS_SCRIPT, text, voice, out], { timeout: 30000 });
-    let stderr = "";
-    proc.stderr.on("data", d => stderr += d);
-    proc.on("close", code => {
-      if (code === 0) resolve({ success: true, provider: "edge", path: out, message: `Ses kaydedildi: ${out}` });
-      else resolve({ success: false, error: stderr || `edge-tts hata ${code}. Kur: pip install edge-tts` });
+  const out = savePath || path.join(os.tmpdir(), `tts-${Date.now()}.mp3`);
+  const candidates = getInterpreterCandidates("python", EDGE_TTS_SCRIPT)
+    .map(candidate => ({ ...candidate, args: [...candidate.args, text, voice, out] }));
+
+  for (const candidate of candidates) {
+    const result = await new Promise((resolve) => {
+      const proc = spawn(candidate.bin, candidate.args, { timeout: 30000 });
+      let stderr = "";
+      proc.stderr.on("data", d => stderr += d);
+      proc.on("close", code => resolve({ code, stderr }));
+      proc.on("error", error => resolve({ error }));
     });
-    proc.on("error", e => resolve({ success: false, error: e.message + " (pip install edge-tts)" }));
-  });
+    if (result.error) {
+      if (result.error.code === "ENOENT") continue;
+      return { success: false, error: result.error.message + " (pip install edge-tts)" };
+    }
+    const unavailable = result.code === 9009 || result.code === 127 || /not found|not recognized|install from the Microsoft Store/i.test(result.stderr);
+    if (unavailable) continue;
+    if (result.code === 0) return { success: true, provider: "edge", interpreter: candidate.bin, path: out, message: `Ses kaydedildi: ${out}` };
+    return { success: false, interpreter: candidate.bin, error: result.stderr || `edge-tts hata ${result.code}. Kur: pip install edge-tts` };
+  }
+  return { success: false, error: `Python bu sistemde kurulu degil. (denenen: ${candidates.map(candidate => candidate.bin).join(", ")})` };
 }
 
 async function macSay(text) {
@@ -91,4 +103,5 @@ module.exports = {
   async execute(params) {
     return await speak(params);
   },
+  _edgeTTS: edgeTTS,
 };

@@ -2,6 +2,28 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.67.5] - 2026-07-21 — Plain-Windows portability for 4 tools
+
+### Fixed
+- `browser_use`'s CLI-detection unconditionally ran `which`, which doesn't exist on plain
+  Windows, always reporting an installed `browser-use` as unavailable. Now uses `where` on
+  Windows and `which` elsewhere.
+- `shell_command` always spawned `bash -c`, failing with `ENOENT` on plain Windows without Git
+  Bash/WSL. Now runs through `cmd.exe` on Windows and `bash` elsewhere.
+- `code_execution`'s `language=bash` had no fallback on Windows. It now falls back to PowerShell
+  when no real bash is available, clearly reporting `interpreter` and `interpreterFallback` in the
+  result rather than silently substituting a different shell.
+- `text_to_speech`'s edge-tts provider unconditionally spawned `python3`, which Windows'
+  broken app-execution alias intercepts even when Python is genuinely installed via `py`/`python`.
+  It now reuses the same interpreter-candidate resolution already established in
+  `code_execution.js`. Verified by actually generating real Edge TTS audio through `py` on this
+  machine.
+
+### Tests
+- New `test/tools/windows-portability.test.js` (Windows-only): 4 real proofs, including actually
+  running a command through `cmd.exe`, exercising the PowerShell fallback, and generating a real
+  audio file via the corrected Python interpreter candidate.
+
 ## [5.67.4] - 2026-07-21 — Honest success/failure reporting for mutating operations
 
 ### Fixed

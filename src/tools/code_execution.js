@@ -6,9 +6,28 @@
  */
 
 const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs');
 const os = require('os');
+
+function getInterpreterCandidates(language, code, platform = process.platform) {
+  const isWin = platform === 'win32';
+  if (language === 'python') {
+    const bins = isWin ? ['py', 'python', 'python3'] : ['python3', 'python'];
+    return bins.map(bin => ({ bin, args: ['-c', code] }));
+  }
+  if (language === 'node') return [{ bin: process.execPath, args: ['-e', code] }];
+  if (language === 'bash' || language === 'shell') {
+    if (isWin) {
+      // Prefer a real bash when installed; plain Windows falls back to its established
+      // PowerShell command surface. runCode reports the interpreter so this is explicit.
+      return [
+        { bin: 'bash', args: ['-c', code] },
+        { bin: 'powershell', args: ['-NoProfile', '-Command', code], fallback: true },
+      ];
+    }
+    return ['bash', 'sh'].map(bin => ({ bin, args: ['-c', code] }));
+  }
+  return null;
+}
 
 /**
  * Kod çalıştır, çıktıyı ve hataları döndür.
@@ -20,7 +39,6 @@ async function runCode({ code, language = 'auto', timeoutMs = 30000, cwd = null 
   if (!code) return { success: false, error: 'code gerekli' };
 
   // Dil tespiti
-  let cmd, args;
   if (language === 'auto') {
     if (/^import |^from |def |print\(/m.test(code) || code.includes('python')) {
       language = 'python';
@@ -36,19 +54,15 @@ async function runCode({ code, language = 'auto', timeoutMs = 30000, cwd = null 
   // v5.38: Yorumlayici adaylari — platformlar arasi saglam.
   // node icin process.execPath her zaman mevcut; python icin Windows'ta py/python
   // (python3 App-execution-alias tuzagina duser), *nix'te python3/python.
-  const isWin = process.platform === 'win32';
-  let candidates;
-  if (language === 'python') { candidates = isWin ? ['py', 'python', 'python3'] : ['python3', 'python']; args = ['-c', code]; }
-  else if (language === 'node') { candidates = [process.execPath]; args = ['-e', code]; }
-  else if (language === 'bash' || language === 'shell') { candidates = isWin ? ['bash'] : ['bash', 'sh']; args = ['-c', code]; }
-  else return { success: false, error: `Desteklenmeyen dil: ${language}` };
+  const candidates = getInterpreterCandidates(language, code);
+  if (!candidates) return { success: false, error: `Desteklenmeyen dil: ${language}` };
 
   const truncated = (s) => s.length > 8000 ? s.slice(0, 8000) + '\n... (kesildi, ' + (s.length - 8000) + ' karakter daha)' : s;
 
-  const spawnOnce = (bin) => new Promise((resolve) => {
+  const spawnOnce = (candidate) => new Promise((resolve) => {
     let stdout = '', stderr = '', proc;
     try {
-      proc = spawn(bin, args, { cwd: cwd || os.homedir(), timeout: timeoutMs, env: { ...process.env, FORCE_COLOR: '0' } });
+      proc = spawn(candidate.bin, candidate.args, { cwd: cwd || os.homedir(), timeout: timeoutMs, env: { ...process.env, FORCE_COLOR: '0' } });
     } catch (e) { return resolve({ notFound: true, err: e.message }); }
     proc.stdout.on('data', d => stdout += d.toString());
     proc.stderr.on('data', d => stderr += d.toString());
@@ -61,17 +75,21 @@ async function runCode({ code, language = 'auto', timeoutMs = 30000, cwd = null 
   });
 
   let r = { notFound: true };
-  for (const bin of candidates) {
-    r = await spawnOnce(bin);
+  let usedCandidate;
+  for (const candidate of candidates) {
+    r = await spawnOnce(candidate);
+    usedCandidate = candidate;
     if (!r.notFound) break; // yorumlayici bulundu (basarili ya da kod hatasi) — bunu kullan
   }
   if (r.notFound) {
     const nice = language === 'python' ? 'Python bu sistemde kurulu degil.' : `${language} yorumlayicisi bulunamadi.`;
-    return { success: false, language, error: `${nice} (denenen: ${candidates.join(', ')})` };
+    return { success: false, language, error: `${nice} (denenen: ${candidates.map(candidate => candidate.bin).join(', ')})` };
   }
   return {
     success: r.exitCode === 0,
     language,
+    interpreter: usedCandidate.bin,
+    interpreterFallback: usedCandidate.fallback === true,
     exitCode: r.exitCode,
     stdout: truncated(r.stdout).trim(),
     stderr: truncated(r.stderr).trim(),
@@ -81,7 +99,7 @@ async function runCode({ code, language = 'auto', timeoutMs = 30000, cwd = null 
 
 module.exports = {
   name: 'code_execution',
-  description: 'Python/Node/Bash kodu sandbox\'ta çalıştır. Çıktıyı ve hataları döndürür.',
+  description: 'Python/Node/Bash kodu sandbox\'ta çalıştır. Windows\'ta bash yoksa PowerShell fallback kullanılır ve gerçek interpreter döndürülür.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -95,4 +113,5 @@ module.exports = {
   async execute(params) {
     return await runCode(params);
   },
+  _getInterpreterCandidates: getInterpreterCandidates,
 };

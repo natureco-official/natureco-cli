@@ -81,7 +81,7 @@ describe('2. text_to_speech fixed Python source', () => {
     const result = await tts.execute({ text: 'Merhaba dunya', provider: 'edge', voice: 'tr-TR-EmelNeural', savePath: 'speech.mp3' });
     expect(result).toMatchObject({ success: true, path: 'speech.mp3' });
     const [program, args] = mocks.spawn.mock.calls[0];
-    expect(program).toBe('python3');
+    expect(program).toBe(process.platform === 'win32' ? 'py' : 'python3');
     expect(args.slice(-3)).toEqual(['Merhaba dunya', 'tr-TR-EmelNeural', 'speech.mp3']);
   });
 
