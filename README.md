@@ -68,19 +68,8 @@ natureco code
 | **v5.65.2** | **Reliable macOS automation recovery:** simple open requests stop after success, stale browser profiles retry once, and Screen Recording/Accessibility failures provide precise Cupertino Terminal permission guidance. |
 | **v5.65.0** | **Persistent browser agent:** visible system Chrome/Chromium, persistent login/storage, and reliable `snapshot → @ref click/fill → verify` automation replace one-shot headless browsing. |
 | **v5.64.7** | **Resilient GUI vision:** invalid action parameters and truncated vision JSON are rejected safely and retried instead of crashing macOS automation. |
-| **v5.64.6** | **Reliable MiniMax tool calls:** XML parameters are converted to their declared schema types, fixing `computer_use_loop` failures such as `maxSteps: expected number, got string`. |
-| **v5.64.5** | **Deterministic GUI recovery:** visible web tasks use one verified GUI loop; failures expose their concrete reason and stop blind browser/AppleScript fallback chains. |
-| **v5.64.4** | **Unified MiniMax media:** the existing MiniMax key now powers `MiniMax-VL-01` analysis, `image-01` generation, `MiniMax-Hailuo-2.3` video, and verified GUI vision—no second key required. |
-| **v5.64.3** | **Evidence-based GUI completion:** desktop actions require a changed screen plus independent visual evidence before success. MiniMax screenshots use the Token Plan VLM with the existing provider key. |
-| **v5.64.2** | **Reliable macOS GUI automation:** tool names stay visible in REPL transcripts, visual tasks use a verified screenshot loop, MiniMax GUI routing avoids duplicate paths, and failed/unverified actions no longer claim success. |
-| **v5.64.1** | **Reliable follow-ups + lower token cost:** `natureco code` now preserves same-session context across workflow calls and caps repeated history by token budget (1,024 / 2,048 / 8,192). Provider labels are rendered correctly. |
-| **v5.64.0** | **Unified secure agent foundation:** one execution gateway, hard-stop guardrails, schema-validated tools, rollback/checkpoints, sourced memory, resilient channel delivery, OS keychains and encrypted sync. |
-| **v5.43.0** | **Security:** 9 vulnerabilities fixed in a 3-round audit (RCE chain, admin-rpc auth, cron persistence, channel access control). See [`SECURITY_AUDIT_SUMMARY.md`](SECURITY_AUDIT_SUMMARY.md). |
-| **v5.42.0** | **Token optimization** — prompts trimmed by ~76% (skill index made compact; big cost savings on multi-step tasks). |
-| **v5.41.0** | **Multi-agent orchestration** — the agent can spawn focused sub-agents (`sub_agent`) and produce step-by-step plans (`plan`) before acting. |
-| **v5.40.0** | **Cross-session memory** correctness fix — facts are saved and recalled reliably across sessions. |
-| **v5.39.0** | **Cross-platform** — first-class Windows/macOS/Linux support (pure-Node search fallback, platform-aware helpers). |
-| **v5.38.0** | git command-injection fix + `code_execution`/`http_request` improvements. |
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the full release history.
 
 ### Slash-Prefix Command System
 
