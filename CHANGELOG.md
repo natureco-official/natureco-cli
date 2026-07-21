@@ -2,6 +2,37 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.69.4] - 2026-07-21 — Fix real GitHub Actions CI, broken since v5.68.6
+
+Real CI (`Tests` workflow on GitHub Actions) had been failing on all three platforms
+(ubuntu-latest, windows-latest, macos-15) since v5.68.6 — every release in between was verified
+locally and on a real Mac via SSH, but the actual GitHub Actions run was never checked. No
+runtime/package behavior is affected — every failure was a test-environment coupling bug, not a
+product defect.
+
+### Fixed (test-only, no runtime behavior change)
+- `postinstall-spaced-path.test.js` inherited the CI runner's real `CI=true` environment
+  variable into the spawned `postinstall.js` process, which deliberately no-ops when `CI` is set
+  — the test never actually exercised the script it was supposed to test. Now explicitly unsets
+  `CI` for the spawned process.
+- `audit-findings-3-medium.test.js`'s M-07 test asserted the CI runner's real `process.platform`
+  equals `'win32'`, failing outright on macOS/Linux runners, even though `daemon.stopDaemon`
+  already accepts an explicit platform override for exactly this purpose. Now passes `'win32'`
+  directly instead of relying on the real host platform.
+- The same file's M-08 test asserted an English error string without controlling the active
+  language; `getLang()` defaults to Turkish with no config file present (the case on a fresh CI
+  runner) instead of the English set in the developer's own local config. Now explicitly forces
+  English via `setLangCache('en')` before the assertion.
+- `windows-portability.test.js`'s `browser_use`/`text_to_speech` tests depended on real
+  environment state a fresh CI runner won't have (Node discoverable via `where.exe` in exactly
+  the way a real developer machine has it; the third-party `edge-tts` Python package actually
+  installed) — these are genuine environment gaps, not code defects. Both now detect real
+  capability at runtime and skip with a clear reason when unavailable, plus a new
+  environment-independent structural test proves `browser_use`'s `where.exe`-based checker works
+  correctly regardless of what's actually on PATH.
+
+No source file changed in this release — every fix is test-only.
+
 ## [5.69.3] - 2026-07-21 — Fix duplicated SendKeys assembly bug in platform-gui.js
 
 Found live, in the same real GUI-automation task as v5.69.2 — after that fix, `computer_use_loop`

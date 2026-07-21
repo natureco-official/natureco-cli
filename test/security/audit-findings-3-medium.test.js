@@ -103,8 +103,9 @@ describe('AUDIT_FINDINGS_3 medium-severity regressions', () => {
     const daemon = (await import('../../src/commands/daemon.js')).default;
     const winKill = vi.fn();
     const execFile = vi.fn();
-    expect(process.platform).toBe('win32');
-    expect(daemon.stopDaemon(undefined, winKill, execFile)).toEqual({ success: true, pid: 4242 });
+    // Pass 'win32' explicitly rather than relying on process.platform, so this assertion is
+    // meaningful on every CI platform (macOS/Linux runners must exercise this branch too).
+    expect(daemon.stopDaemon('win32', winKill, execFile)).toEqual({ success: true, pid: 4242 });
     expect(winKill).toHaveBeenCalledWith(4242, 0);
     expect(execFile).toHaveBeenCalledWith('taskkill', ['/F', '/PID', '4242'], { stdio: 'pipe' });
 
@@ -117,6 +118,10 @@ describe('AUDIT_FINDINGS_3 medium-severity regressions', () => {
 
   it('M-08 returns a clean no-bot error directly and through the real acp CLI', async () => {
     const code = (await import('../../src/commands/code.js')).default;
+    // getLang() falls back to Turkish by default with no config/env — force English so this
+    // in-process assertion is deterministic regardless of the CI runner's environment.
+    const { setLangCache } = await import('../../src/utils/i18n.js');
+    setLangCache('en');
     expect(code.noBotSelected()).toEqual({
       success: false,
       error: 'No bot selected. Run `natureco bots` first.',
