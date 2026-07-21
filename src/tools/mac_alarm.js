@@ -6,25 +6,77 @@
  * Clock.app'in events sistemine yazar (alarm orada saklanir).
  */
 
-const { spawn } = require("child_process");
+const { execFileSync } = require("child_process");
 const os = require("os");
 
 const IS_MAC = os.platform() === "darwin";
 
-function runAppleScript(script) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("osascript", ["-e", script]);
-    let out = ""; let err = "";
-    proc.stdout.on("data", d => out += d);
-    proc.stderr.on("data", d => err += d);
-    proc.on("close", code => code === 0 ? resolve(out.trim()) : reject(new Error(err.trim() || "osascript error")));
-  });
+const CREATE_ALARM_EVENT_SCRIPT = `
+on run argv
+  set alarmLabel to item 1 of argv
+  set startDate to current date
+  set year of startDate to (item 2 of argv) as integer
+  set month of startDate to (item 3 of argv) as integer
+  set day of startDate to (item 4 of argv) as integer
+  set hours of startDate to (item 5 of argv) as integer
+  set minutes of startDate to (item 6 of argv) as integer
+  set seconds of startDate to 0
+  tell application "Calendar"
+    set targetCal to first calendar whose writable is true
+    set endDate to startDate + (1 * minutes)
+    set eventSummary to "⏰ " & alarmLabel & " - NatureCo"
+    set newEvent to make new event at end of events of targetCal with properties {summary:eventSummary, start date:startDate, end date:endDate, allday event:false}
+    save
+    return id of newEvent
+  end tell
+end run
+`;
+
+const CREATE_ALARM_REMINDER_SCRIPT = `
+on run argv
+  set alarmLabel to item 1 of argv
+  set startDate to current date
+  set year of startDate to (item 2 of argv) as integer
+  set month of startDate to (item 3 of argv) as integer
+  set day of startDate to (item 4 of argv) as integer
+  set hours of startDate to (item 5 of argv) as integer
+  set minutes of startDate to (item 6 of argv) as integer
+  set seconds of startDate to 0
+  set alarmHumanDate to item 7 of argv
+  tell application "Reminders"
+    set targetList to default list
+    set reminderName to "⏰ " & alarmLabel & " - NatureCo"
+    set reminderBody to "NatureCo CLI tarafindan " & alarmHumanDate & " icin kuruldu"
+    set newReminder to make new reminder at end of targetList with properties {name:reminderName, body:reminderBody, due date:startDate}
+    save
+    return id of newReminder
+  end tell
+end run
+`;
+
+const LIST_ALARMS_SCRIPT = `
+tell application "Calendar"
+  set nowDate to current date
+  set futureEvents to {}
+  repeat with cal in calendars
+    repeat with e in events of cal
+      if start date of e > nowDate and (summary of e starts with "⏰") then
+        copy (start date of e as string) & " | " & (summary of e) to end of futureEvents
+      end if
+    end repeat
+  end repeat
+  return futureEvents
+end tell
+`;
+
+function runAppleScript(script, args = []) {
+  return execFileSync("osascript", ["-", ...args], { input: script, timeout: 10000 }).toString().trim();
 }
 
 /**
  * Tarih/saat ayristir — esnek formatlar kabul eder
  * @param input - "18:00", "18:30 tomorrow", "2026-06-22 18:00", "+1 hour"
- * @returns { hours, minutes, date, formattedDate, formattedTime }
+ * @returns { year, month, day, hours, minutes, date }
  */
 function parseAlarmTime(input) {
   const now = new Date();
@@ -69,12 +121,13 @@ function parseAlarmTime(input) {
     target.setHours(hours, minutes, 0, 0);
   }
 
-  const pad = (n) => String(n).padStart(2, "0");
   return {
-    hours, minutes,
+    year: target.getFullYear(),
+    month: target.getMonth() + 1,
+    day: target.getDate(),
+    hours,
+    minutes,
     date: target.toISOString().slice(0, 10),
-    formattedDate: `${pad(target.getMonth() + 1)}/${pad(target.getDate())}/${target.getFullYear()}`,
-    formattedTime: `${pad(hours)}:${pad(minutes)}:00`,
     humanReadable: target.toLocaleString("tr-TR"),
     timestamp: target.getTime(),
   };
@@ -92,41 +145,21 @@ async function setAlarm({ time, label = "Alarm", calendarName = "Calendar" }) {
   // (Reminder ile ayni sonuc, daha guvenilir cunku Calendar otomasyon izni Reminders'dan once verilir)
   // Dual: Calendar event (gorunurluk) + Reminders (bildirim + alarm)
   // Once Calendar'a basit etkinlik (alarm'siz, ama gorunur), sonra Reminders alarm
-  const calendarScript = `
-    tell application "Calendar"
-      set targetCal to first calendar whose writable is true
-      set startDate to date "${parsed.formattedDate} ${parsed.formattedTime}"
-      set endDate to startDate + (1 * minutes)
-      set newEvent to make new event at end of events of targetCal with properties {summary:"⏰ ${label.replace(/"/g, "'")} - NatureCo", start date:startDate, end date:endDate, allday event:false}
-      save
-      return id of newEvent
-    end tell
-  `;
-
-  // Reminders'a bildirim + sesli alarm
-  const reminderScript = `
-    tell application "Reminders"
-      set targetList to default list
-      set startDate to date "${parsed.formattedDate} ${parsed.formattedTime}"
-      set newReminder to make new reminder at end of targetList with properties {name:"⏰ ${label.replace(/"/g, "'")} - NatureCo", body:"NatureCo CLI tarafindan ${parsed.humanReadable} icin kuruldu", due date:startDate}
-      save
-      return id of newReminder
-    end tell
-  `;
+  const dateComponents = [parsed.year, parsed.month, parsed.day, parsed.hours, parsed.minutes].map(String);
 
   try {
     const results = { calendar: null, reminders: null, errors: [] };
 
     // Calendar'a ekle (gorunurluk)
     try {
-      results.calendar = await runAppleScript(calendarScript);
+      results.calendar = await runAppleScript(CREATE_ALARM_EVENT_SCRIPT, [label, ...dateComponents]);
     } catch (e) {
       results.errors.push(`Calendar: ${e.message}`);
     }
 
     // Reminders'a ekle (bildirim + sesli alarm)
     try {
-      results.reminders = await runAppleScript(reminderScript);
+      results.reminders = await runAppleScript(CREATE_ALARM_REMINDER_SCRIPT, [label, ...dateComponents, parsed.humanReadable]);
     } catch (e) {
       results.errors.push(`Reminders: ${e.message}`);
     }
@@ -158,22 +191,8 @@ async function setAlarm({ time, label = "Alarm", calendarName = "Calendar" }) {
 
 async function listAlarms() {
   if (!IS_MAC) return { success: false, error: "Sadece macOS" };
-  const script = `
-    tell application "Calendar"
-      set nowDate to current date
-      set futureEvents to {}
-      repeat with cal in calendars
-        repeat with e in events of cal
-          if start date of e > nowDate and (summary of e starts with "⏰") then
-            copy (start date of e as string) & " | " & (summary of e) to end of futureEvents
-          end if
-        end repeat
-      end repeat
-      return futureEvents
-    end tell
-  `;
   try {
-    const result = await runAppleScript(script);
+    const result = await runAppleScript(LIST_ALARMS_SCRIPT);
     const alarms = result.split(", ").filter(Boolean);
     return { success: true, count: alarms.length, alarms };
   } catch (e) {

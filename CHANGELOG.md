@@ -2,6 +2,44 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.69.0] - 2026-07-21 — Real macOS verification: AppleScript injection + 2 live-only bugs fixed
+
+The first-ever live verification pass on a real Mac (all three prior audits ran on Windows, where
+this code path never executes). Found and fixed a real security defect plus two functional bugs
+that were only reachable on real macOS.
+
+### Fixed (Security)
+- **AppleScript source injection across 6 macOS-only tools.** `calendar_add`, `notes_add`,
+  `mac_alarm`, `reminder_add`, `mac_notify`, and `mac_app_quit` (the last with no escaping at all)
+  built AppleScript by interpolating user-provided text (title, notes, location, label, app name,
+  etc.) directly into script source with only a naive `"`→`'` replacement — insufficient against
+  AppleScript's own injection surface. All six now pass dynamic values through `osascript`'s real
+  `argv` (a fixed script piped via stdin, values as separate process arguments), the same
+  established pattern already used by `google_meet.js`. Verified on a real Mac with actual
+  injection-attempt payloads (`" & (do shell script "...") & "`) against all six tools — zero
+  code execution in every case, both before and after the two functional fixes below.
+
+### Fixed (real bugs, only reachable on live macOS)
+- **`notes_add` failed on every call with no folder specified** (`-1728, can't get default
+  folder`) — Notes.app's AppleScript dictionary has no `default folder` property. Now omits the
+  folder clause entirely when none is specified, which correctly creates the note in Notes' actual
+  default location.
+- **Absolute-date AppleScript calls failed or silently misparsed on any non-US-locale Mac.**
+  `calendar_add` (absolute `startDate`), `reminder_add` (absolute `dueDate`), and `mac_alarm`
+  built a `MM/DD/YYYY HH:MM:SS`-style date string and let AppleScript's `date "..."` coercion
+  parse it — but that coercion uses the *system's regional format*, not a fixed one. Reproduced
+  live on a tr-TR Mac. All three now parse the date in JavaScript (locale-independent) and pass
+  numeric year/month/day/hour/minute components to AppleScript, which builds the date via direct
+  component assignment instead of string parsing — locale-independent by construction.
+
+### Tests
+- New `test/security/applescript-argv-safety.test.js`: 17 interception tests (normal + hostile
+  input per tool, plus the corrected date-component argv shape) — Windows-side proof of correct
+  construction, since AppleScript itself can't run in CI. The real macOS behavior (both the
+  injection-safety and the two bug fixes) was verified live via SSH to an actual Mac, including
+  real Calendar/Notes/Reminders round-trips with absolute dates and hostile payloads, not just
+  structural interception.
+
 ## [5.68.6] - 2026-07-21 — CLI polish: crash guards, dead code, help drift, sandbox validation
 
 The 4 Low-severity findings from `AUDIT_FINDINGS_3.md` — this closes out every finding from all

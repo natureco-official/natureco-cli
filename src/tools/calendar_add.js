@@ -5,23 +5,59 @@
  * "Yarin saat 14:00 toplantim var" -> Takvime ekler.
  */
 
-const { spawn } = require("child_process");
+const { execFileSync } = require("child_process");
 const os = require("os");
 
 const IS_MAC = os.platform() === "darwin";
 
-function runAppleScript(script) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("osascript", ["-e", script]);
-    let stdout = "";
-    let stderr = "";
-    proc.stdout.on("data", d => stdout += d);
-    proc.stderr.on("data", d => stderr += d);
-    proc.on("close", code => {
-      if (code === 0) resolve(stdout.trim());
-      else reject(new Error(stderr.trim() || `osascript exit ${code}`));
-    });
-  });
+const CREATE_EVENT_SCRIPT = `
+on run argv
+  set eventTitle to item 1 of argv
+  set startDateValue to item 2 of argv
+  set durationMinutes to (item 3 of argv) as real
+  set calendarName to item 4 of argv
+  set eventNotes to item 5 of argv
+  set eventLocation to item 6 of argv
+  set startDateMode to item 7 of argv
+  set relativeAmount to (item 8 of argv) as integer
+  set relativeUnit to item 9 of argv
+  tell application "Calendar"
+    if calendarName is not "" then
+      set targetCal to calendar calendarName
+    else
+      set targetCal to first calendar whose writable is true
+    end if
+    if startDateMode is "now" then
+      set eventStartDate to current date
+    else if startDateMode is "relative" then
+      if relativeUnit is "hour" then
+        set eventStartDate to (current date) + relativeAmount * hours
+      else if relativeUnit is "day" then
+        set eventStartDate to (current date) + relativeAmount * days
+      else
+        set eventStartDate to (current date) + relativeAmount * minutes
+      end if
+    else
+      set eventStartDate to current date
+      set year of eventStartDate to (item 10 of argv) as integer
+      set month of eventStartDate to (item 11 of argv) as integer
+      set day of eventStartDate to (item 12 of argv) as integer
+      set hours of eventStartDate to (item 13 of argv) as integer
+      set minutes of eventStartDate to (item 14 of argv) as integer
+      set seconds of eventStartDate to 0
+    end if
+    set eventEndDate to eventStartDate + (durationMinutes * minutes)
+    set newEvent to make new event at end of events of targetCal with properties {summary:eventTitle, start date:eventStartDate, end date:eventEndDate}
+    if eventLocation is not "" then set location of newEvent to eventLocation
+    if eventNotes is not "" then set description of newEvent to eventNotes
+    save
+    return id of newEvent
+  end tell
+end run
+`;
+
+function runAppleScript(script, args = []) {
+  return execFileSync("osascript", ["-", ...args], { input: script, timeout: 10000 }).toString().trim();
 }
 
 async function calendarAdd(params) {
@@ -29,31 +65,37 @@ async function calendarAdd(params) {
   const { title, startDate = "now", duration = 60, calendar = null, notes = "", location = "" } = params;
   if (!title) return { success: false, error: "title gerekli" };
 
-  let startScript;
-  if (startDate === "now") startScript = "current date";
+  let startDateMode = "absolute";
+  let relativeAmount = "0";
+  let relativeUnit = "minute";
+  let absoluteDateComponents = [];
+  if (startDate === "now") startDateMode = "now";
   else if (typeof startDate === "string" && startDate.startsWith("+")) {
     const m = startDate.match(/\+(\d+)\s*(hour|day|minute)/i);
-    if (m) startScript = `(current date) + ${m[1]} * ${m[2].toLowerCase()}s`;
-    else startScript = "current date";
-  } else {
-    startScript = `date "${startDate}"`;
+    if (m) {
+      startDateMode = "relative";
+      relativeAmount = m[1];
+      relativeUnit = m[2].toLowerCase();
+    } else startDateMode = "now";
   }
 
-  const calScript = calendar ? `calendar "${calendar}"` : `first calendar whose writable is true`;
-
-  const script = `
-    tell application "Calendar"
-      set targetCal to ${calScript}
-      set startDate to ${startScript}
-      set endDate to startDate + (${duration} * minutes)
-      set newEvent to make new event at end of events of targetCal with properties {summary:"${title.replace(/"/g, "'")}", start date:startDate, end date:endDate${location ? `, location:"${location.replace(/"/g, "'")}"` : ""}${notes ? `, description:"${notes.replace(/"/g, "'")}"` : ""}}
-      save
-      return id of newEvent
-    end tell
-  `;
+  if (startDateMode === "absolute") {
+    const parsedStartDate = new Date(startDate);
+    if (Number.isNaN(parsedStartDate.getTime())) {
+      return { success: false, error: `Gecersiz startDate: "${startDate}"` };
+    }
+    absoluteDateComponents = [
+      parsedStartDate.getFullYear(), parsedStartDate.getMonth() + 1, parsedStartDate.getDate(),
+      parsedStartDate.getHours(), parsedStartDate.getMinutes(),
+    ].map(String);
+  }
 
   try {
-    const eventId = await runAppleScript(script);
+    const eventId = await runAppleScript(CREATE_EVENT_SCRIPT, [
+      title, startDateMode === "absolute" ? "" : String(startDate), String(duration), calendar || "", notes || "", location || "",
+      startDateMode, relativeAmount, relativeUnit,
+      ...absoluteDateComponents,
+    ]);
     return {
       success: true,
       eventId,

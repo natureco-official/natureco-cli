@@ -2,19 +2,31 @@
  * notes_add - Apple Notes'a not ekle (v4.9.1)
  */
 
-const { spawn } = require("child_process");
+const { execFileSync } = require("child_process");
 const os = require("os");
 
 const IS_MAC = os.platform() === "darwin";
 
-function runAppleScript(script) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("osascript", ["-e", script]);
-    let out = ""; let err = "";
-    proc.stdout.on("data", d => out += d);
-    proc.stderr.on("data", d => err += d);
-    proc.on("close", code => code === 0 ? resolve(out.trim()) : reject(new Error(err.trim())));
-  });
+const CREATE_NOTE_SCRIPT = `
+on run argv
+  set noteTitle to item 1 of argv
+  set noteContent to item 2 of argv
+  set folderName to item 3 of argv
+  tell application "Notes"
+    if folderName is not "" then
+      set targetFolder to folder folderName
+      set newNote to make new note at targetFolder with properties {name:noteTitle, body:noteContent}
+    else
+      set newNote to make new note with properties {name:noteTitle, body:noteContent}
+    end if
+    save
+    return name of newNote
+  end tell
+end run
+`;
+
+function runAppleScript(script, args = []) {
+  return execFileSync("osascript", ["-", ...args], { input: script, timeout: 10000 }).toString().trim();
 }
 
 async function notesAdd(params) {
@@ -22,19 +34,8 @@ async function notesAdd(params) {
   const { title, content, folder = null } = params;
   if (!title || !content) return { success: false, error: "title ve content gerekli" };
 
-  const folderScript = folder ? `folder "${folder}"` : "default folder";
-
-  const script = `
-    tell application "Notes"
-      set targetFolder to ${folderScript}
-      set newNote to make new note at targetFolder with properties {name:"${title.replace(/"/g, "'")}", body:"${content.replace(/"/g, "'").replace(/\n/g, "\\n")}"}
-      save
-      return name of newNote
-    end tell
-  `;
-
   try {
-    const name = await runAppleScript(script);
+    const name = await runAppleScript(CREATE_NOTE_SCRIPT, [title, content, folder || ""]);
     return { success: true, noteName: name, title, message: `Not eklendi: "${title}"` };
   } catch (e) {
     if (e.message.includes("-1743") || e.message.includes("not authorized")) {

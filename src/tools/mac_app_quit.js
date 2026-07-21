@@ -2,19 +2,22 @@
  * mac_app_quit - macOS uygulamasi kapat (v4.9.1)
  */
 
-const { spawn } = require("child_process");
+const { execFileSync } = require("child_process");
 const os = require("os");
 
 const IS_MAC = os.platform() === "darwin";
 
-function runAppleScript(script) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("osascript", ["-e", script]);
-    let out = ""; let err = "";
-    proc.stdout.on("data", d => out += d);
-    proc.stderr.on("data", d => err += d);
-    proc.on("close", code => code === 0 ? resolve(out.trim()) : reject(new Error(err.trim())));
-  });
+const QUIT_APPLICATION_SCRIPT = `
+on run argv
+  set appName to item 1 of argv
+  using terms from application "Finder"
+    tell application appName to quit
+  end using terms from
+end run
+`;
+
+function runAppleScript(script, args = []) {
+  return execFileSync("osascript", ["-", ...args], { input: script, timeout: 10000 }).toString().trim();
 }
 
 async function macAppQuit(params) {
@@ -23,7 +26,7 @@ async function macAppQuit(params) {
   if (!appName) return { success: false, error: "appName gerekli" };
 
   try {
-    await runAppleScript(`tell application "${appName}" to quit`);
+    await runAppleScript(QUIT_APPLICATION_SCRIPT, [appName]);
     return { success: true, message: `"${appName}" kapatildi` };
   } catch (e) {
     return { success: false, error: e.message };

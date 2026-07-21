@@ -2,19 +2,26 @@
  * mac_notify - macOS bildirim goster (v4.9.1)
  */
 
-const { spawn } = require("child_process");
+const { execFileSync } = require("child_process");
 const os = require("os");
 
 const IS_MAC = os.platform() === "darwin";
 
-function runAppleScript(script) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("osascript", ["-e", script]);
-    let out = ""; let err = "";
-    proc.stdout.on("data", d => out += d);
-    proc.stderr.on("data", d => err += d);
-    proc.on("close", code => code === 0 ? resolve(out.trim()) : reject(new Error(err.trim())));
-  });
+const DISPLAY_NOTIFICATION_SCRIPT = `
+on run argv
+  set notificationTitle to item 1 of argv
+  set notificationMessage to item 2 of argv
+  set notificationSubtitle to item 3 of argv
+  if notificationSubtitle is not "" then
+    display notification notificationMessage with title notificationTitle subtitle notificationSubtitle
+  else
+    display notification notificationMessage with title notificationTitle
+  end if
+end run
+`;
+
+function runAppleScript(script, args = []) {
+  return execFileSync("osascript", ["-", ...args], { input: script, timeout: 10000 }).toString().trim();
 }
 
 async function macNotify(params) {
@@ -22,10 +29,8 @@ async function macNotify(params) {
   const { title, message, subtitle = "" } = params;
   if (!title || !message) return { success: false, error: "title ve message gerekli" };
 
-  const script = `display notification "${message.replace(/"/g, "'")}" with title "${title.replace(/"/g, "'")}"${subtitle ? ` subtitle "${subtitle.replace(/"/g, "'")}"` : ""}`;
-
   try {
-    await runAppleScript(script);
+    await runAppleScript(DISPLAY_NOTIFICATION_SCRIPT, [title, message, subtitle || ""]);
     return { success: true, message: `Bildirim gonderildi: ${title}` };
   } catch (e) {
     return { success: false, error: e.message };
