@@ -38,8 +38,7 @@ function cmdRun(id) {
   const nodes = loadNodes();
   const n = nodes[id];
   if (!n) { console.log(chalk.yellow(`\n  Node "${id}" not found.\n`)); return; }
-  console.log(chalk.cyan(`\n  Running command on node "${id}"...\n`));
-  console.log(chalk.gray('  (Stub — command execution not implemented)\n'));
+  return notImplemented('run');
 }
 
 function cmdStatus(id) {
@@ -58,14 +57,13 @@ function cmdStatus(id) {
   console.log(`  ${chalk.white('ID:')}       ${chalk.cyan(n.id || id)}`);
   console.log(`  ${chalk.white('Host:')}     ${chalk.white(n.host || n.hostname || '—')}`);
   console.log(`  ${chalk.white('Port:')}     ${chalk.white(n.port || '—')}`);
-  console.log(`  ${chalk.white('Status:')}   ${n.online ? chalk.green('online') : chalk.gray('offline')}`);
+  console.log(`  ${chalk.white('Status:')}   ${chalk.yellow('unknown (no transport)')}`);
   console.log(`  ${chalk.white('Version:')}  ${chalk.gray(n.version || '—')}`);
   console.log('');
 }
 
 function cmdInstall() {
-  console.log(chalk.cyan('\n  Installing node software...\n'));
-  console.log(chalk.gray('  (Stub — installation not implemented)\n'));
+  return notImplemented('install');
 }
 
 function cmdUninstall(id) {
@@ -81,18 +79,21 @@ function cmdStop(id) {
   if (!id) { console.log(chalk.red('\n  Usage: natureco node stop <id>\n')); process.exit(1); }
   const nodes = loadNodes();
   if (!nodes[id]) { console.log(chalk.yellow(`\n  Node "${id}" not found.\n`)); return; }
-  nodes[id].online = false;
-  saveNodes(nodes);
-  console.log(chalk.gray(`\n  Node "${id}" stopped.\n`));
+  return notImplemented('stop');
 }
 
 function cmdRestart(id) {
   if (!id) { console.log(chalk.red('\n  Usage: natureco node restart <id>\n')); process.exit(1); }
   const nodes = loadNodes();
   if (!nodes[id]) { console.log(chalk.yellow(`\n  Node "${id}" not found.\n`)); return; }
-  nodes[id].online = true;
-  saveNodes(nodes);
-  console.log(chalk.gray(`\n  Node "${id}" restarted.\n`));
+  return notImplemented('restart');
+}
+
+function notImplemented(action) {
+  const result = { success: false, error: `Node ${action} is not implemented` };
+  console.log(chalk.red(`\n  ${result.error}\n`));
+  return result;
 }
 
 module.exports = node;
+module.exports.notImplemented = notImplemented;

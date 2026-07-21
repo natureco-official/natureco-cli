@@ -2,6 +2,42 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.68.5] - 2026-07-21 — Honest command results and CLI argument fixes (Medium-severity)
+
+The 8 Medium-severity findings from the `src/commands/` audit (`AUDIT_FINDINGS_3.md`):
+
+### Fixed
+- **`doctor`'s disk-space check shell-injected the home path** and reported a failed measurement
+  as a passing check. Now uses `execFileSync`/argument-based execution and reports an unknown
+  measurement as a warning.
+- **`backup`/`sandbox` CLI registration dropped required operands** (`natureco backup restore
+  <file>` lost the filename; `natureco sandbox create <name>` ignored the name). Both now forward
+  their full argument list.
+- **`browser`'s advertised automation was mostly stateful simulation** (open/navigate/click/
+  screenshot/etc. only updated local state or printed "would be called"). Unimplemented CDP
+  actions now honestly return `success:false` instead of fabricating success.
+- **`node`/`nodes` management reported mock operations as real** (fake `invoke`, simulated
+  camera/screen/location). Genuinely unimplemented actions now return an honest failure instead
+  of a fabricated mock success.
+- **`gateway`'s `call`/`discover`/`install`/`uninstall`/`restart` fabricated successful
+  results** (a fake RPC response, fixed mock discovery hosts, "mock" installs). All now honestly
+  report they aren't implemented; manual install/uninstall instructions remain available but are
+  no longer framed as automated success.
+- **`cron run` persisted a fabricated successful run record** without dispatching anything,
+  corrupting operational history. Now records an honest `not_implemented` status.
+- **`daemon stop` only worked on Windows** (`natureco daemon status` was also silently reading
+  the wrong PID file, `daemon.pid`, while the real gateway process writes `gateway.pid` — fixed as
+  part of this same change). Now validates the real PID and uses `taskkill` on Windows /
+  `process.kill(pid, 'SIGTERM')` on POSIX.
+- **The registered `acp` alias crashed** with `Cannot read properties of undefined (reading
+  'id')` when no bot was selected/configured. Now fails cleanly with a clear message.
+
+### Tests
+- New `test/security/audit-findings-3-medium.test.js`: 8 real-execution proofs, including real
+  spawned CLI processes for the backup/sandbox operand and `acp` no-bot fixes.
+
+Low-severity findings from the same audit are tracked for follow-up.
+
 ## [5.68.4] - 2026-07-21 — Credential handling and honest dispatch reporting (High-severity)
 
 A first-ever audit of `src/commands/` (107 CLI command files — not previously covered by the

@@ -1,5 +1,5 @@
 const chalk = require('chalk');
-const { execSync, spawn } = require('child_process');
+const { execFileSync, spawn } = require('child_process');
 const { getLang: _gl } = require('../utils/i18n');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const path = require('path');
@@ -24,7 +24,7 @@ function daemon(args) {
 }
 
 function statusDaemon() {
-  const pidFile = path.join(os.homedir(), '.natureco', 'daemon.pid');
+  const pidFile = path.join(os.homedir(), '.natureco', 'gateway.pid');
   let running = false;
   let pid = null;
 
@@ -66,13 +66,26 @@ function startDaemon() {
   }
 }
 
-function stopDaemon() {
+function stopDaemon(platform = process.platform, kill = process.kill.bind(process), execFile = execFileSync) {
   console.log(chalk.cyan('\n  Stopping Gateway daemon...\n'));
   try {
-    execSync('taskkill /F /IM node.exe /FI "WINDOWTITLE eq natureco-gateway" 2>nul', { stdio: 'pipe' });
+    const pidFile = path.join(os.homedir(), '.natureco', 'gateway.pid');
+    if (!fs.existsSync(pidFile)) throw new Error('daemon PID file not found');
+    const rawPid = fs.readFileSync(pidFile, 'utf8').trim();
+    const pid = Number.parseInt(rawPid, 10);
+    if (!/^\d+$/.test(rawPid) || !Number.isSafeInteger(pid) || pid <= 0) throw new Error('invalid daemon PID');
+    kill(pid, 0);
+    if (platform === 'win32') {
+      execFile('taskkill', ['/F', '/PID', String(pid)], { stdio: 'pipe' });
+    } else {
+      kill(pid, 'SIGTERM');
+    }
+    fs.unlinkSync(pidFile);
     console.log(chalk.gray('  🛑 Gateway daemon stopped\n'));
+    return { success: true, pid };
   } catch {
     console.log(chalk.yellow('  ⚠️  Could not stop daemon (may not be running)\n'));
+    return { success: false };
   }
 }
 
@@ -90,3 +103,4 @@ function uninstallDaemon() {
 }
 
 module.exports = daemon;
+module.exports.stopDaemon = stopDaemon;

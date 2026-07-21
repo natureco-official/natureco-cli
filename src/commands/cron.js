@@ -400,15 +400,15 @@ function runCron(options) {
   F.kv(L('Kanal', 'Channel'), cron.action);
   F.kv(L('Hedef', 'Target'), cron.target);
   F.kv('Prompt', cron.prompt);
-  F.success(L('Cron tetiklendi (mock)', 'Cron triggered (mock)'));
+  F.warning(L('Cron gönderilmedi: çalıştırma henüz uygulanmadı', 'Cron not dispatched: execution is not implemented'));
 
   // Log the run
   const runs = loadRuns();
   runs.push({
     name,
     timestamp,
-    status: 'success',
-    output: `Mock run of ${name} (${cron.action} → ${cron.target})`
+    status: 'not_implemented',
+    output: `No run dispatched for ${name} (${cron.action} → ${cron.target})`
   });
   const dir = path.dirname(CRONS_RUNS_FILE);
   if (!fs.existsSync(dir)) {

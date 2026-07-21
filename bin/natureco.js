@@ -781,10 +781,10 @@ program
   });
 
 program
-  .command('backup <action>')
+  .command('backup <action> [params...]')
   .description('Backup management (create|list|restore|verify)')
-  .action((action) => {
-    backup([action]);
+  .action((action, params) => {
+    backup([action, ...(params || [])]);
   });
 
 program
@@ -926,10 +926,10 @@ program
   });
 
 program
-  .command('sandbox <action>')
+  .command('sandbox <action> [params...]')
   .description('Sandbox container management (list|create|destroy)')
-  .action((action) => {
-    sandbox([action]);
+  .action((action, params) => {
+    sandbox([action, ...(params || [])]);
   });
 
 program
@@ -971,7 +971,7 @@ program
 
 program
   .command('browser [action] [params...]')
-  .description('Browser automation (status|start|stop|tabs|open|close|navigate|screenshot|snapshot|click|type|press|resize|hover|drag|select|upload|fill|dialog|wait|evaluate|console|pdf|profiles|focus|reset-profile|create-profile|delete-profile)')
+  .description('Browser profile/readiness management (doctor|profiles|reset-profile|create-profile|delete-profile; CDP automation is not implemented)')
   .action((action, params) => {
     browser([action, ...(params || [])]);
   });

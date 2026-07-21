@@ -323,6 +323,13 @@ async function runTests(projectIndex, conversationMessages, tools, providerConfi
   return null;
 }
 
+function noBotSelected(setExitCode = false) {
+  const error = L('Bot seçilmedi. Önce `natureco bots` komutunu çalıştırın.', 'No bot selected. Run `natureco bots` first.');
+  console.log(chalk.red(error + '\n'));
+  if (setExitCode) process.exitCode = 1;
+  return { success: false, error };
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 async function code(targetFile, options = {}) {
   const codingSession = new CodingSession();
@@ -341,8 +348,7 @@ async function code(targetFile, options = {}) {
   }
 
   if (!botList?.bots?.length) {
-    console.log(chalk.gray('No bots found.\n'));
-    process.exit(1);
+    return noBotSelected(true);
   }
 
   let bot;
@@ -356,6 +362,10 @@ async function code(targetFile, options = {}) {
       choices: botList.bots.map(b => ({ name: b.name, value: b.id })),
     }]);
     bot = botList.bots.find(b => b.id === selectedBot);
+  }
+
+  if (!bot) {
+    return noBotSelected(true);
   }
 
   const mem = loadMemory(bot.id);
@@ -786,3 +796,4 @@ ${indexPrompt}`);
 }
 
 module.exports = code;
+module.exports.noBotSelected = noBotSelected;

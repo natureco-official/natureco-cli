@@ -28,6 +28,8 @@ function saveState(state) {
 function browser(args) {
   const [action, ...params] = args || [];
 
+  if (!action || UNIMPLEMENTED_AUTOMATION_ACTIONS.has(action)) return notImplemented(action || 'status');
+
   if (!action || action === 'status') return cmdStatus();
   if (action === 'doctor') return cmdDoctor();
   if (action === 'start') return cmdStart();
@@ -91,6 +93,18 @@ function browser(args) {
   console.log(chalk.gray('    create-profile <name>           Create new profile'));
   console.log(chalk.gray('    delete-profile <name>           Delete profile\n'));
   process.exit(1);
+}
+
+const UNIMPLEMENTED_AUTOMATION_ACTIONS = new Set([
+  'status', 'start', 'stop', 'tabs', 'open', 'close', 'focus', 'navigate', 'screenshot', 'snapshot', 'click', 'type',
+  'press', 'resize', 'hover', 'drag', 'select', 'upload', 'fill', 'dialog', 'wait',
+  'evaluate', 'console', 'pdf',
+]);
+
+function notImplemented(action) {
+  const result = { success: false, error: `Browser ${action} is not yet implemented (CDP transport unavailable)` };
+  console.log(chalk.red(`\n  ${result.error}\n`));
+  return result;
 }
 
 function cmdStatus() {
@@ -813,3 +827,4 @@ function getChromiumPaths() {
 }
 
 module.exports = browser;
+module.exports.notImplemented = notImplemented;

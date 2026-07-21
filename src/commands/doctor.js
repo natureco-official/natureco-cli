@@ -8,6 +8,7 @@ const path = require('path');
 const os = require('os');
 const audit = require('../utils/audit');
 const secrets = require('../utils/secret-scanner');
+const { execFileSync } = require('child_process');
 
 const BASE_DIR = path.join(os.homedir(), '.natureco');
 const CONFIG_FILE = path.join(BASE_DIR, 'config.json');
@@ -94,6 +95,8 @@ function cmdCheck(name) {
   F.kv('Check', check.label);
   if (result.pass) {
     F.success(result.message);
+  } else if (result.warning) {
+    F.warning(result.message);
   } else {
     F.error(result.message);
   }
@@ -121,16 +124,19 @@ function cmdRun(opts = {}) {
   const rows = [];
   let passed = 0;
   let failed = 0;
+  let warnings = 0;
   const startTime = Date.now();
 
   for (const check of CHECKS) {
     const result = runCheck(check.name);
     rows.push({
       check: check.label,
-      status: result.pass,
+      status: result.warning ? 'warning' : (result.pass ? 'pass' : 'fail'),
       message: result.message,
     });
-    if (result.pass) passed++; else failed++;
+    if (result.pass) passed++;
+    else if (result.warning) warnings++;
+    else failed++;
   }
 
   // Yeni TUI tablo
@@ -138,34 +144,38 @@ function cmdRun(opts = {}) {
     { key: 'check', label: L('Kontrol', 'Check'), minWidth: 28 },
     {
       key: 'status', label: L('Durum', 'Status'), minWidth: 9,
-      render: r => r.status
+      render: r => r.status === 'pass'
         ? tui.styled('  ✓ PASS ', { bg: tui.PALETTE.success, color: '#000000', bold: true })
-        : tui.styled('  ✗ FAIL ', { bg: tui.PALETTE.danger, color: '#000000', bold: true }),
+        : r.status === 'warning'
+          ? tui.styled('  ? WARN ', { bg: tui.PALETTE.warning, color: '#000000', bold: true })
+          : tui.styled('  ✗ FAIL ', { bg: tui.PALETTE.danger, color: '#000000', bold: true }),
     },
     { key: 'message', label: L('Mesaj', 'Message'), minWidth: 20 },
   ], { borderStyle: 'round', zebra: true }));
 
-  const total = passed + failed;
+  const total = passed + warnings + failed;
   const duration = Date.now() - startTime;
 
   // Özet kartı
   console.log('\n' + tui.box(60, 5, {
     title: L('Özet', 'Summary'),
-    borderColor: failed > 0 ? tui.PALETTE.warning : tui.PALETTE.success,
+    borderColor: failed > 0 || warnings > 0 ? tui.PALETTE.warning : tui.PALETTE.success,
   }).split('\n').map((line, i) => {
-    if (i === 2) return line.replace(' '.repeat(58), `  ${tui.C.text(`${passed}/${total} ${L('kontrol geçti', 'checks passed')}`)} · ${tui.C.muted(duration + 'ms')}`);
+    if (i === 2) return line.replace(' '.repeat(58), `  ${tui.C.text(`${passed}/${total} ${L('kontrol geçti', 'checks passed')}`)}${warnings ? ` · ${warnings} WARN` : ''} · ${tui.C.muted(duration + 'ms')}`);
     return line;
   }).join('\n'));
 
   if (failed > 0) {
     console.log('\n' + tui.C.amber(L('  ⚠️  Bazı kontroller başarısız. Detay için: ', '  ⚠️  Some checks failed. For details: ')) + tui.C.brand('natureco doctor check <name>'));
+  } else if (warnings > 0) {
+    console.log('\n' + tui.C.amber(L('  ⚠️  Bazı kontroller belirlenemedi.', '  ⚠️  Some checks could not be determined.')));
   } else {
     console.log('\n' + tui.C.green(L('  ✨ Tüm kontroller geçti! Sistem sağlıklı.', '  ✨ All checks passed! System healthy.')));
   }
   console.log('');
 }
 
-function runCheck(name) {
+function runCheck(name, dependencies = {}) {
   switch (name) {
     case 'configExists':
       return {
@@ -192,29 +202,17 @@ function runCheck(name) {
     }
 
     case 'diskSpace': {
-      // Gerçek disk alanı (cross-platform)
       try {
-        const { execSync } = require('child_process');
-        let freeGB = null;
-        if (process.platform === 'darwin' || process.platform === 'linux') {
-          // df -k ~/.natureco | tail -1 | awk '{print $4}'
-          const out = execSync(`df -k ${JSON.stringify(BASE_DIR)} | tail -1`).toString().trim();
-          const parts = out.split(/\s+/);
-          const freeKB = parseInt(parts[3], 10);
-          if (!isNaN(freeKB)) freeGB = freeKB / 1024 / 1024;
-        } else if (process.platform === 'win32') {
-          const out = execSync(`powershell -NoProfile -Command "(Get-PSDrive ${BASE_DIR[0]}).Free / 1GB"`).toString().trim();
-          freeGB = parseFloat(out);
-        }
+        const freeGB = measureDiskSpace(BASE_DIR, dependencies.platform, dependencies.execFile);
         if (freeGB === null || isNaN(freeGB)) {
-          return { pass: true, message: 'Unable to determine disk space' };
+          return { pass: false, warning: true, message: 'Unable to determine disk space' };
         }
         return {
           pass: freeGB > 0.5,
           message: freeGB > 0.5 ? `${freeGB.toFixed(1)} GB free` : `${L('Sadece', 'Only')} ${(freeGB * 1024).toFixed(0)} ${L('MB kaldı — gerekli: 500 MB', 'MB left — need: 500 MB')}`,
         };
       } catch (e) {
-        return { pass: true, message: 'Unable to check disk space' };
+        return { pass: false, warning: true, message: 'Unable to check disk space: ' + e.message };
       }
     }
 
@@ -326,6 +324,24 @@ function runCheck(name) {
   }
 }
 
+function measureDiskSpace(baseDir, platform = process.platform, execFile = execFileSync) {
+  if (platform === 'darwin' || platform === 'linux') {
+    const lines = execFile('df', ['-k', baseDir], { encoding: 'utf8' }).trim().split(/\r?\n/);
+    const parts = lines[lines.length - 1].trim().split(/\s+/);
+    const freeKB = Number.parseInt(parts[3], 10);
+    return Number.isNaN(freeKB) ? null : freeKB / 1024 / 1024;
+  }
+  if (platform === 'win32') {
+    const script = '& { param([string]$drive) (Get-PSDrive -Name $drive).Free / 1GB }';
+    const out = execFile('powershell', ['-NoProfile', '-Command', script, baseDir[0]], { encoding: 'utf8' });
+    const freeGB = Number.parseFloat(out.trim());
+    return Number.isNaN(freeGB) ? null : freeGB;
+  }
+  return null;
+}
+
 module.exports = doctor;
 // v5.43.2: test için — --fix otomatik düzeltme regresyonu
 module.exports.applyFixes = applyFixes;
+module.exports.runCheck = runCheck;
+module.exports.measureDiskSpace = measureDiskSpace;

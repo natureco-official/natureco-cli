@@ -13,6 +13,10 @@ const { getConfig, saveConfig } = require('../utils/config');
 function nodes(args) {
   const [action, ...params] = args || [];
 
+  if (['approve', 'reject', 'invoke', 'notify', 'push', 'canvas', 'camera', 'screen', 'location', 'status', 'describe'].includes(action)) {
+    return notImplemented(action);
+  }
+
   if (!action || action === 'list') return listNodes();
   if (action === 'pair') return pairNode(params[0]);
   if (action === 'approve') return approveNode(params[0]);
@@ -167,6 +171,12 @@ function nodes(args) {
   process.exit(1);
 }
 
+function notImplemented(action) {
+  const result = { success: false, error: `Node ${action} is not implemented` };
+  F.error(result.error);
+  return result;
+}
+
 function listNodes() {
   const config = getConfig();
   const nodes = config.pairedNodes || [];
@@ -181,14 +191,14 @@ function listNodes() {
   }
 
   const rows = nodes.map(n => ({
-    id: n.id, name: n.name || n.id, status: 'online (mock)', lastSeen: n.pairedAt || '-',
+    id: n.id, name: n.name || n.id, status: 'unknown', lastSeen: n.pairedAt || '-',
   }));
   console.log('\n' + tui.table(rows, [
     { key: 'id', label: 'ID', minWidth: 14, render: r => tui.C.muted(r.id) },
     { key: 'name', label: L('İsim', 'Name'), minWidth: 14, render: r => tui.styled(r.name, { color: tui.PALETTE.primary, bold: true }) },
     {
       key: 'status', label: 'Durum', minWidth: 12,
-      render: r => tui.styled('  ✓ Online ', { bg: tui.PALETTE.success, color: '#000', bold: true })
+      render: r => tui.styled(' ? Unknown ', { bg: tui.PALETTE.warning, color: '#000', bold: true })
     },
     { key: 'lastSeen', label: L('Son Görülme', 'Last Seen'), minWidth: 18, render: r => tui.C.muted(r.lastSeen) },
   ], { borderStyle: 'round', zebra: true }));
@@ -374,3 +384,4 @@ function nodeDescribe(nodeId) {
 }
 
 module.exports = nodes;
+module.exports.notImplemented = notImplemented;

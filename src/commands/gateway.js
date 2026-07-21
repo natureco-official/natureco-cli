@@ -24,22 +24,12 @@ async function gateway(action, ...args) {
 
   if (action === 'call') {
     const method = args[0];
-    const params = args.slice(1);
     if (!method) {
       F.error('Method name is required.');
       F.info('Usage: natureco gateway call <method> [params...]');
       return;
     }
-    console.log('\n' + tui.styled('  🌐 Gateway RPC Call', { color: tui.PALETTE.primary, bold: true }));
-    const cardW = 50;
-    console.log(tui.styled('  ╭' + '─'.repeat(cardW) + '╮', { color: tui.PALETTE.border }));
-    console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Method     ') + tui.styled(method.padEnd(40), { color: tui.PALETTE.text, bold: true }) + tui.styled(' │', { color: tui.PALETTE.border }));
-    console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Parameters ') + tui.styled((params.length ? params.join(', ') : '(none)').padEnd(40).slice(0, 40), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
-    console.log(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Status     ') + tui.styled('MOCK — no real gateway running'.padEnd(40), { color: tui.PALETTE.warning, bold: true }) + tui.styled(' │', { color: tui.PALETTE.border }));
-    console.log(tui.styled('  ╰' + '─'.repeat(cardW) + '╯', { color: tui.PALETTE.border }));
-    console.log('\n  ' + tui.C.muted('Response: ') + tui.styled('{ ok: true, result: "mock response" }', { color: tui.PALETTE.success }));
-    console.log('');
-    return;
+    return notImplemented(`call ${method}`);
   }
 
   if (action === 'usage-cost') {
@@ -118,14 +108,7 @@ async function gateway(action, ...args) {
   }
 
   if (action === 'discover') {
-    F.header('LAN Service Discovery');
-    F.info('Scanning local network for NatureCo gateways... (mock discovery — no real scan performed)');
-
-    F.table(['Service', 'Host', 'Port', 'Protocol'], [
-      ['NatureCo Gateway', '192.168.1.100 (mock)', '4317', 'gRPC'],
-      ['NatureCo Web UI', '192.168.1.100 (mock)', '8080', 'HTTP'],
-    ]);
-    return;
+    return notImplemented('discover');
   }
 
   if (action === 'install') {
@@ -180,8 +163,7 @@ async function gateway(action, ...args) {
     F.section('Manual Process');
     F.kv('Background', 'natureco gateway start &');
     F.kv('Process Mgt', 'Use pm2 or screen for process management.');
-    F.warning('This is a mock — service installation is not automated.');
-    return;
+    return notImplemented('install (instructions above are manual)');
   }
 
   if (action === 'uninstall') {
@@ -205,8 +187,7 @@ async function gateway(action, ...args) {
       F.info('rm ~/Library/LaunchAgents/com.natureco.gateway.plist');
     }
 
-    F.warning('This is a mock — run the commands above manually.');
-    return;
+    return notImplemented('uninstall (instructions above are manual)');
   }
 
   if (action === 'health') {
@@ -230,15 +211,7 @@ async function gateway(action, ...args) {
   }
 
   if (action === 'restart') {
-    const safeMode = args.includes('--safe');
-    F.header('Restarting Gateway');
-    if (safeMode) {
-      F.info('Safe mode enabled — disabling all non-essential providers');
-    }
-    F.success('Gateway stopped');
-    if (safeMode) F.info('Only essential services will start');
-    F.success('Gateway started');
-    return;
+    return notImplemented('restart');
   }
 
   if (action === 'stop') {
@@ -289,9 +262,7 @@ async function gateway(action, ...args) {
   }
 
   if (action === 'run') {
-    F.header('Gateway Run');
-    F.info('gateway run would start the gateway process here');
-    return;
+    return notImplemented('run');
   }
 
   if (action && action !== 'status') {
@@ -357,6 +328,12 @@ async function gateway(action, ...args) {
   F.kv('natureco help', L('Tüm komutları göster', 'Show all commands'));
 
   F.meta('Docs: natureco.me/cli');
+}
+
+function notImplemented(action) {
+  const result = { success: false, error: `Gateway ${action} is not implemented` };
+  F.error(result.error);
+  return result;
 }
 
 async function startGateway() {
@@ -555,3 +532,4 @@ function checkGatewayRunning() {
 }
 
 module.exports = gateway;
+module.exports.notImplemented = notImplemented;
