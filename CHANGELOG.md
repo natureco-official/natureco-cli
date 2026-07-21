@@ -2,6 +2,26 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.69.2] - 2026-07-21 — Fix computer_use_loop's fragile Windows delay mechanism
+
+Found live, while actually using the agent to perform a real browser task (login + send a
+message) — `computer_use_loop`'s GUI automation failed every time with
+`Command failed: timeout /t 1 /nobreak >nul`.
+
+### Fixed
+- `computer_use_loop` used the Windows `timeout` command as a crude sleep between GUI actions.
+  `timeout` requires a real interactive console handle and fails with "Input redirection is not
+  supported" whenever the calling process's stdin is piped/redirected — a common situation (spawned
+  from another process, many non-console terminal contexts, agent/automation invocations). This
+  made the tool's autonomous GUI loop unreliable depending on how `natureco` itself was launched,
+  regardless of a correct goal or working vision provider. Replaced with a pure-Node
+  `setTimeout`-based delay with no external process or console dependency on any platform.
+
+### Tests
+- New `test/tools/computer-use-loop-sleep.test.js`, including a reproduction of the exact original
+  failure condition (a real child process with piped stdin) proving the fix succeeds where the old
+  code failed.
+
 ## [5.69.1] - 2026-07-21 — Two more previously-unaudited fixes
 
 Found during a follow-up sweep beyond the three formal audits, into surfaces they didn't cover

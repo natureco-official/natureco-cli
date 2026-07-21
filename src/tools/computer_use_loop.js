@@ -16,6 +16,14 @@ function loadConfig() {
   try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; }
 }
 
+// Windows' `timeout` command requires a real interactive console handle and fails with
+// "Input redirection is not supported" whenever stdin is piped/redirected (e.g. spawned from
+// another process, a non-console terminal, or a CI/agent context) — a pure-Node delay has no
+// such dependency on any platform.
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function resolveVisionConfig(cfg) {
   const main = {
     providerUrl: cfg.providerUrl,
@@ -230,7 +238,7 @@ async function loop(goal, maxSteps) {
 
       if (!execResult.success) {
         // Retry once with wait
-        require('child_process').execSync(os.platform() === 'win32' ? 'timeout /t 1 /nobreak >nul' : 'sleep 1', { stdio: 'ignore', shell: true });
+        await sleep(1000);
         const retryResult = executeAction(decision.action, decision);
         if (!retryResult.success) {
           steps.push({ step: i + 1, action: 'error', error: execResult.error });
@@ -240,7 +248,7 @@ async function loop(goal, maxSteps) {
       if (['click', 'type', 'keypress', 'scroll', 'drag'].includes(decision.action)) mutationCount++;
 
       // Small delay between actions
-      require('child_process').execSync(os.platform() === 'win32' ? 'timeout /t 1 /nobreak >nul' : 'sleep 0.5', { stdio: 'ignore', shell: true });
+      await sleep(500);
 
       // Safety: if too many steps, break
       if (i >= maxSteps - 1) {
@@ -278,4 +286,4 @@ async function execute(params) {
   return await loop(params.goal, params.maxSteps || 30);
 }
 
-module.exports = { name, description, inputSchema, execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall, parseVisionDecision, validateAction };
+module.exports = { name, description, inputSchema, execute, executeAction, evaluateCompletionEvidence, resolveVisionConfig, visionCall, parseVisionDecision, validateAction, sleep };
