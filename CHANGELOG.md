@@ -2,6 +2,28 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.69.1] - 2026-07-21 — Two more previously-unaudited fixes
+
+Found during a follow-up sweep beyond the three formal audits, into surfaces they didn't cover
+(`status` command's own tool count, and `scripts/` which none of the audits scoped in).
+
+### Fixed
+- `natureco status` counted tools via a raw directory scan of `src/tools/`, reporting 92 instead
+  of the real 91 executable tools (the same drift class already fixed in `workflow.js`'s tool
+  count earlier). Now derives the count from the shared tool manifest, the single source of truth.
+- `scripts/postinstall.js`'s doctor self-check built a shell command by string-concatenating its
+  own install path (`'node ' + path.join(__dirname, ...) + ' doctor'`) and ran it via `execSync`.
+  An install path containing a space (a real, common case — e.g. a Windows user profile with a
+  space in the username) silently truncates the command, causing the post-install health check to
+  silently fail. Also converted the adjacent `npm install chalk@4` call to the same safe pattern.
+  Both now use `execFileSync` with an argument array. Reproduced and verified live: the old string
+  form measurably breaks on a real spaced path (`node C:UsersinfoAppDataLocalTemp...`, spaces
+  silently dropped); the fixed form runs correctly from the same path.
+
+### Tests
+- New `test/commands/status-tool-count.test.js` and
+  `test/scripts/postinstall-spaced-path.test.js`.
+
 ## [5.69.0] - 2026-07-21 — Real macOS verification: AppleScript injection + 2 live-only bugs fixed
 
 The first-ever live verification pass on a real Mac (all three prior audits ran on Windows, where

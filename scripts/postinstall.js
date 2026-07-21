@@ -9,7 +9,7 @@
  *   - Soul dosyalarini generic yap (Personal yoksa)
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -22,9 +22,9 @@ const success = (msg) => log('  \u2713 ' + msg, '\x1b[32m');
 const warn = (msg) => log('  \u26a0  ' + msg, '\x1b[33m');
 const error = (msg) => log('  \u2717 ' + msg, '\x1b[31m');
 
-function run(cmd) {
+function run(cmd, args = []) {
   try {
-    return execSync(cmd, { stdio: 'pipe', encoding: 'utf8' });
+    return execFileSync(cmd, args, { stdio: 'pipe', encoding: 'utf8' });
   } catch (e) {
     return null;
   }
@@ -37,7 +37,8 @@ function fixChalk() {
     const major = parseInt(chalkPkg.version.split('.')[0]);
     if (major >= 5) {
       warn('chalk v' + chalkPkg.version + ' ESM (CJS uyumsuz)');
-      const result = run('npm install chalk@4 --no-save');
+      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      const result = run(npmCmd, ['install', 'chalk@4', '--no-save']);
       if (result !== null) {
         success('chalk v4 kuruldu');
       } else {
@@ -91,7 +92,7 @@ function checkHomebrewConflict() {
 
 function runDoctor() {
   log('\n[4/4] Sistem kontrolu...');
-  const result = run('node ' + path.join(__dirname, '..', 'bin', 'natureco.js') + ' doctor');
+  const result = run(process.execPath, [path.join(__dirname, '..', 'bin', 'natureco.js'), 'doctor']);
   if (result !== null) {
     const ok = result.includes('saglikli') || result.includes('geçti');
     if (ok) {

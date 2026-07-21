@@ -79,8 +79,8 @@ async function cmdRun() {
 
   let toolCount = '—';
   try {
-    const toolsDir = path.join(__dirname, '..', 'tools');
-    toolCount = String(fs.readdirSync(toolsDir).filter(f => f.endsWith('.js')).length);
+    const { loadToolManifest } = require('../utils/tool-manifest');
+    toolCount = String(loadToolManifest().size);
   } catch {}
   lines.push(tui.styled('  │ ', { color: tui.PALETTE.border }) + tui.C.muted('Tools            ') + tui.styled(String(toolCount).padEnd(36), { color: tui.PALETTE.text }) + tui.styled(' │', { color: tui.PALETTE.border }));
 
