@@ -15,7 +15,10 @@ module.exports = {
     },
   },
   async execute(params) {
-    if (params.action === 'rollback') return engine.rollback(params.patchId);
+    if (params.action === 'rollback') {
+      const result = engine.rollback(params.patchId);
+      return result.ok ? { success: true, ...result } : { success: false, ...result };
+    }
     if (!params.path) return { success: false, error: 'path is required' };
     const result = params.action === 'preview'
       ? engine.preview(params.path, params.operations, { expectedHash: params.expectedHash, dryRun: true })

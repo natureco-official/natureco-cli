@@ -18,6 +18,7 @@ const os = require("os");
 const { getDashboardPort } = require("../utils/ports");
 
 const PORT = getDashboardPort();
+const dashboardServers = new Map();
 const DASHBOARD_HTML = `
 <!DOCTYPE html>
 <html lang="tr">
@@ -242,6 +243,9 @@ const DASHBOARD_HTML = `
 `;
 
 async function startDashboard({ port = PORT } = {}) {
+  if (dashboardServers.has(port)) {
+    return { success: true, port, url: `http://127.0.0.1:${port}`, alreadyRunning: true };
+  }
   const server = http.createServer(async (req, res) => {
     if (req.url === "/" || req.url === "/index.html") {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
@@ -321,8 +325,28 @@ async function startDashboard({ port = PORT } = {}) {
   });
 
   return new Promise((resolve) => {
+    const onError = (error) => {
+      resolve({ success: false, error: error.message, port });
+    };
+    server.once("error", onError);
     server.listen(port, "127.0.0.1", () => {
-      resolve({ success: true, port, url: `http://127.0.0.1:${port}` });
+      server.removeListener("error", onError);
+      const listeningPort = server.address().port;
+      dashboardServers.set(listeningPort, server);
+      resolve({ success: true, port: listeningPort, url: `http://127.0.0.1:${listeningPort}` });
+    });
+  });
+}
+
+async function stopDashboard({ port = PORT } = {}) {
+  const server = dashboardServers.get(port);
+  if (!server) return { success: true, port, stopped: false, alreadyStopped: true };
+
+  return new Promise((resolve) => {
+    server.close((error) => {
+      if (error) return resolve({ success: false, error: error.message, port });
+      if (dashboardServers.get(port) === server) dashboardServers.delete(port);
+      resolve({ success: true, port, stopped: true });
     });
   });
 }
@@ -340,8 +364,11 @@ module.exports = {
   },
   async execute(params) {
     if (params.action === "start") {
-      return await startDashboard({ port: params.port || PORT });
+      return await startDashboard({ port: params.port ?? PORT });
     }
-    return { success: false, error: "Dashboard sadece start komutunu destekler" };
+    if (params.action === "stop") {
+      return await stopDashboard({ port: params.port ?? PORT });
+    }
+    return { success: false, error: "Gecersiz dashboard action: " + params.action };
   },
 };

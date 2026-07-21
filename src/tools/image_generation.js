@@ -139,9 +139,7 @@ module.exports = {
 
       // Pollinations hariç — key yoksa hata
       if (provider !== 'pollinations' && !apiKey) {
-        // Son fallback: Pollinations'a geç
-        provider = 'pollinations';
-        apiKey = 'free';
+        return { success: false, error: `${providerConfig.name} API key gerekli.` };
       }
 
       const images = await providerConfig.generate({

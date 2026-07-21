@@ -188,6 +188,7 @@ async function computerUse(params) {
       if (rp) return rp;
       const escaped = text.replace(/[{}()^+%~]/g, '{$&}');
       const r = spawnSync('powershell', ['-Command',
+        'Add-Type -AssemblyName System.Windows.Forms; ' +
         '[System.Windows.Forms.SendKeys]::SendWait("' + escaped + '")'
       ], { timeout: 5000, encoding: 'utf8' });
       if (r.error) return { success: false, error: 'Windows type hatasi: ' + r.error.message };
@@ -243,6 +244,7 @@ async function computerUse(params) {
       };
       const psKey = keyMap[key.toLowerCase()] || key;
       const r = spawnSync('powershell', ['-Command',
+        'Add-Type -AssemblyName System.Windows.Forms; ' +
         '[System.Windows.Forms.SendKeys]::SendWait("' + psKey.replace(/"/g, '`"') + '")'
       ], { timeout: 5000, encoding: 'utf8' });
       if (r.error) return { success: false, error: 'Windows keypress hatasi: ' + r.error.message };
@@ -270,6 +272,7 @@ async function computerUse(params) {
       const rp = requirePowershell();
       if (rp) return rp;
       const r = spawnSync('powershell', ['-Command',
+        'Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; ' +
         '[System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(' + x + ', ' + y + ')'
       ], { timeout: 5000, encoding: 'utf8' });
       if (r.error) return { success: false, error: 'Windows mouse_move hatasi: ' + r.error.message };
@@ -293,6 +296,7 @@ async function computerUse(params) {
     }
     if (PLATFORM === 'win32') {
       const r = spawnSync('powershell', ['-Command',
+        'Add-Type -AssemblyName System.Windows.Forms; ' +
         '[System.Windows.Forms.Cursor]::Position.X.ToString() + ", " + [System.Windows.Forms.Cursor]::Position.Y.ToString()'
       ], { timeout: 5000, encoding: 'utf8' });
       if (r.error) return { success: false, error: 'Windows mouse_position hatasi: ' + r.error.message };

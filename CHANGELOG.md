@@ -2,6 +2,39 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.67.6] - 2026-07-21 — 7 defects found by real-execution audit, fixed
+
+### Fixed
+A companion live-execution audit (`AUDIT_FINDINGS_2.md`) actually invoked all 91 built-in tools
+with realistic input to find defects static review alone can't catch:
+- `computer_use`'s Windows `mouse_position`/`mouse_move`/`type`/`keypress` PowerShell calls
+  referenced `System.Windows.Forms`/`System.Drawing` without loading the assemblies, so a
+  documented, read-only GUI primitive failed outright on Windows.
+- `image_generation`'s missing-key fallback rewrote the response's `provider` field to
+  `'pollinations'` while the actual outbound request still went to the originally-requested
+  provider's endpoint with a bogus key — the reported provider and the real request destination
+  disagreed. It now returns a clear missing-key error for an explicitly requested provider
+  instead of silently mislabeling the destination.
+- `workflow`'s local-only `save`/`load`/`list`/`delete` actions required an LLM provider to be
+  configured even though they never touch the network — fixed so only `run`/`plan` require it.
+- `dashboard`'s schema advertised a `stop` action that always failed and never retained the
+  started server, potentially leaving a port occupied for the process lifetime. It now tracks
+  running servers and implements a real, idempotent `stop`.
+- `duckduckgo` (and its shared search provider) returned DuckDuckGo's raw protocol-relative
+  redirect URL and undecoded HTML entities instead of the real target URL and clean text.
+- `youtube_ac` was advertised as a general "open YouTube" tool but unconditionally rejected every
+  non-macOS call; it now opens YouTube on Windows/Linux too, reusing the same approach already
+  proven in `social_open`.
+- `structural_patch`'s `rollback` returned a different response envelope (`{ok:true,...}`) than
+  `preview`/`apply` (`{success:true,...}`), so a caller keying on `success` couldn't tell a
+  completed rollback succeeded.
+
+### Tests
+- New `test/tools/audit-findings-2.test.js` and `test/tools/youtube-ac-platform.test.js`: 6
+  regressions, each proven against real execution (a real dashboard HTTP lifecycle, a real
+  DuckDuckGo search, real apply/rollback byte verification, intercepted network/process calls for
+  the paid/GUI-affecting paths).
+
 ## [5.67.5] - 2026-07-21 — Plain-Windows portability for 4 tools
 
 ### Fixed

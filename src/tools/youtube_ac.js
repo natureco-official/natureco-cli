@@ -36,8 +36,6 @@ function isYoutubeUrl(str) {
 }
 
 async function youtubeAc(params) {
-  if (!IS_MAC) return { success: false, error: "macOS'e özgü" };
-
   const { query, url } = params;
   
   if (!query && !url) {
@@ -59,14 +57,14 @@ async function youtubeAc(params) {
   }
 
   // Tarayıcı kontrolü
-  const browser = getOpenBrowser();
+  const browser = IS_MAC ? getOpenBrowser() : null;
 
   return new Promise((resolve) => {
-    const args = browser 
-      ? ["-a", browser, youtubeUrl] 
-      : [youtubeUrl];
-    
-    const proc = spawn("open", args);
+    const proc = IS_MAC
+      ? spawn("open", browser ? ["-a", browser, youtubeUrl] : [youtubeUrl])
+      : process.platform === "win32"
+        ? spawn("cmd", ["/c", "start", "", youtubeUrl], { windowsHide: true })
+        : spawn("xdg-open", [youtubeUrl]);
     proc.on("close", code => {
       if (code === 0) {
         resolve({ 

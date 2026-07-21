@@ -185,7 +185,7 @@ async function workflow(params) {
   const providerApiKey = cfg.providerApiKey;
   const model = cfg.providerModel || 'default';
 
-  if (!providerUrl || !providerApiKey) {
+  if ((action === 'run' || action === 'plan') && (!providerUrl || !providerApiKey)) {
     return { success: false, error: 'Provider ayarli degil. Once: natureco setup' };
   }
 
