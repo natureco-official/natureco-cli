@@ -6,12 +6,18 @@ let reconcileProbe;
 
 function loadUrdr() {
   if (!importProbe) {
+    // Only memoize a SUCCESSFUL import. A transient failure (e.g. disk/AV contention on a slow
+    // CI runner, or a cold-start hiccup in a real long-running process) must not permanently
+    // poison the engine for the rest of the process's lifetime — retry on the next call instead.
     importProbe = import('urdr-mcp-server/scripts/append.mjs')
       .then((mod) => {
         if (typeof mod.appendLeaf !== 'function') throw new Error('appendLeaf export is missing');
         return { mod, error: null };
       })
-      .catch((error) => ({ mod: null, error }));
+      .catch((error) => {
+        importProbe = null;
+        return { mod: null, error };
+      });
   }
   return importProbe;
 }
@@ -22,6 +28,10 @@ function loadReconcile() {
       .then((mod) => {
         if (typeof mod.reconcileMarkdown !== 'function') throw new Error('reconcileMarkdown export is missing');
         return mod.reconcileMarkdown;
+      })
+      .catch((error) => {
+        reconcileProbe = null;
+        throw error;
       });
   }
   return reconcileProbe;
@@ -34,7 +44,10 @@ function loadUrdrSearch() {
         if (typeof mod.searchMemory !== 'function') throw new Error('searchMemory export is missing');
         return { mod, error: null };
       })
-      .catch((error) => ({ mod: null, error }));
+      .catch((error) => {
+        searchProbe = null;
+        return { mod: null, error };
+      });
   }
   return searchProbe;
 }

@@ -35,7 +35,12 @@ product defect.
   environment-independent structural test proves `browser_use`'s `where.exe`-based checker works
   correctly regardless of what's actually on PATH.
 
-No source file changed in this release — every fix is test-only.
+### Fixed (real production robustness bug, found while chasing this CI flake)
+- `src/utils/urdr-engine.js` cached a FAILED dynamic import of the Urðr engine forever, not just
+  a successful one. A single transient import hiccup (slow disk, antivirus scan, cold-start
+  latency — reproduced as a genuine flake on windows-latest CI) would permanently downgrade the
+  engine to `legacy` mode for the rest of that process's lifetime, in CI tests and in real usage
+  alike. Now only successful imports are memoized; a failed one is retried on the next call.
 
 ## [5.69.3] - 2026-07-21 — Fix duplicated SendKeys assembly bug in platform-gui.js
 
