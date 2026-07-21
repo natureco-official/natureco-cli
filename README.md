@@ -12,7 +12,7 @@
 
 A terminal-native AI agent CLI — chat, write code, automate workflows, and connect **Telegram / Discord / Slack / WhatsApp / iMessage** and more.
 
-**A Claude Code & OpenClaw alternative** · Multi-agent orchestration · Cross-session memory · Token-budgeted context · Dangerous-command approval · 12 providers, 200+ models · 106 tools · 10 messaging channels.
+**A Claude Code & OpenClaw alternative** · Multi-agent orchestration · Cross-session memory · Token-budgeted context · Dangerous-command approval · 12 providers, 200+ models · 91 tools · 8 messaging channels.
 
 ```
 ███╗   ██╗ █████╗ ████████╗██╗   ██╗██████╗ ███████╗ ██████╗  ██████╗
@@ -51,6 +51,9 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.69.0 – v5.69.4** | **Windows/macOS GUI automation reliability + real CI enforcement:** fixed AppleScript injection and locale-ambiguous date parsing across 6 macOS automation tools, a Windows `SendKeys` assembly-loading bug, and a Windows `timeout` command that failed under piped stdin — all found via genuine live-device testing, not just automated tests. |
+| **v5.68.0 – v5.68.6** | **Full command-surface security audit:** every `src/commands/` file (107 files) audited and fixed — credential masking, path-traversal validation, honest success/failure reporting (commands no longer silently claim success on failure), plus full test coverage added for all 91 built-in tools. |
+| **v5.66.0 – v5.67.6** | **Real Urðr memory engine integration:** `natureco`'s persistent memory (`memory write`, `memory search`, `code` session context) is now genuinely backed by [Urðr](https://github.com/natureco-official/urdr)'s git-native, hash-chained memory architecture — not just an in-repo JSON file — with automatic legacy fallback. Also: 10 shell-injection fixes converting `execSync` string-building to safe `execFileSync` argv arrays, and a Turkish-locale filename bug fix across 25 files. |
 | **v5.65.6** | **Survives the just-launched-app race:** GUI actions right after opening an app no longer fail on a transient `kAXErrorFailure (-25200)` — `osaScript` retries once, and `mac_app_open` waits for the UI to settle. |
 | **v5.65.5** | **Fewer false-negative timeouts:** `osascript` timeout raised from 10s to 20s so slow-but-successful GUI actions (typing, saving) aren't misreported as failures. |
 | **v5.65.4** | **Accessible mouse_position errors:** the raw "mouse variable undefined" AppleScript error is now classified as a missing Accessibility permission, with the same actionable guidance as every other GUI action. |
@@ -116,7 +119,7 @@ Two-tier policy (`deny` / `allowlist` / `full`) applies to **every** shell path 
 ## ✨ Features
 
 ### 🤖 AI & Chat
-- **106 tools** — file ops, web search, image generation, code execution, memory, automation, channels, and more
+- **91 tools** — file ops, web search, image generation, code execution, memory, automation, channels, and more
 - **Interactive REPL** — read_file, edit_file, bash, multi-turn conversation
 - **Slash commands** — `/memory`, `/help`, `/skills`, `/model`, `/clear`
 - **Streaming output** with live tool-call visibility and a thinking indicator
@@ -202,7 +205,7 @@ NatureCo reports GUI success only after a state-changing action, a changed scree
 
 | Command | Description |
 |---------|-------------|
-| `natureco chat` | Interactive REPL chat (106 tools available) |
+| `natureco chat` | Interactive REPL chat (91 tools available) |
 | `natureco chat --resume` | Resume the previous session |
 | `natureco code` | Coding agent (write apps/scripts) |
 | `natureco code <file>` | Coding agent on a specific file |
