@@ -2,6 +2,22 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.68.2] - 2026-07-21 — Real test coverage for the last 19 tools — full coverage reached
+
+### Added
+- The remaining 19 built-in tools flagged as untested by `AUDIT_FINDINGS_1.md` now have real
+  tests: `canvas`, `clarify`, `cross_session_memory`, `exa_search`, `file_search`, `firecrawl`,
+  `llm_task`, `parallel_search`, `pii_redact`, `searxng`, `session_search`, `skills_list`,
+  `soul`, `spotify`, `url_safety`, `voice_chat`, `web_readability`, `web_search`, `x_search`.
+  Combined with v5.68.0's 27, **all 54 originally-identified uncovered tools now have real test
+  coverage** — every one of this CLI's 91 built-in tools has genuine tests exercising a real
+  success path and a real error/edge-case path.
+
+### Known issue (found while adding coverage, not yet fixed)
+- `soul`'s `info` action reports the correct nonzero loaded-file count but returns an empty
+  `files: {}` object — its result mapper doesn't pair the file contents with their filenames.
+  Tracked for a follow-up fix.
+
 ## [5.68.1] - 2026-07-21 — Fix the 2 bugs found while adding v5.68.0's test coverage
 
 ### Fixed
