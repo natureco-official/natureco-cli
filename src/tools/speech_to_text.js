@@ -23,7 +23,7 @@ const PROVIDERS = {
       }
 
       const queryString = Object.entries(options.params).map(([k, v]) => `${k}=${v}`).join('&');
-      const response = await fetch(`${url}${audioPath ? '' : '&'}${queryString}`, {
+      const response = await fetch(`${url}${audioPath ? '?' : '&'}${queryString}`, {
         method: 'POST',
         headers: options.headers,
         body: options.body

@@ -115,10 +115,9 @@ describe('previously uncovered persistent mutation tools', () => {
     expect(await tool.execute({ action: 'install' })).toMatchObject({ success: false, error: expect.stringMatching(/skillName/) });
     const installed = await tool.execute({ action: 'install', skillName: 'code-review' });
     expect(installed).toMatchObject({ success: true, skill: expect.objectContaining({ name: 'Code Review' }) });
-    expect(fs.readFileSync(path.join(home, '.natureco', 'skills', 'Code Review', 'SKILL.md'), 'utf8')).toContain('grep_search');
-    expect(await tool.execute({ action: 'uninstall', skillName: 'code-review' })).toMatchObject({ success: false, error: expect.stringMatching(/yuklu degil/) });
-    expect((await tool.execute({ action: 'uninstall', skillName: 'Code Review' })).success).toBe(true);
-    expect(await tool.execute({ action: 'uninstall', skillName: 'Code Review' })).toMatchObject({ success: false });
+    expect(fs.readFileSync(path.join(home, '.natureco', 'skills', 'code-review', 'SKILL.md'), 'utf8')).toContain('grep_search');
+    expect((await tool.execute({ action: 'uninstall', skillName: 'code-review' })).success).toBe(true);
+    expect(await tool.execute({ action: 'uninstall', skillName: 'code-review' })).toMatchObject({ success: false });
   });
 
   it('thread_ownership persists assignments and validates required identifiers', async () => {

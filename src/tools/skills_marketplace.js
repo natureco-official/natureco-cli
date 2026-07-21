@@ -81,9 +81,9 @@ const BUILTIN_SKILLS = {
 /**
  * Local skill yukle (skill dosyasi -> ~/.natureco/skills/<name>/)
  */
-function installLocal(skillData) {
+function installLocal(skillData, skillName = skillData.name) {
   if (!skillData.name) return { success: false, error: "Skill name gerekli" };
-  const skillDir = path.join(SKILLS_DIR, skillData.name);
+  const skillDir = path.join(SKILLS_DIR, skillName);
   fs.mkdirSync(skillDir, { recursive: true });
 
   const skillFile = path.join(skillDir, "SKILL.md");
@@ -202,7 +202,7 @@ module.exports = {
 
       // Once local BUILTIN'den dene
       if (BUILTIN_SKILLS[skillName]) {
-        return installLocal(BUILTIN_SKILLS[skillName]);
+        return installLocal(BUILTIN_SKILLS[skillName], skillName);
       }
 
       // Sonra URL'den dene
@@ -213,7 +213,7 @@ module.exports = {
       // Marketplace'ten dene
       const all = await listMarketplace();
       if (all[skillName]) {
-        return installLocal(all[skillName]);
+        return installLocal(all[skillName], skillName);
       }
 
       return { success: false, error: `Skill bulunamadi: ${skillName}. Once 'list' calistirin.` };

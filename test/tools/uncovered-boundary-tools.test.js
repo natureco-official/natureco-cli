@@ -106,8 +106,10 @@ describe('previously uncovered external-boundary tools', () => {
     expect(api).not.toHaveBeenCalled();
   });
 
-  it('speech_to_text maps a Deepgram URL transcription and validates missing input', async () => {
-    isolatedHome('natureco-stt-');
+  it('speech_to_text constructs Deepgram URL and local-file transcription requests', async () => {
+    const home = isolatedHome('natureco-stt-');
+    const audio = path.join(home, 'sample.wav');
+    fs.writeFileSync(audio, Buffer.from([1, 2, 3]));
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({ results: { channels: [{ alternatives: [{ transcript: 'hello test world' }] }] } }),
@@ -121,6 +123,13 @@ describe('previously uncovered external-boundary tools', () => {
     });
     expect(fetchMock).toHaveBeenCalledWith('https://api.deepgram.com/v1/listen?url=https%3A%2F%2Fexample.test%2Fsample.wav&model=nova-2&language=en&smart_format=true', expect.objectContaining({
       method: 'POST', headers: expect.objectContaining({ Authorization: 'Token test-key' }),
+    }));
+
+    expect(await tool.execute({ provider: 'deepgram', apiKey: 'test-key', audioPath: audio, language: 'tr' })).toMatchObject({
+      success: true, provider: 'deepgram', transcript: 'hello test world', wordCount: 3,
+    });
+    expect(fetchMock).toHaveBeenLastCalledWith('https://api.deepgram.com/v1/listen?model=nova-2&language=tr&smart_format=true', expect.objectContaining({
+      method: 'POST', headers: expect.objectContaining({ Authorization: 'Token test-key', 'Content-Type': 'audio/wav' }), body: expect.any(Buffer),
     }));
   });
 

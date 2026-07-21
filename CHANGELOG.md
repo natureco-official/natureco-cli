@@ -2,6 +2,18 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.68.1] - 2026-07-21 — Fix the 2 bugs found while adding v5.68.0's test coverage
+
+### Fixed
+- `speech_to_text`'s local-file Deepgram request built a malformed URL (missing `?` before the
+  query string, e.g. `.../listenmodel=nova-2...`) for local-upload transcription; the URL-input
+  path was unaffected. Fixed and proven with a real intercepted-request assertion.
+- `skills_marketplace` installed a built-in skill under its human-readable display name (e.g.
+  `Code Review`) instead of its advertised catalog key (`code-review`), so uninstalling by the
+  same key you installed with reported "not installed." Installation now uses the real key for
+  the on-disk identifier while keeping the display name as metadata. Proven with a real
+  install→uninstall round-trip using the same key for both calls.
+
 ## [5.68.0] - 2026-07-21 — Real test coverage for 27 previously-untested tools
 
 ### Added
