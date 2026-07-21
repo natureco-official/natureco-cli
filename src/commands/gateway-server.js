@@ -9,6 +9,7 @@ const { ApiError } = require('../utils/errors');
 const { ensurePendingPairing, isPaired } = require('../utils/pairing-store');
 const { ChannelAdapter, ChannelDeliveryManager } = require('../utils/channel-sdk');
 const { DeliveryStore } = require('../utils/delivery-store');
+const { foldTr } = require('../utils/tr-text');
 
 const PID_FILE = path.join(os.homedir(), '.natureco', 'gateway.pid');
 const LOG_FILE = path.join(os.homedir(), '.natureco', 'gateway.log');
@@ -1202,7 +1203,7 @@ async function startIrcProvider(config) {
 
           // In DM or channel message with mention
           const isDirect = !isChannel;
-          if (!isDirect && !text.toLowerCase().includes(currentNick.toLowerCase())) continue;
+          if (!isDirect && !foldTr(text).includes(foldTr(currentNick))) continue;
 
           processIrcMessage(config, senderNick, target, text, socket);
         }

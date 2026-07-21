@@ -11,6 +11,7 @@ const { getMemoryStore } = require('../utils/memory-store');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { foldTr } = require('../utils/tr-text');
 
 const name = 'memory';
 const description = 'Persistent memory across sessions. action=add to save facts, action=list to see everything, action=remove to delete by substring, action=search to query all past sessions and memory files. target=memory for environment facts, target=user for user preferences.';
@@ -56,17 +57,17 @@ const SESSION_DIR = path.join(os.homedir(), '.natureco', 'sessions');
 function _searchInObject(obj, query, pathStr) {
   const results = [];
   if (!obj || typeof obj !== 'object') return results;
-  if (typeof obj === 'string' && obj.toLowerCase().includes(query)) {
+  if (typeof obj === 'string' && foldTr(obj).includes(query)) {
     return [{ path: pathStr, content: obj.slice(0, 200) }];
   }
   for (const [key, val] of Object.entries(obj)) {
     const newPath = pathStr ? pathStr + '.' + key : key;
-    if (typeof val === 'string' && val.toLowerCase().includes(query)) {
+    if (typeof val === 'string' && foldTr(val).includes(query)) {
       results.push({ path: newPath, content: val.slice(0, 200) });
     } else if (Array.isArray(val)) {
       val.forEach((item, i) => {
         const ip = newPath + '[' + i + ']';
-        if (typeof item === 'string' && item.toLowerCase().includes(query)) {
+        if (typeof item === 'string' && foldTr(item).includes(query)) {
           results.push({ path: ip, content: item.slice(0, 200) });
         } else if (typeof item === 'object') {
           results.push(..._searchInObject(item, query, ip));
@@ -86,7 +87,7 @@ function _searchFiles(dir, query, sourceLabel) {
   for (const file of files) {
     try {
       const data = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf8'));
-      const hits = _searchInObject(data, query.toLowerCase(), '');
+      const hits = _searchInObject(data, foldTr(query), '');
       for (const h of hits) {
         results.push({ source: sourceLabel, file, path: h.path, content: h.content });
       }
@@ -106,7 +107,7 @@ function _searchSessions(query, maxResults) {
       const msgs = session.messages || [];
       for (const msg of msgs) {
         const text = msg.content || '';
-        if (typeof text === 'string' && text.toLowerCase().includes(query)) {
+        if (typeof text === 'string' && foldTr(text).includes(foldTr(query))) {
           results.push({
             source: 'session', file, role: msg.role || '?',
             preview: text.slice(0, 200),
@@ -122,7 +123,7 @@ function _searchSessions(query, maxResults) {
 // ── Bridge to JSON fact store (memory_write) ──────────────────────────────
 function _loadJsonFacts(username) {
   try {
-    const file = path.join(MEMORY_DIR, `${(username || 'default').toLowerCase()}.json`);
+    const file = path.join(MEMORY_DIR, `${foldTr(username || 'default')}.json`);
     if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch {}
   return { facts: [], name: null };
@@ -130,10 +131,10 @@ function _loadJsonFacts(username) {
 
 function _saveJsonFact(username, fact, category) {
   try {
-    const file = path.join(MEMORY_DIR, `${(username || 'default').toLowerCase()}.json`);
+    const file = path.join(MEMORY_DIR, `${foldTr(username || 'default')}.json`);
     const mem = _loadJsonFacts(username);
     const now = new Date().toISOString();
-    const existing = mem.facts.find(f => (f.value || '').toLowerCase() === fact.toLowerCase());
+    const existing = mem.facts.find(f => foldTr(f.value || '') === foldTr(fact));
     if (existing) { existing.score = Math.min(10, (existing.score || 5) + 2); existing.updatedAt = now; }
     else { mem.facts.push({ value: fact, score: 5, category: category || 'personal', createdAt: now, updatedAt: now }); }
     if (mem.facts.length > 50) mem.facts.sort((a,b) => (b.score||0)-(a.score||0)).slice(0, 50);

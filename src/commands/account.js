@@ -2,6 +2,7 @@ const inquirer = require('../utils/inquirer-wrapper');
 const chalk = require('chalk');
 const acc = require('../utils/natureco-account');
 const { getLang } = require('../utils/i18n');
+const { foldTr } = require('../utils/tr-text');
 
 const L = (tr, en) => (getLang() === 'en' ? en : tr);
 
@@ -12,7 +13,7 @@ const L = (tr, en) => (getLang() === 'en' ? en : tr);
  * across the whole ecosystem.
  */
 async function account(action) {
-  const sub = (action || 'whoami').toLowerCase();
+  const sub = foldTr(action || 'whoami');
   if (sub === 'login' || sub === 'giris' || sub === 'giriş') return doLogin();
   if (sub === 'logout' || sub === 'cikis' || sub === 'çıkış') return doLogout();
   return doWhoami();

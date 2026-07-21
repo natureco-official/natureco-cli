@@ -28,14 +28,14 @@ const ROOTS = [
 ];
 
 function treeDir(username) {
-  return path.join(os.homedir(), '.natureco', 'memory', 'tree', String(username || 'default').toLowerCase());
+  return path.join(os.homedir(), '.natureco', 'memory', 'tree', foldTr(username || 'default'));
 }
 function rootPath(username, id) { return path.join(treeDir(username), id + '.md'); }
 function readSafe(username, id) { try { return fs.readFileSync(rootPath(username, id), 'utf8'); } catch { return ''; } }
 function resolveRoot(root) {
   if (!root) return ROOTS[0];
-  const r = String(root).toLowerCase();
-  return ROOTS.find((x) => x.id === r || x.id.endsWith(r.replace(/^\d+-/, '')) || x.id.includes(r) || x.title.toLowerCase().includes(r)) || ROOTS[0];
+  const r = foldTr(root);
+  return ROOTS.find((x) => x.id === r || x.id.endsWith(r.replace(/^\d+-/, '')) || x.id.includes(r) || foldTr(x.title).includes(r)) || ROOTS[0];
 }
 
 function ensureTree(username) {

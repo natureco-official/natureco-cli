@@ -4,6 +4,7 @@ const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { foldTr } = require('../utils/tr-text');
 const readline = require('readline');
 const inquirer = require('../utils/inquirer-wrapper');
 const brand = require('../utils/branding');
@@ -463,7 +464,7 @@ async function cmdWizard() {
 
   // v5.6.7: Memory dosyasi yoksa olustur, varsa guncelle
   try {
-    const memFile = path.join(BASE_DIR, (userName || cfg.userName || 'default').toLowerCase() + '.json');
+    const memFile = path.join(BASE_DIR, foldTr(userName || cfg.userName || 'default') + '.json');
     let mem = {};
     let memExists = fs.existsSync(memFile);
     if (memExists) {

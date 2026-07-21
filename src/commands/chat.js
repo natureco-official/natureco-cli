@@ -7,6 +7,7 @@ const TB = require('../utils/token-budget');
 const tui = require('../utils/tui');
 const chalk = require('chalk');
 const { getLang: _getLang } = require('../utils/i18n');
+const { foldTr } = require('../utils/tr-text');
 const L = (tr, en) => (_getLang() === 'en' ? en : tr);
 const { getApiKey, getConfig } = require('../utils/config');
 const repl = require('./repl');
@@ -123,7 +124,7 @@ async function chat(botName, options = {}) {
   let bot;
   if (!botName) {
     if (config.botName) {
-      bot = botList.bots.find(b => b.name && b.name.toLowerCase() === config.botName.toLowerCase());
+      bot = botList.bots.find(b => b.name && foldTr(b.name) === foldTr(config.botName));
     }
     if (!bot) {
       process.stdin.resume();
@@ -136,7 +137,7 @@ async function chat(botName, options = {}) {
       bot = botList.bots.find(b => b.id === selectedBot);
     }
   } else {
-    bot = botList.bots.find(b => b.name && botName && b.name.toLowerCase() === botName.toLowerCase());
+    bot = botList.bots.find(b => b.name && botName && foldTr(b.name) === foldTr(botName));
     if (!bot) {
       console.log(chalk.red(`\n❌ Bot "${botName}" not found.\n`));
       process.exit(1);
@@ -268,7 +269,7 @@ async function chat(botName, options = {}) {
             });
           } else {
             const newName = args.join(' ');
-            const newBot = botList.bots.find(b => b.name.toLowerCase() === newName.toLowerCase());
+            const newBot = botList.bots.find(b => foldTr(b.name) === foldTr(newName));
             if (newBot) {
               bot = newBot;
               conversationId = null;

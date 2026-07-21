@@ -57,6 +57,7 @@ const { getMemoryStore } = require('../utils/memory-store');
 const { buildSkillIndex } = require('../utils/skill-index');
 const { buildTiers, assemble, discoverProjectRules } = require('../utils/system-prompt');
 const { AgentCore } = require('../utils/agent-core');
+const { foldTr } = require('../utils/tr-text');
 
 // v5.4.6: Model adi sizintisini engelle — global'e ata, callback'lerden erisebilir olsun
 const MODEL_NAMES_TO_HIDE = ['MiniMax-M2.5', 'MiniMaxM2.5', 'minimaxm25', 'Claude-3', 'GPT-4', 'ChatGPT'];
@@ -174,11 +175,26 @@ function getConfig() {
 const { isMiniMax, isGemini, buildChatEndpoint } = require('../utils/provider-detect');
 
 function loadMemory(username) {
-  const uname = (username || 'default').toLowerCase();
+  const uname = foldTr(username || 'default');
   const base = { name: username || L('Kullanıcı', 'User'), nickname: null, botName: null, facts: [], preferences: [], history: [] };
   const readJson = (f) => { try { return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : null; } catch { return null; } };
 
-  const userMem = readJson(path.join(MEMORY_DIR, `${uname}.json`));
+  const newPath = path.join(MEMORY_DIR, `${uname}.json`);
+  // v5.67.3: foldTr replaced plain .toLowerCase() for the memory filename, which fixes capital-İ
+  // usernames but can orphan a file saved under the old locale-mangled name. Migrate it once,
+  // transparently, instead of silently losing that user's existing memory.
+  if (!fs.existsSync(newPath)) {
+    const legacyName = (username || 'default').toLowerCase();
+    if (legacyName !== uname) {
+      const legacyPath = path.join(MEMORY_DIR, `${legacyName}.json`);
+      const legacyMem = readJson(legacyPath);
+      if (legacyMem) {
+        try { fs.writeFileSync(newPath, JSON.stringify(legacyMem, null, 2)); } catch {}
+      }
+    }
+  }
+
+  const userMem = readJson(newPath);
   const merged = userMem
     ? { ...base, ...userMem, facts: [...(userMem.facts || [])], preferences: [...(userMem.preferences || [])], history: [...(userMem.history || [])] }
     : { ...base };
@@ -188,16 +204,16 @@ function loadMemory(username) {
   // olusuyordu. Birlestirince recall calisir ve ilk kayitta konsolide olur.
   if (uname !== 'default') {
     const def = readJson(path.join(MEMORY_DIR, 'default.json'));
-    if (def && (!def.name || String(def.name).toLowerCase() === uname)) {
+    if (def && (!def.name || foldTr(def.name) === uname)) {
       // Jenerik "Asistan" placeholder'ini gercek persona (orn. Hinata) ile ez
       const isGeneric = (b) => !b || /^asistan$/i.test(String(b));
       if (isGeneric(merged.botName) && def.botName && !isGeneric(def.botName)) merged.botName = def.botName;
       if ((!merged.name || merged.name === 'Kullanıcı') && def.name) merged.name = def.name;
       const factVal = (f) => ((f && (f.value != null ? f.value : f)) || '').toString().trim();
-      const seen = new Set(merged.facts.map(f => factVal(f).toLowerCase()));
+      const seen = new Set(merged.facts.map(f => foldTr(factVal(f))));
       for (const f of (def.facts || [])) {
         const v = factVal(f);
-        if (v && !seen.has(v.toLowerCase())) { seen.add(v.toLowerCase()); merged.facts.push(f); }
+        if (v && !seen.has(foldTr(v))) { seen.add(foldTr(v)); merged.facts.push(f); }
       }
     }
   }
@@ -208,7 +224,7 @@ function loadMemory(username) {
 
 function saveMemory(username, memory) {
   ensureDir(MEMORY_DIR);
-  const file = path.join(MEMORY_DIR, `${(username || 'default').toLowerCase()}.json`);
+  const file = path.join(MEMORY_DIR, `${foldTr(username || 'default')}.json`);
   memory.lastUpdated = new Date().toISOString();
   fs.writeFileSync(file, JSON.stringify(memory, null, 2));
   return file;
@@ -270,11 +286,11 @@ function extractFacts(messages, currentFacts) {
   // Production'da LLM ile yapılabilir, şimdilik pattern matching
   const newFacts = [];
   const userMessages = messages.filter(m => m.role === 'user' && !m._internal);
-  const existingValues = new Set((currentFacts || []).map(f => (f.value || f).toLowerCase()));
+  const existingValues = new Set((currentFacts || []).map(f => foldTr(f.value || f)));
 
   for (const msg of userMessages) {
     const text = msg.content || '';
-    const lower = text.toLowerCase();
+    const lower = foldTr(text);
 
     // İsim/tercih pattern'leri
     const patterns = [
@@ -288,9 +304,9 @@ function extractFacts(messages, currentFacts) {
       const m = text.match(p.re);
       if (m && m[1]) {
         const val = p.val(m);
-        if (val && !existingValues.has(val.toLowerCase())) {
+        if (val && !existingValues.has(foldTr(val))) {
           newFacts.push({ value: val, score: 5, learnedAt: new Date().toISOString() });
-          existingValues.add(val.toLowerCase());
+          existingValues.add(foldTr(val));
         }
       }
     }
@@ -1069,7 +1085,7 @@ async function startRepl(args) {
   // BotName'i memory'ye persist et (her oturumda ayni kalsin)
   try {
     const fs = require('fs');
-    const memFile = path.join(os.homedir(), '.natureco', 'memory', ((cfg.userName || 'default').toLowerCase()) + '.json');
+    const memFile = path.join(os.homedir(), '.natureco', 'memory', foldTr(cfg.userName || 'default') + '.json');
     if (fs.existsSync(memFile)) {
       const memData = JSON.parse(memFile, 'utf8');
       if (!memData.botName || memData.botName !== memory.botName) {
@@ -1181,7 +1197,7 @@ async function startRepl(args) {
     const facts = memory.facts || [];
     for (const f of facts) {
       const v = (f.value || f || '').trim();
-      const lv = v.toLowerCase();
+      const lv = foldTr(v);
       const match = lv.match(/(?:kullanici\s*adi?|kullanıcı\s*adı?|isim|name)\s*:?\s*(.+)/);
       if (match && match[1].trim().length > 2) return match[1].trim();
     }
@@ -1287,7 +1303,7 @@ async function startRepl(args) {
       // Modern modeller memory_write'ı güvenilir çağırır → regex hiç devreye girmez, sıfır
       // yanlış-pozitif. Agent hiç kaydetmediyse (nadir) regex bir güvenlik ağı olarak kalır.
       try {
-        const memFile = path.join(MEMORY_DIR, (cfg.userName || 'default').toLowerCase() + '.json');
+        const memFile = path.join(MEMORY_DIR, foldTr(cfg.userName || 'default') + '.json');
         const diskFacts = JSON.parse(fs.readFileSync(memFile, 'utf8')).facts || [];
         if (diskFacts.length > (memory.facts || []).length) {
           return { factsAdded: 0, preferencesAdded: 0, skippedAutoExtract: true };
@@ -1300,7 +1316,7 @@ async function startRepl(args) {
       // Bazi user message'lari da tara — genel kalıplarla fact çıkar
       const userMessages = messages.filter(m => m.role === 'user' && !m._internal);
       for (const msg of userMessages) {
-        const text = (msg.content || '').toLowerCase();
+        const text = foldTr(msg.content || '');
 
         // BotName hatirlatmasi
         if (text.includes('ad') && (text.includes('adin') || text.includes('ismin'))) {
@@ -1317,7 +1333,7 @@ async function startRepl(args) {
             .replace(/[,.\s]*(bunu|sunu|şunu)?\s*(kal[ıi]c[ıi]\s*olarak\s*)?(hat[ıi]rla|kaydet|not\s*al|not\s*et|unutma|akl[ıi]nda\s*(tut|bulunsun))\b[.!]*\s*$/i, '')
             .trim();
           const fact = raw.length >= 3 ? raw : (msg.content || '').trim();
-          if (fact && !(memory.facts || []).some(f => (f.value || '').toLowerCase() === fact.toLowerCase())) {
+          if (fact && !(memory.facts || []).some(f => foldTr(f.value || '') === foldTr(fact))) {
             newFacts.push({ value: fact, score: 8, category: 'explicit', createdAt: new Date().toISOString() });
           }
         }
@@ -1326,20 +1342,20 @@ async function startRepl(args) {
         // tasindi (test edilebilir + regresyon kilidi). "kod adı"/"proje adı" gibi
         // masum tamlamalari artik yanlis yakalamiyor; deger orijinal case'de kalir.
         for (const pf of extractPreferenceFacts(msg.content)) {
-          if (!(memory.facts || []).some(f => (f.value || '').toLowerCase() === pf.value.toLowerCase())) {
+          if (!(memory.facts || []).some(f => foldTr(f.value || '') === foldTr(pf.value))) {
             newFacts.push({ value: pf.value, score: 6, category: pf.category, createdAt: new Date().toISOString() });
           }
         }
       }
 
       // Deduplicate
-      const existingValues = new Set((memory.facts || []).map(f => (f.value || f).toLowerCase()));
-      const uniqueFacts = newFacts.filter(f => !existingValues.has((f.value || f).toLowerCase()));
+      const existingValues = new Set((memory.facts || []).map(f => foldTr(f.value || f)));
+      const uniqueFacts = newFacts.filter(f => !existingValues.has(foldTr(f.value || f)));
 
       if (uniqueFacts.length > 0) {
         memory.facts = [...(memory.facts || []), ...uniqueFacts];
         // v5.4.10: Verification ile kaydet
-        const memFile = path.join(MEMORY_DIR, (cfg.userName || 'default').toLowerCase() + '.json');
+        const memFile = path.join(MEMORY_DIR, foldTr(cfg.userName || 'default') + '.json');
         memory.lastUpdated = new Date().toISOString();
         fs.writeFileSync(memFile, JSON.stringify(memory, null, 2), 'utf8');
         // Verification: geri oku
@@ -1419,8 +1435,8 @@ async function startRepl(args) {
           break;
         case 'forget':
           try {
-            if (fs.existsSync(path.join(MEMORY_DIR, `${(cfg.userName || 'default').toLowerCase()}.json`))) {
-              fs.unlinkSync(path.join(MEMORY_DIR, `${(cfg.userName || 'default').toLowerCase()}.json`));
+            if (fs.existsSync(path.join(MEMORY_DIR, `${foldTr(cfg.userName || 'default')}.json`))) {
+              fs.unlinkSync(path.join(MEMORY_DIR, `${foldTr(cfg.userName || 'default')}.json`));
             }
             memory = { name: cfg.userName, nickname: null, botName: L('Asistan', 'Assistant'), facts: [], preferences: [], history: [] };
             // System prompt'u rebuild with cleared memory
@@ -1551,7 +1567,7 @@ async function startRepl(args) {
     }
 
     // v5.6.8: Hard-coded fallback - "sen kimsin?" sorulari icin dinamik botName
-    const trimmed = (line || '').toLowerCase();
+    const trimmed = foldTr(line || '');
     const isIdentityQuestion = /(sen\s+kim|adin\s+ne|kendini\s+tan|kendin\s+tanit|kimsin|ne\s+adindasin|who\s+are\s+you|what(?:'s|\s+is)\s+your\s+name|introduce\s+yourself)/.test(trimmed);
     if (isIdentityQuestion) {
       // v5.6.10: Hard-coded prefix minimal - model cevabini bozuyordu
@@ -1712,4 +1728,4 @@ async function startRepl(args) {
 module.exports = startRepl;
 // v5.40: test icin — cross-session hafiza bozulma regresyonu (kod adı ≠ kullanici adi)
 module.exports.extractPreferenceFacts = extractPreferenceFacts;
-module.exports._internal = { printHelp, CLI_COMMANDS };
+module.exports._internal = { printHelp, CLI_COMMANDS, loadMemory };

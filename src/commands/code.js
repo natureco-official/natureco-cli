@@ -7,6 +7,7 @@ const inquirer = require('../utils/inquirer-wrapper');
 const TB = require('../utils/token-budget');
 const chalk = require('chalk');
 const { getLang: _gl } = require('../utils/i18n');
+const { foldTr } = require('../utils/tr-text');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const { getApiKey, getConfig } = require('../utils/config');
 const { getBots, getProviderConfig, startMcpServers, sendMessageOpenAICompatible, streamProviderCompletion } = require('../utils/api');
@@ -346,7 +347,7 @@ async function code(targetFile, options = {}) {
 
   let bot;
   if (config.botName) {
-    bot = botList.bots.find(b => b.name?.toLowerCase() === config.botName.toLowerCase());
+    bot = botList.bots.find(b => foldTr(b.name) === foldTr(config.botName));
   }
   if (!bot) {
     process.stdin.resume();
@@ -768,7 +769,7 @@ ${indexPrompt}`);
 
       const trimmed = msg.trim();
       if (!trimmed) continue;
-      if (['exit', 'quit', 'çıkış', 'q'].includes(trimmed.toLowerCase())) {
+      if (['exit', 'quit', 'çıkış', 'q'].includes(foldTr(trimmed))) {
         process.exit(0);
       }
 

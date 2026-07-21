@@ -13,6 +13,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { foldTr } = require("../utils/tr-text");
 
 const SKILLS_DIR = path.join(os.homedir(), ".natureco", "skills");
 
@@ -48,12 +49,12 @@ function loadAllSkills() {
  * Mesaj icindeki anahtar kelimeleri tara, ilgili skill'leri bul
  */
 function detectRelevantSkills(message, availableSkills) {
-  const lower = message.toLowerCase();
+  const lower = foldTr(message);
   const detected = new Set();
 
   for (const [skill, keywords] of Object.entries(KEYWORD_MAP)) {
     for (const kw of keywords) {
-      if (lower.includes(kw)) {
+      if (lower.includes(foldTr(kw))) {
         detected.add(skill);
         break;
       }

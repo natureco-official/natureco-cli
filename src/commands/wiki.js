@@ -2,6 +2,7 @@ const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { foldTr } = require('../utils/tr-text');
 
 const WIKI_DIR = path.join(os.homedir(), '.natureco', 'wiki');
 const VAULT_FILE = path.join(WIKI_DIR, 'vault.json');
@@ -428,7 +429,7 @@ function cmdSearch(query) {
     return;
   }
 
-  const lowerQuery = query.toLowerCase();
+  const lowerQuery = foldTr(query);
   let results = [];
 
   for (const file of files) {
@@ -437,7 +438,7 @@ function cmdSearch(query) {
     const lines = content.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
-      const idx = lines[i].toLowerCase().indexOf(lowerQuery);
+      const idx = foldTr(lines[i]).indexOf(lowerQuery);
       if (idx !== -1) {
         const before = lines[i].slice(Math.max(0, idx - 40), idx);
         const match = lines[i].slice(idx, idx + query.length);

@@ -19,6 +19,7 @@ const F = require('../utils/format');
 const fs = require('fs');
 const path = require('path');
 const audit = require('../utils/audit');
+const { foldTr } = require('../utils/tr-text');
 
 const SEVERITY_COLORS = {
   command: chalk.cyan,
@@ -167,7 +168,7 @@ function audit_cmd(args) {
   }
 
   if (action === 'search') {
-    const query = params.join(' ').toLowerCase();
+    const query = foldTr(params.join(' '));
     if (!query) {
       console.log(chalk.red(L('\n  ❌ Arama terimi gerekli: natureco audit search <query>\n', '\n  ❌ Search term required: natureco audit search <query>\n')));
       return;
@@ -176,8 +177,8 @@ function audit_cmd(args) {
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
     const all = [...audit.readLog(today), ...audit.readLog(yesterday)];
     const matches = all.filter(e =>
-      (e.action && e.action.toLowerCase().includes(query)) ||
-      JSON.stringify(e).toLowerCase().includes(query)
+      (e.action && foldTr(e.action).includes(query)) ||
+      foldTr(JSON.stringify(e)).includes(query)
     );
     showEntries(matches, 200);
     return;

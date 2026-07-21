@@ -8,6 +8,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { foldTr } = require("../utils/tr-text");
 const { writeJsonAtomicSync, readJsonSafeSync } = require("../utils/atomic-file");
 const { createMemoryRecord, resolveConflict, factKey } = require("../utils/memory-record");
 
@@ -23,7 +24,7 @@ const MAX_FACTS_PER_USER = (() => {
 })();
 
 function getMemoryFile(username) {
-  const name = (username || "default").toLowerCase();
+  const name = foldTr(username || "default");
   return path.join(MEMORY_DIR, `${name}.json`);
 }
 
@@ -75,13 +76,13 @@ function decayFacts(memory) {
 function enforceFactLimit(memory, opts = {}) {
   if (!memory.facts || memory.facts.length <= MAX_FACTS_PER_USER) return memory;
   const before = memory.facts.length;
-  const recent = opts.recentValue ? opts.recentValue.toLowerCase() : null;
+  const recent = opts.recentValue ? foldTr(opts.recentValue) : null;
   // Sort by score desc, then updatedAt desc (newest+highest first).
   // The just-pushed fact is pinned at the top regardless of its score.
   memory.facts.sort((a, b) => {
     if (recent) {
-      if ((a.value || "").toLowerCase() === recent) return -1;
-      if ((b.value || "").toLowerCase() === recent) return 1;
+      if (foldTr(a.value || "") === recent) return -1;
+      if (foldTr(b.value || "") === recent) return 1;
     }
     const sa = a.score || 0, sb = b.score || 0;
     if (sa !== sb) return sb - sa;
@@ -135,7 +136,7 @@ function verifyMemoryWrite(username, expectedFact, expectedBotName) {
 function addMemory({ username, fact, score = 5, category = "general", botName, nickname, name, source = "tool", confidence = 0.5, ttlMs, userConfirmed = false }) {
   // Username yoksa ve 'name' parametresi varsa, onu username olarak kullan
   // (hitap bicimi icin)
-  const effectiveUsername = username || (name && name.toLowerCase()) || 'default';
+  const effectiveUsername = username || (name && foldTr(name)) || 'default';
   if (!effectiveUsername || effectiveUsername === 'default') {
     // Hicbir username yok, default.json'a yaz
   }
@@ -154,7 +155,7 @@ function addMemory({ username, fact, score = 5, category = "general", botName, n
     const key = factKey(fact, category);
     const existing = memory.facts.find(f => factKey(f.value || f, f.category || category) === key);
     if (existing) {
-      const sameValue = String(existing.value || existing).toLowerCase() === fact.toLowerCase();
+      const sameValue = foldTr(existing.value || existing) === foldTr(fact);
       const previousScore = existing.score || 5;
       const resolved = resolveConflict(existing, incoming);
       Object.assign(existing, resolved.winner);

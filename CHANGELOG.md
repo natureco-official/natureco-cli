@@ -2,6 +2,25 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.67.3] - 2026-07-21 — Turkish capital-İ text matching fixed across 25 files
+
+### Fixed
+- Plain JavaScript `.toLowerCase()` mishandles Turkish capital İ (`'İstanbul'.toLowerCase()`
+  produces a dotted-i plus a combining-dot character, not `'istanbul'`), silently breaking
+  search/match for any capitalized Turkish word. This was already fixed once in the memory-tree
+  subsystem; a fresh audit (`AUDIT_FINDINGS_1.md`) found the same unsafe pattern still present in
+  25 other files — core memory search, REPL identity/fact matching, skill/marketplace search, and
+  numerous CLI commands. All now use `src/utils/tr-text.js`'s locale-safe `foldTr` instead.
+- REPL memory filenames are also derived through `foldTr` now, which fixes the same bug for
+  usernames themselves — but that on its own could silently orphan an existing user's memory file
+  that was saved under the old, locale-mangled filename. `loadMemory` now migrates such a file
+  to its correct name transparently on next load, so no existing user's memory is lost.
+
+### Tests
+- Extended `test/utils/turkish-text-matching.test.js`: real capital-İ regression proof across
+  memory search, the `logs` CLI, REPL identity merge, skill autoload detection, and the legacy
+  memory-filename migration path.
+
 ## [5.67.2] - 2026-07-21 — Tool-interface correctness and fast, safe validation
 
 ### Fixed

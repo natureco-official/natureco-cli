@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { foldTr } = require('../utils/tr-text');
 
 const SESSIONS_DIR = path.join(process.env.HOME || process.env.USERPROFILE || __dirname, '.natureco', 'sessions');
 
@@ -31,10 +32,10 @@ async function sessionSearch(params) {
 
   const allMessages = getAllMessages();
   const filtered = session ? allMessages.filter(m => m.session === session) : allMessages;
-  const q = query.toLowerCase();
+  const q = foldTr(query);
 
   const results = filtered
-    .filter(m => m.content && m.content.toLowerCase().includes(q))
+    .filter(m => m.content && foldTr(m.content).includes(q))
     .slice(0, limit)
     .map(m => ({
       session: m.session,

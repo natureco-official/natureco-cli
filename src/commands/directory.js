@@ -5,6 +5,7 @@ const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
 const os = require('os');
 const { getConfig } = require('../utils/config');
+const { foldTr } = require('../utils/tr-text');
 
 const PEERS_FILE = path.join(os.homedir(), '.natureco', 'peers.json');
 
@@ -97,11 +98,11 @@ function searchPeers(query) {
   }
 
   const peers = loadPeers();
-  const lower = query.toLowerCase();
+  const lower = foldTr(query);
   const results = peers.filter(p =>
-    (p.name && p.name.toLowerCase().includes(lower)) ||
-    (p.url && p.url.toLowerCase().includes(lower)) ||
-    (p.tags && p.tags.some(t => t.toLowerCase().includes(lower)))
+    (p.name && foldTr(p.name).includes(lower)) ||
+    (p.url && foldTr(p.url).includes(lower)) ||
+    (p.tags && p.tags.some(t => foldTr(t).includes(lower)))
   );
 
   if (results.length === 0) {

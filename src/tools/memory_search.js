@@ -8,6 +8,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { foldTr } = require("../utils/tr-text");
 
 const MEMORY_DIR = path.join(os.homedir(), ".natureco", "memory");
 const SESSION_DIR = path.join(os.homedir(), ".natureco", "sessions");
@@ -23,17 +24,17 @@ function searchInObject(obj, query, path = "") {
   const results = [];
   if (!obj || typeof obj !== "object") return results;
 
-  if (typeof obj === "string" && obj.toLowerCase().includes(query)) {
+  if (typeof obj === "string" && foldTr(obj).includes(query)) {
     return [{ path, content: obj.slice(0, 200) }];
   }
 
   for (const [key, val] of Object.entries(obj)) {
     const newPath = path ? path + "." + key : key;
-    if (typeof val === "string" && val.toLowerCase().includes(query)) {
+    if (typeof val === "string" && foldTr(val).includes(query)) {
       results.push({ path: newPath, content: val.slice(0, 200) });
     } else if (Array.isArray(val)) {
       val.forEach((item, i) => {
-        if (typeof item === "string" && item.toLowerCase().includes(query)) {
+        if (typeof item === "string" && foldTr(item).includes(query)) {
           results.push({ path: newPath + "[" + i + "]", content: item.slice(0, 200) });
         } else if (typeof item === "object") {
           results.push(...searchInObject(item, query, newPath + "[" + i + "]"));
@@ -49,7 +50,7 @@ function searchInObject(obj, query, path = "") {
 async function searchMemory({ query, scope = "all", username = null, maxResults = 20 }) {
   if (!query) return { success: false, error: "query gerekli" };
 
-  const q = query.toLowerCase();
+  const q = foldTr(query);
   const results = [];
   const sources = [];
 

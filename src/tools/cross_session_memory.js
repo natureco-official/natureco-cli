@@ -13,6 +13,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { foldTr } = require("../utils/tr-text");
 
 const SESSION_DIR = path.join(os.homedir(), ".natureco", "sessions");
 const MEMORY_DIR = path.join(os.homedir(), ".natureco", "memory");
@@ -63,7 +64,7 @@ function getCrossSessionContext({ username = null, limit = 5, maxTokens = 800 } 
 
   // Memory'den de ekle
   if (username) {
-    const memFile = path.join(MEMORY_DIR, `${username.toLowerCase()}.json`);
+    const memFile = path.join(MEMORY_DIR, `${foldTr(username)}.json`);
     try {
       if (fs.existsSync(memFile)) {
         const mem = JSON.parse(fs.readFileSync(memFile, "utf8"));

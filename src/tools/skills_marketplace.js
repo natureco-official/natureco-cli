@@ -11,6 +11,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const https = require("https");
+const { foldTr } = require("../utils/tr-text");
 
 const MARKETPLACE_DIR = path.join(os.homedir(), ".natureco", "marketplace");
 const SKILLS_DIR = path.join(os.homedir(), ".natureco", "skills");
@@ -187,11 +188,11 @@ module.exports = {
     if (action === "search") {
       if (!query) return { success: false, error: "query gerekli" };
       const all = await listMarketplace();
-      const q = query.toLowerCase();
+      const q = foldTr(query);
       const matches = Object.entries(all).filter(([_, s]) =>
-        s.description?.toLowerCase().includes(q) ||
-        s.tags?.some(t => t.toLowerCase().includes(q)) ||
-        s.name.toLowerCase().includes(q)
+        foldTr(s.description).includes(q) ||
+        s.tags?.some(t => foldTr(t).includes(q)) ||
+        foldTr(s.name).includes(q)
       );
       return { success: true, query, count: matches.length, results: matches.map(([n, s]) => ({ name: n, ...s })) };
     }

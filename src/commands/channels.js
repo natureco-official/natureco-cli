@@ -7,6 +7,7 @@ const { getConfig, saveConfig } = require('../utils/config');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { foldTr } = require('../utils/tr-text');
 
 async function channels(args) {
   const [action, ...params] = (args || []);
@@ -420,7 +421,7 @@ function channelLogs(channel) {
 
   const lines = fs.readFileSync(logFile, 'utf-8').split('\n').filter(l => l.trim());
   const filtered = channel
-    ? lines.filter(l => l.toLowerCase().includes(channel.toLowerCase()))
+    ? lines.filter(l => foldTr(l).includes(foldTr(channel)))
     : lines;
 
   const last = filtered.slice(-20);

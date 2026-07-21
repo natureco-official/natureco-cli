@@ -1,4 +1,5 @@
 const chalk = require('chalk');
+const { foldTr } = require('../utils/tr-text');
 
 const DOC_SOURCES = [
   { name: 'NatureCo API', url: 'https://api.natureco.me/api/v1/docs/search?q=' },
@@ -95,7 +96,7 @@ async function docs(args) {
       });
       if (htmlRes.ok) {
         const html = await htmlRes.text();
-        const lines = html.split('\n').filter(l => l.toLowerCase().includes(query.toLowerCase()));
+        const lines = html.split('\n').filter(l => foldTr(l).includes(foldTr(query)));
         if (lines.length > 0) {
           found = true;
           console.log(chalk.cyan('  NatureCo CLI Docs Page\n'));

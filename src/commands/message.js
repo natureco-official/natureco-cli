@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { getConfig } = require('../utils/config');
+const { foldTr } = require('../utils/tr-text');
 
 const HISTORY_FILE = path.join(os.homedir(), '.natureco', 'messages.jsonl');
 const PID_FILE = path.join(os.homedir(), '.natureco', 'gateway.pid');
@@ -347,13 +348,13 @@ async function message(args) {
     F.info('Searching ' + channelDisplayName(channel) + ' for: ' + query);
     if (fs.existsSync(HISTORY_FILE)) {
       const lines = fs.readFileSync(HISTORY_FILE, 'utf8').split('\n').filter(Boolean);
-      const q = query.toLowerCase();
+      const q = foldTr(query);
       const results = lines
         .map(l => { try { return JSON.parse(l); } catch { return null; } })
         .filter(e => e && e.channel === channel && (
-          (e.message && e.message.toLowerCase().includes(q)) ||
-          (e.question && e.question.toLowerCase().includes(q)) ||
-          (e.target && e.target.includes(q))
+          (e.message && foldTr(e.message).includes(q)) ||
+          (e.question && foldTr(e.question).includes(q)) ||
+          (e.target && foldTr(e.target).includes(q))
         ));
       if (results.length === 0) {
         F.info('No matches found in local history.');

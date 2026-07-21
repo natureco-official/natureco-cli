@@ -7,6 +7,7 @@ const os = require('os');
 const memoryStore = require('../utils/memory-store');
 const { loadMemory, saveMemory, clearMemory } = require('../utils/memory');
 const { getConfig } = require('../utils/config');
+const { foldTr } = require('../utils/tr-text');
 
 const MEMORY_DIR = path.join(os.homedir(), '.natureco', 'memory');
 
@@ -128,17 +129,17 @@ function searchMemory(query) {
   files.forEach(file => {
     const botId = file.replace('.json', '');
     const mem = loadMemory(botId);
-    const q = query.toLowerCase();
+    const q = foldTr(query);
 
-    if (mem.name?.toLowerCase().includes(q)) {
+    if (foldTr(mem.name).includes(q)) {
       results.push({ bot: mem.botName || botId, field: L('İsim', 'Name'), value: mem.name });
     }
-    if (mem.nickname?.toLowerCase().includes(q)) {
+    if (foldTr(mem.nickname).includes(q)) {
       results.push({ bot: mem.botName || botId, field: L('Lakap', 'Nickname'), value: mem.nickname });
     }
     (mem.facts || []).forEach(f => {
       const val = typeof f === 'string' ? f : f.value;
-      if (val?.toLowerCase().includes(q)) {
+      if (foldTr(val).includes(q)) {
         results.push({ bot: mem.botName || botId, field: L('Bilgi', 'Fact'), value: val });
       }
     });
@@ -390,14 +391,14 @@ function searchWikiPages(query) {
   if (!query) return [];
   const WIKI_DIR = path.join(os.homedir(), '.natureco', 'wiki');
   if (!fs.existsSync(WIKI_DIR)) return [];
-  const lower = query.toLowerCase();
+  const lower = foldTr(query);
   return fs.readdirSync(WIKI_DIR)
     .filter(f => f.endsWith('.md'))
     .map(f => ({
       slug: f.replace('.md', ''),
       content: fs.readFileSync(path.join(WIKI_DIR, f), 'utf-8'),
     }))
-    .filter(p => p.content.toLowerCase().includes(lower));
+    .filter(p => foldTr(p.content).includes(lower));
 }
 
 // ── Semantic Search (v5.6.16 inline - basit keyword-based) ───────────
@@ -405,12 +406,12 @@ function semanticSearchMemory(query, botId) {
   const id = botId || 'universal-provider';
   const mem = memoryStore.loadMemory(id);
   if (!query) return [];
-  const lower = query.toLowerCase();
+  const lower = foldTr(query);
   const results = [];
   // facts icinde ara
   (mem.facts || []).forEach(f => {
     const text = (typeof f === 'string' ? f : f.value) || '';
-    if (text.toLowerCase().includes(lower)) {
+    if (foldTr(text).includes(lower)) {
       results.push({ type: 'fact', value: text, score: f.score || 5 });
     }
   });

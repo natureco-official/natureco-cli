@@ -2,6 +2,7 @@ const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { foldTr } = require('../utils/tr-text');
 
 const MEMORY_DIR = path.join(os.homedir(), '.natureco', 'memory');
 const INDEX_FILE = path.join(MEMORY_DIR, 'index.json');
@@ -76,14 +77,14 @@ function cmdSearch(query) {
   }
 
   const files = fs.readdirSync(MEMORY_DIR).filter(f => f.endsWith('.json'));
-  const lower = query.toLowerCase();
+  const lower = foldTr(query);
   let results = [];
 
   for (const file of files) {
     const fp = path.join(MEMORY_DIR, file);
     try {
       const content = fs.readFileSync(fp, 'utf8');
-      if (content.toLowerCase().includes(lower)) {
+      if (foldTr(content).includes(lower)) {
         const data = JSON.parse(content);
         results.push({ file, data });
       }
@@ -100,7 +101,7 @@ function cmdSearch(query) {
     console.log(`  ${chalk.white(r.file)}`);
     const keys = Object.keys(r.data).filter(k => {
       const v = typeof r.data[k] === 'string' ? r.data[k] : JSON.stringify(r.data[k]);
-      return v.toLowerCase().includes(lower);
+      return foldTr(v).includes(lower);
     });
     for (const k of keys) {
       console.log(chalk.gray(`    ${k}: ${r.data[k]}`));
@@ -113,7 +114,7 @@ function extractKeywords(data) {
   const words = new Set();
   for (const val of Object.values(data)) {
     if (typeof val === 'string') {
-      val.split(/\s+/).filter(w => w.length > 3).forEach(w => words.add(w.toLowerCase()));
+      val.split(/\s+/).filter(w => w.length > 3).forEach(w => words.add(foldTr(w)));
     }
   }
   return [...words];

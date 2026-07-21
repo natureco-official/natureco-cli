@@ -1,5 +1,6 @@
 const { spawn, execFileSync } = require("child_process");
 const os = require("os");
+const { foldTr } = require("../utils/tr-text");
 
 const IS_MAC = os.platform() === "darwin";
 const PLATFORM_HOME = {
@@ -77,7 +78,7 @@ function getOpenBrowser() {
 }
 
 function detectPlatform(input) {
-  const lower = String(input || '').toLowerCase().trim();
+  const lower = foldTr(input).trim();
 
   for (const [name, p] of Object.entries(PLATFORMS)) {
     if (p.match.includes(lower)) return { platform: name, id: '', url: PLATFORM_HOME[name] };
@@ -150,12 +151,12 @@ async function socialOpen(params) {
 
   let url, platformName, note;
   if (platform && !username && !query) {
-    const key = platform.toLowerCase();
+    const key = foldTr(platform);
     if (!PLATFORM_HOME[key]) return { success: false, error: `Bilinmeyen platform: ${platform}` };
     url = PLATFORM_HOME[key];
     platformName = key;
   } else if (platform && username) {
-    const p = PLATFORMS[platform.toLowerCase()];
+    const p = PLATFORMS[foldTr(platform)];
     if (!p) return { success: false, error: `Bilinmeyen platform: ${platform}. Desteklenenler: ${Object.keys(PLATFORMS).join(", ")}` };
     url = p.url(username);
     platformName = platform;

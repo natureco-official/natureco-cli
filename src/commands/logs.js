@@ -2,6 +2,7 @@ const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { foldTr } = require('../utils/tr-text');
 
 const LOG_FILE = path.join(os.homedir(), '.natureco', 'natureco.log');
 
@@ -77,8 +78,8 @@ function cmdSearch(term) {
   ensureLog();
   const content = fs.readFileSync(LOG_FILE, 'utf8');
   const lines = content.split('\n').filter(l => l.trim());
-  const lower = term.toLowerCase();
-  const results = lines.filter(l => l.toLowerCase().includes(lower));
+  const lower = foldTr(term);
+  const results = lines.filter(l => foldTr(l).includes(lower));
 
   if (results.length === 0) {
     console.log(chalk.yellow(`\n  No matches for "${term}"\n`));
@@ -87,7 +88,7 @@ function cmdSearch(term) {
 
   console.log(chalk.cyan(`\n  Found ${results.length} match(es) for "${term}"\n`));
   for (const line of results.slice(-50)) {
-    const idx = line.toLowerCase().indexOf(lower);
+    const idx = foldTr(line).indexOf(lower);
     if (idx === -1) { printColoredLine(line); continue; }
     const before = line.slice(0, idx);
     const match = line.slice(idx, idx + term.length);

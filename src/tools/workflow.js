@@ -4,6 +4,7 @@ const path = require('path');
 const { executeThroughGateway } = require('../utils/tool-execution-gateway');
 const { loadToolManifest } = require('../utils/tool-manifest');
 const os = require('os');
+const { foldTr } = require('../utils/tr-text');
 
 const WORKFLOW_DIR = path.join(os.homedir(), '.natureco', 'workflows');
 const WORKFLOW_HISTORY = path.join(os.homedir(), '.natureco', 'workflow-history.json');
@@ -24,7 +25,7 @@ function allToolNames() {
 function loadUserMemory(username) {
   try {
     const dir = path.join(os.homedir(), '.natureco', 'memory');
-    const uname = (username || 'default').toLowerCase();
+    const uname = foldTr(username || 'default');
     // Kullanici-ozel dosya (`<user>.json`) + legacy `default.json`'i birlestir.
     // Eski kurulumlarda hafiza default.json'a yazilmis olabilir; okuyucu sadece
     // <user>.json'a bakinca eski kayitlar (ve bot personasi) hic yuklenmiyordu.
@@ -38,7 +39,7 @@ function loadUserMemory(username) {
       if (fs.existsSync(defFile)) {
         try {
           const dm = JSON.parse(fs.readFileSync(defFile, 'utf8'));
-          const dn = (dm.name || '').toLowerCase();
+          const dn = foldTr(dm.name || '');
           if (!dn || dn === uname) files.push(defFile);
         } catch {}
       }
@@ -57,7 +58,7 @@ function loadUserMemory(username) {
       for (const f of (mem.facts || [])) {
         const v = (f && (f.value != null ? f.value : f));
         if (!v || typeof v !== 'string') continue;
-        const key = v.trim().toLowerCase();
+        const key = foldTr(v.trim());
         if (!key || seen.has(key)) continue;
         seen.add(key);
         // v5.40: skor + tarih koru — sysMsg'e EN GUNCEL/ONEMLI fact'ler girsin.
@@ -72,7 +73,7 @@ function loadUserMemory(username) {
     // isim memory.name'de yoksa fact'lerden cikar
     if (!name) {
       for (const f of factVals) {
-        const match = f.toLowerCase().match(/(?:kullanici\s*adi?|kullanıcı\s*adı?|isim|name)\s*:?\s*(.+)/);
+        const match = foldTr(f).match(/(?:kullanici\s*adi?|kullanıcı\s*adı?|isim|name)\s*:?\s*(.+)/);
         if (match && match[1].trim().length > 2) { name = match[1].trim(); break; }
       }
     }
