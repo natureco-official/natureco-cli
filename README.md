@@ -10,9 +10,16 @@
 > **The power of AI, now at your fingertips.**
 > *Discover the speed of the terminal with NatureCo.*
 
-A terminal-native AI agent CLI — chat, write code, automate workflows, and connect **Telegram / Discord / Slack / WhatsApp / iMessage** and more.
+Most AI coding CLIs lock you into one vendor's model and stop at your editor. **NatureCo doesn't.** One agent, **12 providers** to choose from, that writes and ships your code, remembers what matters across sessions, and — uniquely — runs your **Telegram, Discord, Slack, WhatsApp, and iMessage bots** from the same install. Swap providers without losing memory. Automate without duct tape. Never send another risky `rm -rf` without a confirmation prompt.
 
-**A Claude Code & OpenClaw alternative** · Multi-agent orchestration · Cross-session memory · Token-budgeted context · Dangerous-command approval · 12 providers, 200+ models · 91 tools · 8 messaging channels.
+**A Claude Code & OpenClaw alternative, built to not box you in:** Multi-agent orchestration · Cross-session memory backed by a real git-native memory engine ([Urðr](https://github.com/natureco-official/urdr)) · Token-budgeted context · Dangerous-command approval on every shell path · 12 providers, 200+ models · 91 tools · 8 messaging channels.
+
+**Why teams pick it over the alternatives:**
+- 🔓 **No vendor lock-in** — switch between OpenAI, Anthropic, Gemini, MiniMax, or 8 more providers with one command; your memory and workflows carry over.
+- 🧠 **Memory that's actually durable** — backed by a git-native, hash-chained architecture, not a JSON blob that silently corrupts.
+- 💬 **It lives where your team already talks** — the same agent answers in your terminal, your Telegram bot, and your Slack workspace.
+- 🛡️ **Guardrails by default** — every shell command is risk-scored before it runs; nothing destructive executes without your say-so.
+- 🌍 **Genuinely cross-platform** — audited and live-tested on macOS, Windows, and Linux, not just "should work."
 
 ```
 ███╗   ██╗ █████╗ ████████╗██╗   ██╗██████╗ ███████╗ ██████╗  ██████╗
@@ -159,7 +166,7 @@ natureco config set guiVisionModel gpt-4.1-mini
 
 NatureCo reports GUI success only after a state-changing action, a changed screen, and a separate visual verification with explicit evidence. Purchasing, booking, sending, or other consequential actions should still be reviewed at the final confirmation step.
 
-### 📡 10 Messaging Channels
+### 📡 8 Messaging Channels
 
 | Platform | Connect | Notes |
 |----------|---------|-------|
@@ -426,15 +433,15 @@ natureco models list --provider anthropic
 | 200+ models | ✅ | ❌ | ✅ | ❌ |
 | Multi-agent orchestration | ✅ | ✅ | ⚠️ | ⚠️ |
 | Dangerous-command approval | ✅ | ✅ | ✅ | ⚠️ |
-| Multi-channel (10 platforms) | ✅ | ❌ | ✅ (Python) | ❌ |
-| Persistent memory | ✅ | ✅ | ✅ | ❌ |
+| Multi-channel (8 platforms) | ✅ | ❌ | ✅ (Python) | ❌ |
+| Persistent memory | ✅ Git-native (Urðr) | ✅ | ✅ | ❌ |
 | Tool-output path anonymization | ✅ | ❌ | ❌ | ❌ |
 | XP / gamification | ✅ | ❌ | ❌ | ❌ |
 | SEO / Medium / NatureHub native | ✅ | ❌ | ❌ | ❌ |
-| Cross-platform (macOS/Win/Linux) | ✅ | ✅ | ⚠️ | ⚠️ |
+| Cross-platform (macOS/Win/Linux) | ✅ Audited + CI-verified | ✅ | ⚠️ | ⚠️ |
 | MIT licensed | ✅ | ✅ | ❌ | ❌ |
 | npm package | ✅ | ❌ | ❌ | ❌ |
-| Tools | ✅ 57+ | ✅ ~30 | ✅ ~25 | ✅ ~40 |
+| Built-in tools | ✅ 91 | ✅ ~30 | ✅ ~25 | ✅ ~40 |
 | Cron + Hooks + Webhooks | ✅ | ❌ | ✅ | ❌ |
 
 ---
@@ -465,7 +472,7 @@ Bot: naruto
 👋 Hi! I'm naruto, boss.
 
 You  > who are you?
-AI   I'm naruto, your NatureCo CLI assistant. 57+ tools active,
+AI   I'm naruto, your NatureCo CLI assistant. 91 tools active,
      memory persisted, channels ready.
 
 You  > create racing-game.html on my Desktop with a small canvas racing game
