@@ -2,6 +2,28 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.68.0] - 2026-07-21 — Real test coverage for 27 previously-untested tools
+
+### Added
+- 27 built-in tools that had zero test coverage now have real tests exercising their actual
+  success and error paths (not just smoke tests): `async_delegation`, `audio_understanding`,
+  `blueprint`, `calendar_add`, `checkpoint`, `delegate_task`, `homeassistant`, `kanban`,
+  `mac_alarm`, `mac_app_open`, `mac_app_quit`, `mac_notify`, `macos_screenshot`,
+  `media_understanding`, `microsoft_graph`, `model_provider`, `music_generation`,
+  `notebook_edit`, `notes_add`, `reminder_add`, `search_provider`, `send_message`,
+  `skill_generate`, `skill_manage`, `skills_marketplace`, `speech_to_text`, `thread_ownership`.
+  Paid/external-side-effect boundaries are tested up to (and including construction of) the real
+  request via interception, without ever spending real credit or causing a real external effect;
+  macOS-only tools are verified to fail cleanly with a correct message on this platform.
+
+### Known issues (found while adding coverage, not yet fixed)
+- `speech_to_text`'s local-file Deepgram request URL is malformed (missing `?` before the query
+  string) for the local-upload path; URL-based transcription is unaffected.
+- `skills_marketplace` installs a built-in skill under its display name instead of its advertised
+  key, so uninstalling by the original key reports "not installed."
+
+Tracked for a follow-up fix rock.
+
 ## [5.67.6] - 2026-07-21 — 7 defects found by real-execution audit, fixed
 
 ### Fixed
