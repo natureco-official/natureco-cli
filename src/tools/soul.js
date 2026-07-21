@@ -157,12 +157,12 @@ function soulAction(params) {
       success: true,
       loaded: loaded,
       total: SOUL_FILES.length,
-      files: Object.fromEntries(Object.entries(all).map(([k, v]) => ({
+      files: Object.fromEntries(Object.entries(all).map(([k, v]) => [k, {
         path: shortenPath(v.path),
         size: fs.statSync(v.path).size,
         modifiedAt: fs.statSync(v.path).mtime.toISOString(),
         lineCount: v.content.split("\n").length,
-      }))),
+      }])),
       searched: SOUL_PATHS.map(shortenPath),
     };
   }

@@ -2,6 +2,15 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.68.3] - 2026-07-21 — Fix soul info returning empty files
+
+### Fixed
+- `soul`'s `info` action reported the correct nonzero loaded-file count but always returned an
+  empty `files: {}` object: its result mapper built `{path, size, ...}` value objects without
+  pairing them with a `[filename, value]` tuple, so `Object.fromEntries` silently produced
+  nothing. Now returns real per-file metadata keyed by filename, matching the `show` action's
+  already-correct pattern.
+
 ## [5.68.2] - 2026-07-21 — Real test coverage for the last 19 tools — full coverage reached
 
 ### Added

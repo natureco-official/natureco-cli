@@ -181,4 +181,23 @@ describe('previously uncovered state and read tools', () => {
     expect(tool.loadSoul()).toContain('Verify every claim');
     expect(await tool.execute({ action: 'unknown' })).toEqual({ success: false, error: 'Bilinmeyen action: unknown' });
   });
+
+  it('soul info reports per-file metadata keyed by filename (regression: files:{} bug)', async () => {
+    const home = isolatedHome('natureco-soul-info-');
+    const soulDir = path.join(home, '.natureco', 'soul');
+    fs.mkdirSync(soulDir, { recursive: true });
+    fs.writeFileSync(path.join(soulDir, 'SOUL.md'), '# Calm\nline two\nline three');
+    const tool = require('../../src/tools/soul');
+
+    const result = await tool.execute({ action: 'info' });
+    expect(result.success).toBe(true);
+    expect(result.loaded).toBeGreaterThan(0);
+    expect(Object.keys(result.files)).toContain('SOUL.md');
+    expect(result.files['SOUL.md']).toMatchObject({
+      path: expect.stringMatching(/^~/),
+      size: expect.any(Number),
+      modifiedAt: expect.any(String),
+      lineCount: 3,
+    });
+  });
 });
