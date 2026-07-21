@@ -1,9 +1,29 @@
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
 const IS_MAC = os.platform() === 'darwin';
+
+const CREATE_MEETING_SCRIPT = `
+on run argv
+  set meetingTitle to item 1 of argv
+  set durationSeconds to (item 2 of argv) as integer
+  tell application "Calendar"
+    set newEvent to make new event at end of calendar 1 with properties {summary:meetingTitle, start date:(current date), end date:((current date) + durationSeconds)}
+    set URL of newEvent to "https://meet.google.com/new"
+    return "https://meet.google.com/new"
+  end tell
+end run
+`;
+
+function isAllowedMeetingUrl(value) {
+  try {
+    return /^https:\/\//i.test(value) && new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 async function googleMeet(params) {
   const { action, meetingUrl, title, durationMinutes, email } = params;
@@ -11,14 +31,9 @@ async function googleMeet(params) {
   if (action === 'create') {
     if (!IS_MAC) return { success: false, error: 'Google Meet olusturma su an sadece macOS\'ta destekleniyor (Calendar entegrasyonu ile)' };
     try {
-      const script = `
-        tell application "Calendar"
-          set newEvent to make new event at end of calendar 1 with properties {summary:"${(title || 'NatureCo Meet').replace(/"/g, '\\"')}", start date:(current date), end date:((current date) + ${(durationMinutes || 30) * 60})}
-          set URL of newEvent to "https://meet.google.com/new"
-          return "https://meet.google.com/new"
-        end tell
-      `;
-      const result = execSync('osascript -e \'' + script.replace(/'/g, "'\\''") + '\'', { timeout: 10000 }).toString().trim();
+      const meetingTitle = title || 'NatureCo Meet';
+      const durationSeconds = (durationMinutes || 30) * 60;
+      const result = execFileSync('osascript', ['-', meetingTitle, String(durationSeconds)], { input: CREATE_MEETING_SCRIPT, timeout: 10000 }).toString().trim();
       return { success: true, meetingUrl: result, title: title || 'NatureCo Meet', message: 'Toplanti olusturuldu. URL: ' + result };
     } catch (e) {
       return { success: false, error: 'Calendar ile meet olusturulamadi: ' + e.message };
@@ -27,13 +42,14 @@ async function googleMeet(params) {
 
   if (action === 'open') {
     if (!meetingUrl) return { success: false, error: 'meetingUrl gerekli' };
+    if (!isAllowedMeetingUrl(meetingUrl)) return { success: false, error: 'meetingUrl https:// ile baslamali' };
     try {
       if (IS_MAC) {
-        execSync('open "' + meetingUrl + '"', { timeout: 5000 });
+        execFileSync('open', [meetingUrl], { timeout: 5000 });
       } else if (os.platform() === 'win32') {
-        execSync('start "" "' + meetingUrl + '"', { timeout: 5000 });
+        execFileSync('rundll32', ['url.dll,FileProtocolHandler', meetingUrl], { timeout: 5000 });
       } else {
-        execSync('xdg-open "' + meetingUrl + '"', { timeout: 5000 });
+        execFileSync('xdg-open', [meetingUrl], { timeout: 5000 });
       }
       return { success: true, meetingUrl, message: 'Meet acildi: ' + meetingUrl };
     } catch (e) {
@@ -68,4 +84,5 @@ module.exports = {
     required: ['action'],
   },
   async execute(params) { return await googleMeet(params); },
+  isAllowedMeetingUrl,
 };

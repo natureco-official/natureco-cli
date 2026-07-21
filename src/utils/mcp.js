@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { CONFIG_DIR, loadConfig, saveConfig } = require('./config');
 
 // MCP templates
@@ -117,13 +117,9 @@ function testMcpServer(name) {
 
   // Check if command exists
   try {
-    if (server.command === 'npx') {
-      // Check if npx is available
-      execSync('npx --version', { stdio: 'ignore' });
-    } else {
-      // Check if custom command exists
-      execSync(`${server.command} --version`, { stdio: 'ignore' });
-    }
+    const program = typeof server.command === 'string' ? server.command.trim() : '';
+    if (!program) throw new Error('empty command');
+    execFileSync(program, ['--version'], { stdio: 'ignore' });
   } catch {
     throw new Error(`Komut bulunamadı: ${server.command}`);
   }

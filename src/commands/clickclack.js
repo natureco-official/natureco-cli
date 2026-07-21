@@ -10,12 +10,11 @@ function beep() {
 
 function speak(text) {
   try {
-    const { execSync } = require('child_process');
-    const escaped = text.replace(/"/g, '\\"');
-    if (process.platform === 'darwin') execSync(`say "${escaped}"`, { stdio: 'ignore' });
+    const { execFileSync } = require('child_process');
+    if (process.platform === 'darwin') execFileSync('say', [text], { stdio: 'ignore' });
     else if (process.platform === 'win32') {
-      const powershell = `(New-Object -ComObject SAPI.SpVoice).Speak("${escaped}")`;
-      execSync(`powershell -Command "${powershell}"`, { stdio: 'ignore' });
+      const powershell = '$text = [Console]::In.ReadToEnd(); (New-Object -ComObject SAPI.SpVoice).Speak($text)';
+      execFileSync('powershell', ['-NoProfile', '-Command', powershell], { stdio: ['pipe', 'ignore', 'ignore'], input: text });
     }
   } catch {}
 }
@@ -128,3 +127,4 @@ function listenWebhook(port) {
 }
 
 module.exports = clickclack;
+module.exports.speak = speak;

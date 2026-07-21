@@ -1,5 +1,5 @@
 const chalk = require('chalk');
-const { execSync, spawn } = require('child_process');
+const { execSync, execFileSync, spawn } = require('child_process');
 const { getLang: _gl } = require('../utils/i18n');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const fs = require('fs');
@@ -7,6 +7,11 @@ const path = require('path');
 const os = require('os');
 
 const SANDBOX_DIR = path.join(os.tmpdir(), 'natureco-sandboxes');
+const SAFE_SANDBOX_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
+
+function isSafeSandboxName(name) {
+  return typeof name === 'string' && SAFE_SANDBOX_NAME_RE.test(name);
+}
 
 function sandbox(args) {
   const [action, ...params] = args || [];
@@ -85,6 +90,10 @@ function destroySandbox(name) {
     console.log(chalk.red(L('\n  ❌ Sandbox name gerekli\n', '\n  ❌ Sandbox name required\n')));
     process.exit(1);
   }
+  if (!isSafeSandboxName(name)) {
+    console.log(chalk.red(L('\n  Gecersiz sandbox adi\n', '\n  Invalid sandbox name\n')));
+    return false;
+  }
 
   const dir = path.join(SANDBOX_DIR, name);
   if (fs.existsSync(dir)) {
@@ -93,7 +102,7 @@ function destroySandbox(name) {
   }
 
   try {
-    execSync(`docker rm -f ${name} 2>nul`, { stdio: 'pipe', timeout: 10000 });
+    execFileSync('docker', ['rm', '-f', name], { stdio: 'pipe', timeout: 10000 });
     console.log(chalk.gray(`  🗑️  Docker sandbox destroyed: ${name}\n`));
   } catch {}
 }
@@ -125,3 +134,5 @@ function execSandbox(name, command) {
 }
 
 module.exports = sandbox;
+module.exports.destroySandbox = destroySandbox;
+module.exports.isSafeSandboxName = isSafeSandboxName;

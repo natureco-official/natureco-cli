@@ -10,6 +10,20 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+const EDGE_TTS_SCRIPT = `
+import asyncio, sys
+try:
+    import edge_tts
+except ImportError:
+    print("ERROR: pip install edge-tts", file=sys.stderr)
+    sys.exit(1)
+async def main():
+    text, voice, output_path = sys.argv[1:4]
+    tts = edge_tts.Communicate(text, voice)
+    await tts.save(output_path)
+asyncio.run(main())
+`;
+
 async function speak({ text, provider = "auto", voice = "tr-TR", savePath = null }) {
   if (!text) return { success: false, error: "text gerekli" };
 
@@ -29,18 +43,7 @@ async function speak({ text, provider = "auto", voice = "tr-TR", savePath = null
 async function edgeTTS(text, voice, savePath) {
   return new Promise((resolve) => {
     const out = savePath || path.join(os.tmpdir(), `tts-${Date.now()}.mp3`);
-    const proc = spawn("python3", ["-c", `
-import asyncio, sys
-try:
-    import edge_tts
-except ImportError:
-    print("ERROR: pip install edge-tts", file=sys.stderr)
-    sys.exit(1)
-async def main():
-    tts = edge_tts.Communicate("""${text.replace(/"/g, "'")}""", "${voice}")
-    await tts.save("${out}")
-asyncio.run(main())
-`], { timeout: 30000 });
+    const proc = spawn("python3", ["-c", EDGE_TTS_SCRIPT, text, voice, out], { timeout: 30000 });
     let stderr = "";
     proc.stderr.on("data", d => stderr += d);
     proc.on("close", code => {

@@ -6,7 +6,7 @@ const { getConfig, saveConfig } = require('../utils/config');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, execFileSync } = require('child_process');
 
 const SIGNAL_DIR = path.join(os.homedir(), '.natureco', 'signal');
 const SIGNAL_PID_FILE = path.join(SIGNAL_DIR, 'daemon.pid');
@@ -124,7 +124,7 @@ async function disconnectSignal() {
   console.log(chalk.green('\n✅ Signal disconnected\n'));
 }
 
-function statusSignal() {
+async function statusSignal() {
   const config = getConfig();
   if (!config.signalBotId) {
     console.log(chalk.gray('\n⚠️  Signal not connected\n'));
@@ -133,7 +133,7 @@ function statusSignal() {
   }
 
   const daemonRunning = isDaemonRunning();
-  const apiReachable = probeSync(config);
+  const apiReachable = await probeHttp(config);
 
   console.log(chalk.green('\n✅ Signal connected\n'));
   console.log(chalk.cyan('Bot ID:'), chalk.white(config.signalBotId));
@@ -318,7 +318,7 @@ async function startDaemon(config) {
   console.log(chalk.gray(L('\nAPI hazır olana kadar bekleniyor...', '\nWaiting for the API to be ready...')));
   for (let i = 0; i < 30; i++) {
     await new Promise(r => setTimeout(r, 1000));
-    if (probeSync(config)) {
+    if (await probeHttp(config)) {
       console.log(chalk.green(L('✓ API hazır\n', '✓ API ready\n')));
       return;
     }
@@ -437,7 +437,7 @@ async function probeSignalCli() {
   if (cliPath) {
     console.log(chalk.gray(`\nsignal-cli binary: ${cliPath}`));
     try {
-      const versionOut = execSync(`"${cliPath}" --version`, { encoding: 'utf-8', timeout: 10000 });
+      const versionOut = execFileSync(cliPath, ['--version'], { encoding: 'utf-8', timeout: 10000 });
       console.log(chalk.gray(`Version: ${versionOut.trim()}`));
     } catch {
       console.log(chalk.gray(L('Version sorgulanamadı', 'Could not query version')));
@@ -447,27 +447,17 @@ async function probeSignalCli() {
   console.log('');
 }
 
-function probeSync(config) {
+async function probeHttp(config) {
   if (!config.signalHttpUrl) return false;
   const baseUrl = config.signalHttpUrl;
-  try {
-    const res = execSync(
-      `powershell -Command "try { $r = Invoke-WebRequest -Uri '${baseUrl}/api/v1/check' -TimeoutSec 3 -UseBasicParsing; exit 0 } catch { exit 1 }"`,
-      { timeout: 10000, stdio: 'pipe' }
-    );
-    return true;
-  } catch {
-    // Also check container mode
+  for (const endpoint of ['/api/v1/check', '/v1/about']) {
     try {
-      execSync(
-        `powershell -Command "try { $r = Invoke-WebRequest -Uri '${baseUrl}/v1/about' -TimeoutSec 3 -UseBasicParsing; exit 0 } catch { exit 1 }"`,
-        { timeout: 10000, stdio: 'pipe' }
-      );
-      return true;
-    } catch {
-      return false;
-    }
+      const url = new URL(endpoint, baseUrl);
+      const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
+      if (response.ok) return true;
+    } catch {}
   }
+  return false;
 }
 
 function findSignalCli() {
@@ -497,3 +487,4 @@ function findSignalCli() {
 }
 
 module.exports = signal;
+module.exports.probeHttp = probeHttp;

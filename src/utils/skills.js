@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { CONFIG_DIR } = require('./config');
 
 const BUILTIN_SKILLS_DIR = path.join(__dirname, '..', '..', 'skills');
@@ -57,8 +57,12 @@ function checkSkillRequirements(metadata) {
   if (metadata?.metadata?.natureco?.requires?.bins) {
     const bins = metadata.metadata.natureco.requires.bins;
     for (const bin of bins) {
+      if (typeof bin !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(bin)) {
+        errors.push(`Binary gerekli: ${bin}`);
+        continue;
+      }
       try {
-        execSync(`${bin} --version`, { stdio: 'ignore' });
+        execFileSync(bin, ['--version'], { stdio: 'ignore' });
       } catch {
         errors.push(`Binary gerekli: ${bin}`);
       }

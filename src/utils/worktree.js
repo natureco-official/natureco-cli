@@ -14,9 +14,14 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const WORKTREE_DIR = path.join(process.cwd(), '.natureco', 'worktrees');
+const SAFE_IDENTIFIER_RE = /^[A-Za-z0-9](?:[A-Za-z0-9_/-]{0,126}[A-Za-z0-9_-])?$/;
+
+function isSafeIdentifier(value) {
+  return typeof value === 'string' && SAFE_IDENTIFIER_RE.test(value) && !value.includes('//');
+}
 
 class Worktree {
   constructor() {
@@ -28,7 +33,7 @@ class Worktree {
   get isGitRepo() {
     if (this._mockGitRepo !== null) return this._mockGitRepo;
     try {
-      execSync('git rev-parse --git-dir', { cwd: process.cwd(), stdio: 'pipe' });
+      execFileSync('git', ['rev-parse', '--git-dir'], { cwd: process.cwd(), stdio: 'pipe' });
       return true;
     } catch {
       return false;
@@ -37,7 +42,7 @@ class Worktree {
 
   get currentBranch() {
     try {
-      return execSync('git rev-parse --abbrev-ref HEAD', { cwd: process.cwd(), stdio: 'pipe' }).toString().trim();
+      return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: process.cwd(), stdio: 'pipe' }).toString().trim();
     } catch {
       return 'main';
     }
@@ -51,6 +56,8 @@ class Worktree {
 
     const id = opts.id || `wt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const branch = opts.branch || `wt/${id}`;
+    if (!isSafeIdentifier(id)) return { error: 'Gecersiz worktree id.' };
+    if (!isSafeIdentifier(branch)) return { error: 'Gecersiz worktree branch.' };
     const targetDir = path.join(WORKTREE_DIR, id);
 
     fs.mkdirSync(targetDir, { recursive: true });
@@ -58,8 +65,8 @@ class Worktree {
     if (this.isGitRepo) {
       try {
         // Create orphan branch + worktree
-        execSync(`git branch -f "${branch}" HEAD`, { cwd: process.cwd(), stdio: 'pipe' });
-        execSync(`git worktree add --detach "${targetDir}" "${branch}"`, { cwd: process.cwd(), stdio: 'pipe' });
+        execFileSync('git', ['branch', '-f', branch, 'HEAD'], { cwd: process.cwd(), stdio: 'pipe' });
+        execFileSync('git', ['worktree', 'add', '--detach', targetDir, branch], { cwd: process.cwd(), stdio: 'pipe' });
         this.active = { id, branch, dir: targetDir, strategy: 'git-worktree' };
       } catch (e) {
         // Fallback: simple copy
@@ -91,13 +98,13 @@ class Worktree {
     if (merge && this.active.strategy === 'git-worktree') {
       try {
         // Diff the worktree against current HEAD
-        const diff = execSync(`git diff HEAD --name-status`, { cwd: this.active.dir, stdio: 'pipe' }).toString().trim();
+        const diff = execFileSync('git', ['diff', 'HEAD', '--name-status'], { cwd: this.active.dir, stdio: 'pipe' }).toString().trim();
         if (diff) {
           result.changes = diff.split('\n').filter(Boolean);
           // Cherry-pick changes if any commits were made
-          const log = execSync(`git log --oneline HEAD --not --all`, { cwd: this.active.dir, stdio: 'pipe' }).toString().trim();
+          const log = execFileSync('git', ['log', '--oneline', 'HEAD', '--not', '--all'], { cwd: this.active.dir, stdio: 'pipe' }).toString().trim();
           if (log) {
-            execSync(`git fetch . "${this.active.branch}"`, { cwd: process.cwd(), stdio: 'pipe' });
+            execFileSync('git', ['fetch', '.', this.active.branch], { cwd: process.cwd(), stdio: 'pipe' });
             result.merged = true;
           }
         }
@@ -173,8 +180,8 @@ class Worktree {
     if (!this.active) return;
     try {
       if (this.active.strategy === 'git-worktree') {
-        execSync(`git worktree remove --force "${this.active.dir}"`, { stdio: 'pipe' });
-        execSync(`git branch -D "${this.active.branch}" 2>/dev/null`, { stdio: 'pipe' });
+        execFileSync('git', ['worktree', 'remove', '--force', this.active.dir], { stdio: 'pipe' });
+        execFileSync('git', ['branch', '-D', this.active.branch], { stdio: 'pipe' });
       }
       if (fs.existsSync(this.active.dir)) {
         fs.rmSync(this.active.dir, { recursive: true, force: true });
@@ -189,4 +196,4 @@ function getWorktree() {
   return _instance;
 }
 
-module.exports = { Worktree, getWorktree };
+module.exports = { Worktree, getWorktree, isSafeIdentifier };

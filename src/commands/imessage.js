@@ -4,7 +4,7 @@ const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const inquirer = require('../utils/inquirer-wrapper');
 const { getConfig, saveConfig } = require('../utils/config');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 const { checkExistingToken } = require('./channel-helper');
 
@@ -99,8 +99,8 @@ async function sendMessage(recipient, message) {
 
   try {
     // imsg send komutu (v5.6.26: --to kullan, --recipient değil)
-    const cmd = `${config.imessageCliPath} send --to "${recipient}" --text "${fullMessage.replace(/"/g, '\\"')}"`;
-    const output = execSync(cmd, { encoding: 'utf8', timeout: 30000 });
+    const args = ['send', '--to', recipient, '--text', fullMessage];
+    const output = execFileSync(config.imessageCliPath, args, { encoding: 'utf8', timeout: 30000 });
 
     console.log(chalk.green(L('✅ Mesaj gönderildi!', '✅ Message sent!')));
     if (output && output.trim()) {

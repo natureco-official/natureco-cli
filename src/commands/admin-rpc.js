@@ -4,6 +4,18 @@ const { getLang: _gl } = require('../utils/i18n');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const { getConfig } = require('../utils/config');
 
+function normalizeTailLines(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 20;
+  return Math.min(1000, Math.max(1, Math.floor(parsed)));
+}
+
+function readLogTail(logPath, lines) {
+  const content = require('fs').readFileSync(logPath, 'utf8').replace(/\r?\n$/, '');
+  if (!content) return '';
+  return content.split(/\r?\n/).slice(-normalizeTailLines(lines)).join('\n');
+}
+
 const ALLOWED_METHODS = [
   'health', 'status',
   'config.get', 'config.set',
@@ -167,11 +179,10 @@ async function callMethod(method, jsonParams) {
   }
 
   if (method === 'logs.tail') {
-    const lines = params.lines || 20;
-    const { execSync } = require('child_process');
+    const lines = normalizeTailLines(params.lines);
     try {
       const logPath = require('path').join(require('os').homedir(), '.natureco', 'logs', 'gateway.log');
-      const output = execSync(`tail -${lines} "${logPath}"`, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+      const output = readLogTail(logPath, lines);
       console.log(output);
     } catch {
       console.log(chalk.yellow(L('  ⚠️  Log bulunamadı\n', '  ⚠️  Log not found\n')));
@@ -376,3 +387,5 @@ module.exports.maskSecrets = maskSecrets;
 module.exports.getOrCreateAdminToken = getOrCreateAdminToken;
 module.exports.startAdmin = startAdmin;
 module.exports.stopAdmin = stopAdmin;
+module.exports.normalizeTailLines = normalizeTailLines;
+module.exports.readLogTail = readLogTail;

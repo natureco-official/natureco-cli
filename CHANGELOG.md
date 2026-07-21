@@ -2,6 +2,31 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.67.1] - 2026-07-21 — Reliable process invocation across 10 tools/commands
+
+### Fixed
+- A comprehensive audit (see `AUDIT_FINDINGS_1.md`) found 10 places where an external command was
+  built as a shell STRING with a user/model/configured value interpolated into it
+  (`google_meet`, `text_to_speech`, iMessage, MCP server probing, downloaded-skill binary checks,
+  Git worktree identifiers/branches, ClickClack notifications, Signal CLI/HTTP probing, admin RPC
+  log tailing, sandbox destroy) — fragile and unreliable whenever the value contains quotes,
+  spaces, or shell metacharacters. All 10 now pass the program and its arguments as a separate
+  array (`execFileSync`) or equivalent structured call instead of a shell string, matching this
+  codebase's existing `git.js` reference pattern. Google Meet's AppleScript passes the meeting
+  title as a script argument instead of embedding it in script source; text-to-speech's Python
+  helper is a fixed script that receives text/voice/path as argv instead of generated source;
+  worktree/sandbox/skill-binary values are validated against a strict safe-identifier pattern
+  before use; admin RPC's log tail is now a pure-Node implementation (also fixing it on Windows,
+  where the previous `tail` dependency didn't exist); Signal's HTTP reachability probe now uses
+  Node's built-in `fetch` instead of shelling out through PowerShell.
+- Verified with real hostile inputs (embedded quotes, `$(...)`, `;`, AppleScript/PowerShell
+  breakout attempts) actually exercised against each fixed code path, not just reasoned about.
+
+### Tests
+- New `test/process-invocation-safety.test.js`: 20 tests, two per fixed call site — one proving
+  normal input still works correctly, one proving a hostile input is handled as literal data (or
+  safely rejected) rather than reaching a shell.
+
 ## [5.67.0] - 2026-07-21 — Tree memory search now uses Urðr's real hybrid engine
 
 ### Added
