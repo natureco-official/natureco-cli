@@ -21,8 +21,12 @@ product defect.
   directly instead of relying on the real host platform.
 - The same file's M-08 test asserted an English error string without controlling the active
   language; `getLang()` defaults to Turkish with no config file present (the case on a fresh CI
-  runner) instead of the English set in the developer's own local config. Now explicitly forces
-  English via `setLangCache('en')` before the assertion.
+  runner) instead of the English set in the developer's own local config. An initial fix forcing
+  English via `setLangCache('en')` worked on macOS-15 but proved non-deterministic on
+  ubuntu-latest — `getLang()`'s module-level cache is shared mutable state, and something else in
+  the same worker's test run could reset it between the call and the assertion. Fixed properly by
+  asserting the language-agnostic contract instead (a clean structured error, not a crash),
+  matching either language's exact string rather than pinning to one.
 - `windows-portability.test.js`'s `browser_use`/`text_to_speech` tests depended on real
   environment state a fresh CI runner won't have (Node discoverable via `where.exe` in exactly
   the way a real developer machine has it; the third-party `edge-tts` Python package actually
