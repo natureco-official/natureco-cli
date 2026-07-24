@@ -5,13 +5,15 @@
  * PC uygulaması hissi için: animasyonlar, progress, interaktif box'lar,
  * keyboard shortcuts, tab navigation, breadcrumb, status bar, theme.
  *
- * Sıfır dependency — sadece ANSI escape kodları + readline.
+ * Sadece ANSI escape kodları + display-width ölçümü.
  * Ink/blessed kurmuyoruz (bundle boyutu, startup hızı için).
  */
 
 // ════════════════════════════════════════════════════════════
 // ANSI Escape Sequences
 // ════════════════════════════════════════════════════════════
+
+const nativeStringWidth = require('string-width');
 
 const ESC = '\x1b';
 const CSI = ESC + '[';
@@ -68,19 +70,19 @@ function detectCapabilities() {
   CAPS.isTTY = !!process.stdout.isTTY;
 
   // Renk desteği
-  if (process.env.NO_COLOR || process.env.CI) {
+  if (process.env.NO_COLOR !== undefined || process.env.CI) {
     CAPS.color = false;
     CAPS.trueColor = false;
   } else if (process.env.FORCE_COLOR === '0') {
     CAPS.color = false;
+    CAPS.trueColor = false;
   } else {
     const term = (process.env.TERM || '').toLowerCase();
+    const colorTerm = (process.env.COLORTERM || '').toLowerCase();
     CAPS.color = CAPS.isTTY && !term.includes('dumb');
     CAPS.trueColor = CAPS.isTTY && (
-      process.env.COLORTERM === 'truecolor' ||
-      process.env.COLORTERM === '24bit' ||
-      term.includes('256color') ||
-      term.includes('truecolor')
+      colorTerm === 'truecolor' ||
+      colorTerm === '24bit'
     );
   }
 
@@ -129,24 +131,64 @@ const STYLE = {
   strikethrough: '\x1b[9m',
 };
 
-// True color helper
+// True color + nearest xterm-256 helpers
 function fg(hex) {
-  if (!CAPS.trueColor) return '';
+  if (!CAPS.color && !CAPS.trueColor) return '';
   const [r, g, b] = hexToRgb(hex);
-  return `\x1b[38;2;${r};${g};${b}m`;
+  return CAPS.trueColor
+    ? `\x1b[38;2;${r};${g};${b}m`
+    : `\x1b[38;5;${hexTo256(hex)}m`;
 }
 function bg(hex) {
-  if (!CAPS.trueColor) return '';
+  if (!CAPS.color && !CAPS.trueColor) return '';
   const [r, g, b] = hexToRgb(hex);
-  return `\x1b[48;2;${r};${g};${b}m`;
+  return CAPS.trueColor
+    ? `\x1b[48;2;${r};${g};${b}m`
+    : `\x1b[48;5;${hexTo256(hex)}m`;
 }
 function hexToRgb(hex) {
-  const h = hex.replace('#', '');
+  let h = String(hex).replace('#', '');
+  if (h.length === 3) h = h.split('').map(char => char + char).join('');
   return [
     parseInt(h.slice(0, 2), 16),
     parseInt(h.slice(2, 4), 16),
     parseInt(h.slice(4, 6), 16),
   ];
+}
+
+function hexTo256(hex) {
+  const [r, g, b] = hexToRgb(hex);
+  const system = [
+    [0, 0, 0], [128, 0, 0], [0, 128, 0], [128, 128, 0],
+    [0, 0, 128], [128, 0, 128], [0, 128, 128], [192, 192, 192],
+    [128, 128, 128], [255, 0, 0], [0, 255, 0], [255, 255, 0],
+    [0, 0, 255], [255, 0, 255], [0, 255, 255], [255, 255, 255],
+  ];
+  const levels = [0, 95, 135, 175, 215, 255];
+  let nearest = 0;
+  let nearestDistance = Infinity;
+
+  function consider(index, red, green, blue) {
+    const distance = (r - red) ** 2 + (g - green) ** 2 + (b - blue) ** 2;
+    if (distance < nearestDistance) {
+      nearest = index;
+      nearestDistance = distance;
+    }
+  }
+
+  system.forEach(([red, green, blue], index) => consider(index, red, green, blue));
+  for (let red = 0; red < 6; red++) {
+    for (let green = 0; green < 6; green++) {
+      for (let blue = 0; blue < 6; blue++) {
+        consider(16 + 36 * red + 6 * green + blue, levels[red], levels[green], levels[blue]);
+      }
+    }
+  }
+  for (let index = 0; index < 24; index++) {
+    const level = 8 + index * 10;
+    consider(232 + index, level, level, level);
+  }
+  return nearest;
 }
 
 // 256-color fallback
@@ -206,25 +248,26 @@ function box(width, height, options = {}) {
   const w = Math.max(10, width);
   const h = Math.max(3, height);
 
-  const bc = CAPS.trueColor ? fg(borderColor) : '';
-  const reset = STYLE.reset;
-  const tColor = CAPS.trueColor ? fg(titleColor) : '';
+  const bc = fg(borderColor);
+  const reset = CAPS.color || CAPS.trueColor ? STYLE.reset : '';
+  const tColor = fg(titleColor);
+  const background = bgColor ? bg(bgColor) : '';
 
   const lines = [];
   // Üst kenar
-  const topTitle = title ? ` ${title} ` : '';
-  const topFill = w - 2 - topTitle.length;
+  const topTitle = title ? truncateAnsi(` ${title} `, w - 2) : '';
+  const topFill = Math.max(0, w - 2 - stringWidth(topTitle));
   const leftFill = Math.floor(topFill / 2);
   const rightFill = topFill - leftFill;
-  lines.push(bc + b.tl + b.h.repeat(leftFill) + tColor + topTitle + bc + b.h.repeat(rightFill) + b.tr + reset);
+  lines.push(background + bc + b.tl + b.h.repeat(leftFill) + tColor + topTitle + bc + b.h.repeat(rightFill) + b.tr + reset);
 
   // İçeride boş satırlar (doldurulacak)
   for (let i = 1; i < h - 1; i++) {
-    lines.push(bc + b.v + reset + ' '.repeat(w - 2) + bc + b.v + reset);
+    lines.push(background + bc + b.v + reset + background + ' '.repeat(w - 2) + bc + b.v + reset);
   }
 
   // Alt kenar
-  lines.push(bc + b.bl + b.h.repeat(w - 2) + b.br + reset);
+  lines.push(background + bc + b.bl + b.h.repeat(w - 2) + b.br + reset);
 
   return lines.join('\n');
 }
@@ -371,58 +414,151 @@ function breadcrumb(path) {
 // ════════════════════════════════════════════════════════════
 
 function table(data, columns, options = {}) {
-  const reset = STYLE.reset;
+  const reset = CAPS.color || CAPS.trueColor ? STYLE.reset : '';
   const { borderStyle = 'single', headerColor = PALETTE.primary, zebra = true } = options;
   const b = BORDER[borderStyle] || BORDER.single;
 
   // Sütun genişliklerini hesapla
   const widths = columns.map(col => {
-    const headerLen = stripAnsi(col.label || col.key).length;
+    const headerLen = stringWidth(col.label || col.key);
     const maxDataLen = Math.max(0, ...data.map(row => {
       const val = col.render ? col.render(row) : (row[col.key] || '');
-      return stripAnsi(String(val)).length;
+      return stringWidth(String(val));
     }));
     return Math.max(headerLen, maxDataLen, col.minWidth || 3);
   });
 
   const lines = [];
-  const bc = CAPS.trueColor ? fg(PALETTE.border) : '';
+  const bc = fg(PALETTE.border);
 
   // Üst
   const topBorder = b.tl + b.h.repeat(widths.reduce((s, w) => s + w + 3, 1) - 1) + b.tr;
-  lines.push(bc + topBorder + STYLE.reset);
+  lines.push(bc + topBorder + reset);
 
   // Header
   const headerCells = columns.map((col, i) => {
-    const text = (col.label || col.key).padEnd(widths[i]);
+    const text = padTo(col.label || col.key, widths[i]);
     return styled(text, { color: headerColor, bold: true });
   });
   lines.push(bc + b.v + reset + ' ' + headerCells.join(' ' + bc + b.v + reset + ' ') + ' ' + bc + b.v + reset);
 
   // Header alt border
   const midBorder = b.tRight + widths.map(w => b.h.repeat(w + 2)).join(b.tDown) + b.tLeft;
-  lines.push(bc + midBorder + STYLE.reset);
+  lines.push(bc + midBorder + reset);
 
   // Veri satırları
   data.forEach((row, ri) => {
     const bgColor = zebra && ri % 2 === 1 ? bg(PALETTE.bgAlt) : '';
     const cells = columns.map((col, i) => {
       const val = col.render ? col.render(row) : (row[col.key] || '');
-      const text = String(val).padEnd(widths[i]);
-      return bgColor + text + STYLE.reset;
+      const text = padTo(String(val), widths[i]);
+      return bgColor + text + reset;
     });
     lines.push(bc + b.v + reset + ' ' + cells.join(' ' + bc + b.v + reset + ' ') + ' ' + bc + b.v + reset);
   });
 
   // Alt
   const botBorder = b.bl + b.h.repeat(widths.reduce((s, w) => s + w + 3, 1) - 1) + b.br;
-  lines.push(bc + botBorder + STYLE.reset);
+  lines.push(bc + botBorder + reset);
 
   return lines.join('\n');
 }
 
 function stripAnsi(str) {
   return String(str).replace(/\x1b\[[0-9;]*m/g, '');
+}
+
+function stringWidth(str) {
+  return nativeStringWidth(stripAnsi(str));
+}
+
+function padTo(str, width) {
+  const text = String(str);
+  return text + ' '.repeat(Math.max(0, width - stringWidth(text)));
+}
+
+function graphemes(str) {
+  if (typeof Intl.Segmenter !== 'function') return Array.from(str);
+  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+  return Array.from(segmenter.segment(str), part => part.segment);
+}
+
+function ansiTokens(str) {
+  const tokens = [];
+  const matcher = /\x1b\[[0-9;]*m/g;
+  let offset = 0;
+  let match;
+  while ((match = matcher.exec(String(str))) !== null) {
+    if (match.index > offset) {
+      tokens.push(...graphemes(String(str).slice(offset, match.index)).map(value => ({ value, ansi: false })));
+    }
+    tokens.push({ value: match[0], ansi: true });
+    offset = matcher.lastIndex;
+  }
+  if (offset < String(str).length) {
+    tokens.push(...graphemes(String(str).slice(offset)).map(value => ({ value, ansi: false })));
+  }
+  return tokens;
+}
+
+function updateAnsiState(active, code) {
+  const params = code.slice(2, -1).split(';').map(Number);
+  if (params.length === 0 || params.includes(0)) return [];
+  return [...active, code];
+}
+
+function wrapAnsi(str, width) {
+  const target = Math.max(1, Math.floor(Number(width) || 0));
+  const lines = [];
+  let line = '';
+  let columns = 0;
+  let active = [];
+
+  function finishLine() {
+    lines.push(line + (active.length ? STYLE.reset : ''));
+    line = active.join('');
+    columns = 0;
+  }
+
+  for (const token of ansiTokens(str)) {
+    if (token.ansi) {
+      active = updateAnsiState(active, token.value);
+      line += token.value;
+      continue;
+    }
+    if (token.value === '\n') {
+      finishLine();
+      continue;
+    }
+    const tokenWidth = nativeStringWidth(token.value);
+    if (columns > 0 && columns + tokenWidth > target) finishLine();
+    if (tokenWidth > target) continue;
+    line += token.value;
+    columns += tokenWidth;
+  }
+  lines.push(line + (active.length ? STYLE.reset : ''));
+  return lines.join('\n');
+}
+
+function truncateAnsi(str, width) {
+  const target = Math.max(0, Math.floor(Number(width) || 0));
+  let output = '';
+  let columns = 0;
+  let active = [];
+
+  for (const token of ansiTokens(str)) {
+    if (token.ansi) {
+      active = updateAnsiState(active, token.value);
+      output += token.value;
+      continue;
+    }
+    if (token.value === '\n') break;
+    const tokenWidth = nativeStringWidth(token.value);
+    if (columns + tokenWidth > target) break;
+    output += token.value;
+    columns += tokenWidth;
+  }
+  return output + (active.length ? STYLE.reset : '');
 }
 
 // ════════════════════════════════════════════════════════════
@@ -550,7 +686,7 @@ function welcomeCard({ version, user, status, tips }) {
   // Logo (küçük)
   const logo = '🌿 NatureCo CLI';
   const ver = `v${version}`;
-  const titlePadding = w - 2 - logo.length - ver.length - 2;
+  const titlePadding = w - 2 - stringWidth(logo) - stringWidth(ver) - 2;
   lines.push(C.brand('│ ') + C.bold(logo) + ' '.repeat(titlePadding) + C.muted(ver) + C.brand(' │'));
 
   // Ayraç
@@ -564,9 +700,8 @@ function welcomeCard({ version, user, status, tips }) {
     ['Çalışma dizini', C.dim(process.cwd())],
   ];
   for (const [label, value] of statusLines) {
-    const line = `  ${C.muted(label.padEnd(16))} ${value}`;
-    const padLen = w - 2 - stripAnsi(line).length;
-    lines.push(C.brand('│') + line + ' '.repeat(Math.max(0, padLen)) + C.brand('│'));
+    const line = `  ${C.muted(padTo(label, 16))} ${value}`;
+    lines.push(C.brand('│') + padTo(truncateAnsi(line, w - 2), w - 2) + C.brand('│'));
   }
 
   // Ayraç
@@ -576,8 +711,7 @@ function welcomeCard({ version, user, status, tips }) {
   const tipText = tips || '🌱 natureco code  →  Edit & refactor any file';
   const tipLabel = '💡 İpucu';
   const tipLine = `  ${C.amber(tipLabel)}  ${C.dim(tipText)}`;
-  const tipPadLen = w - 2 - stripAnsi(tipLine).length;
-  lines.push(C.brand('│') + tipLine + ' '.repeat(Math.max(0, tipPadLen)) + C.brand('│'));
+  lines.push(C.brand('│') + padTo(truncateAnsi(tipLine, w - 2), w - 2) + C.brand('│'));
 
   // Ayraç
   lines.push(C.brand('├' + '─'.repeat(w - 2) + '┤'));
@@ -590,10 +724,9 @@ function welcomeCard({ version, user, status, tips }) {
     ['? help', 'tüm komutlar'],
   ];
   for (const [key, desc] of shortcuts) {
-    const k = styled(key.padEnd(8), { bg: PALETTE.bgAlt, color: PALETTE.text });
+    const k = styled(padTo(key, 8), { bg: PALETTE.bgAlt, color: PALETTE.text });
     const line = `  ${k}  ${C.muted(desc)}`;
-    const padLen = w - 2 - stripAnsi(line).length;
-    lines.push(C.brand('│') + line + ' '.repeat(Math.max(0, padLen)) + C.brand('│'));
+    lines.push(C.brand('│') + padTo(truncateAnsi(line, w - 2), w - 2) + C.brand('│'));
   }
 
   // Alt çerçeve
@@ -613,28 +746,26 @@ function prettyError(err, options = {}) {
 
   lines.push(C.red('╭' + '─'.repeat(w - 2) + '╮'));
   const titleIcon = '✗ ' + title;
-  const titlePad = w - 2 - titleIcon.length;
-  lines.push(C.red('│ ') + C.bold(C.red(titleIcon)) + ' '.repeat(Math.max(0, titlePad)) + C.red(' │'));
+  const titleLine = ' ' + C.bold(C.red(titleIcon));
+  lines.push(C.red('│') + padTo(truncateAnsi(titleLine, w - 2), w - 2) + C.red('│'));
 
   lines.push(C.red('├' + '─'.repeat(w - 2) + '┤'));
 
   // Hata mesajı
   const msg = err.message || String(err);
-  const wrapped = wrapText(msg, w - 6);
+  const wrapped = wrapAnsi(msg, w - 6).split('\n');
   for (const line of wrapped) {
     const padded = '  ' + line;
-    const padLen = w - 2 - padded.length;
-    lines.push(C.red('│') + padded + ' '.repeat(Math.max(0, padLen)) + C.red(' │'));
+    lines.push(C.red('│') + padTo(padded, w - 2) + C.red('│'));
   }
 
   if (suggestion) {
     lines.push(C.red('├' + '─'.repeat(w - 2) + '┤'));
     const sugText = '💡 ' + suggestion;
-    const sugWrap = wrapText(sugText, w - 6);
+    const sugWrap = wrapAnsi(sugText, w - 6).split('\n');
     for (const line of sugWrap) {
       const padded = '  ' + styled(line, { color: PALETTE.warning });
-      const padLen = w - 2 - padded.length;
-      lines.push(C.red('│') + padded + ' '.repeat(Math.max(0, padLen)) + C.red(' │'));
+      lines.push(C.red('│') + padTo(padded, w - 2) + C.red('│'));
     }
   }
 
@@ -643,8 +774,8 @@ function prettyError(err, options = {}) {
     const stackLines = err.stack.split('\n').slice(0, 5);
     for (const s of stackLines) {
       const padded = '  ' + styled(s, { color: PALETTE.muted, dim: true });
-      const padLen = w - 2 - Math.min(stripAnsi(padded).length, w - 4);
-      lines.push(C.red('│') + padded.slice(0, w - 2) + ' '.repeat(Math.max(0, padLen)) + C.red(' │'));
+      const clipped = truncateAnsi(padded, w - 2);
+      lines.push(C.red('│') + padTo(clipped, w - 2) + C.red('│'));
     }
   }
 
@@ -729,7 +860,8 @@ module.exports = {
   // ANSI primitives
   CURSOR, SCREEN, MOUSE,
   // Color helpers
-  fg, bg, fg256, bg256, styled, hexToRgb, C, stripAnsi,
+  fg, bg, fg256, bg256, styled, hexToRgb, hexTo256, C, stripAnsi,
+  stringWidth, padTo, wrapAnsi, truncateAnsi,
   // Borders & boxes
   BORDER, box,
   // Progress
