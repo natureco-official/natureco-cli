@@ -58,6 +58,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.70.0** | **`natureco code` visual + experience overhaul:** answers now stream live with incremental markdown rendering and syntax-highlighted code, **Esc interrupts** an in-flight turn transactionally (session stays intact), a chat-style bordered input box replaces the bare prompt, tool calls print unified cards with real colored diffs and secret redaction, plus a live `model · tokens · elapsed` status line — with a critical 256-color fix so the palette finally renders on every terminal. 936 → 995 tests. |
 | **v5.69.0 – v5.69.4** | **Windows/macOS GUI automation reliability + real CI enforcement:** fixed AppleScript injection and locale-ambiguous date parsing across 6 macOS automation tools, a Windows `SendKeys` assembly-loading bug, and a Windows `timeout` command that failed under piped stdin — all found via genuine live-device testing, not just automated tests. |
 | **v5.68.0 – v5.68.6** | **Full command-surface security audit:** every `src/commands/` file (107 files) audited and fixed — credential masking, path-traversal validation, honest success/failure reporting (commands no longer silently claim success on failure), plus full test coverage added for all 91 built-in tools. |
 | **v5.66.0 – v5.67.6** | **Real Urðr memory engine integration:** `natureco`'s persistent memory (`memory write`, `memory search`, `code` session context) is now genuinely backed by [Urðr](https://github.com/natureco-official/urdr)'s git-native, hash-chained memory architecture — not just an in-repo JSON file — with automatic legacy fallback. Also: 10 shell-injection fixes converting `execSync` string-building to safe `execFileSync` argv arrays, and a Turkish-locale filename bug fix across 25 files. |
@@ -67,7 +68,6 @@ natureco code
 | **v5.65.3** | **Real Windows mouse/scroll automation:** click and scroll now use a real `user32.dll` mouse event instead of a non-existent SendKeys code, and macOS screenshot permission failures are always detected. |
 | **v5.65.2** | **Reliable macOS automation recovery:** simple open requests stop after success, stale browser profiles retry once, and Screen Recording/Accessibility failures provide precise Cupertino Terminal permission guidance. |
 | **v5.65.0** | **Persistent browser agent:** visible system Chrome/Chromium, persistent login/storage, and reliable `snapshot → @ref click/fill → verify` automation replace one-shot headless browsing. |
-| **v5.64.7** | **Resilient GUI vision:** invalid action parameters and truncated vision JSON are rejected safely and retried instead of crashing macOS automation. |
 
 See [`CHANGELOG.md`](CHANGELOG.md) for the full release history.
 

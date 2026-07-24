@@ -2,6 +2,56 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.70.0] - 2026-07-25 — `natureco code`: a visual + experience overhaul of the coding agent
+
+Five reviewed-and-proven rocks (Codex adversarial plan review + independent verification on every
+one) rebuilt how `natureco code` looks and feels. 936 → 995 tests, zero regressions.
+
+### Added
+- **Live streaming with incremental markdown rendering.** Provider streaming is now
+  transport-only (normalized `text_delta`/`tool_call_delta`/`usage` events, AbortSignal, one
+  shared request builder for buffered + streaming paths — identical params, only delivery
+  differs). A new presentation writer commits stable markdown blocks append-only while the
+  in-progress block repaints on TTY; raw pass-through on non-TTY/NO_COLOR; the text stored in
+  model history stays byte-identical. Anthropic SSE is buffered across TCP chunks with tool-use
+  accumulation and proper history conversion.
+- **Esc interrupts an in-flight turn — transactionally.** Esc aborts the stream (bypassing the
+  provider fallback chain), cooperatively cancels or awaits in-flight tools (side effects never
+  outlive the turn), rolls the whole provider round back atomically to a provider-valid message
+  boundary, and returns to a fresh prompt. Ctrl+C still exits; the terminal is never left in raw
+  mode.
+- **Live status line + spinners**, serialized through one presentation writer: a spinner while
+  awaiting the first token and per running tool, and a `model · tokens · elapsed` status line
+  (provider usage when exposed, estimate otherwise). Cursor restore + timer disposal guaranteed
+  on every exit path; silent on non-TTY/NO_COLOR.
+- **Chat-style bordered input box** replacing the bare `You` prompt: rounded brand-colored box
+  with a `›` prompt and dim placeholder, grapheme-safe editing (Turkish/emoji/CJK), width-aware
+  wrapping with tracked cursor, session input history with draft restore, bracketed-paste mode
+  (pasted newlines become spaces), a sliding-viewport narrow mode on live resize, and a
+  session-scoped keypress transport shared with the Esc owner so listeners never leak and the
+  process exits cleanly. Non-TTY keeps the plain readline path; `NATURECO_PLAIN_INPUT=1` forces it.
+- **Render engine** (`src/utils/render.js`): markdown→ANSI via the `marked` tokenizer with our
+  own renderer, a state-aware syntax highlighter (js/ts, json, bash, python — no re-coloring
+  inside strings/comments), and colored unified diffs (`diff` dep) with tab expansion and
+  hunk-only compact mode. All untrusted text is stripped of C0/C1/escape sequences before
+  styling; byte + column caps everywhere; zero ANSI when color is disabled.
+- **Unified tool cards** (`src/utils/tool-card.js`): one renderer for every tool call — status
+  icon, per-tool allowlisted arg summary, recursive redaction (home/Windows paths, tokens,
+  secrets — including diff bodies), sensitive-path diff suppression (`.env`, keys), and real
+  before/after colored diffs for `write_file`/`edit_file` from stat-gated presentation-only
+  snapshots. Localized (TR/EN) labels and truncation footers.
+
+### Fixed
+- **256-color terminals were rendered colorless**: `fg()/bg()` returned empty strings unless
+  truecolor was detected, and `TERM=*-256color` was wrongly treated as truecolor. Now truecolor
+  requires a real 24-bit `COLORTERM` signal, and hex colors fall back to the nearest xterm-256
+  index — the brand palette finally shows everywhere. Truecolor output is byte-identical.
+- **Emoji/CJK broke box and table alignment**: width math now uses display columns
+  (`string-width`) with new `padTo`/`wrapAnsi`/`truncateAnsi` helpers instead of `.length`.
+
+### Dependencies
+- Added `marked@^4`, `diff@^5`, `string-width@^4` (all CommonJS-compatible pins).
+
 ## [5.69.4] - 2026-07-21 — Fix real GitHub Actions CI, broken since v5.68.6
 
 Real CI (`Tests` workflow on GitHub Actions) had been failing on all three platforms
