@@ -21,6 +21,8 @@ const chalk = require("chalk");
 const { getLang: _gl } = require("../utils/i18n");
 const L = (tr, en) => (_gl() === "en" ? en : tr);
 const tui = require("../utils/tui");
+const { renderMarkdown } = require("../utils/render");
+const { renderToolCall } = require("../utils/tool-card");
 const { getConfig } = require("../utils/config");
 const { loadToolDefinitions, executeTool, toOpenAIFormat } = require("../utils/tools");
 const { checkPreHooks, runPostHooks, permissionSummary } = require("../utils/tool-hooks");
@@ -209,71 +211,33 @@ function assessRisk(tool, args) {
 }
 
 
-/**
- * v5.6.21: Tool call sonucunu güvenli yazdir - yol/size gizle
- * Sadece status, success/error ve kisaltilmis onizleme gosterir
- */
-function printToolCallSafe(name, args, result) {
-  console.log("  " + tui.styled("🔧 Tool: " + name, { color: tui.PALETTE.accent, bold: true }));
-  // Args'dan sadece ana bilgiyi goster
-  const argsShort = summarizeArgs(name, args);
-  if (argsShort) {
-    console.log(tui.styled("     Args: " + argsShort, { color: tui.PALETTE.muted }));
-  }
-  // Result'tan sadece status goster, yol/size gizle
-  if (!result) return;
-  if (result.error) {
-    console.log(tui.styled(L("     ✗ Hata: ", "     ✗ Error: ") + result.error.slice(0, 100), { color: tui.PALETTE.danger }));
-  } else {
-    const success = result.success !== false;
-    const resultStr = typeof result.result === "string"
-      ? result.result.slice(0, 200)
-      : JSON.stringify(result.result || {}).slice(0, 200);
-    // Yol/size gizle
-    const cleanResult = resultStr
-      .replace(/\/?Users\/[^"\\\s]+/g, "~")
-      .replace(/\/?home\/[^"\\\s]+/g, "~")
-      .replace(/"\w:\\\[^"\\\s]*/g, "...")
-      .replace(/"size":\d+/g, "")
-      .replace(/"path":"[^"]*"/g, "")
-      .replace(/"fileCount":\d+/g, "");
-    const statusIcon = success ? "✓" : "✗";
-    const statusColor = success ? tui.PALETTE.success : tui.PALETTE.danger;
-    console.log(tui.styled(`     ${statusIcon} ${L('Sonuç', 'Result')}: ${cleanResult.trim()}`, { color: statusColor }));
-  }
-}
+const FILE_SNAPSHOT_MAX_BYTES = 256 * 1024;
 
-/**
- * Tool args'dan ana bilgiyi özetle
- */
-function summarizeArgs(name, args) {
-  if (!args || Object.keys(args).length === 0) return null;
-  // Path varsa ~ olarak kisalt
-  if (args.path) {
-    const shortPath = (args.path || "")
-      .replace(/\/Users\/[^\/]+/g, "~")
-      .replace(/\/home\/[^\/]+/g, "~")
-      .replace(/^[A-Z]:\\Users\\[^\\]+/, "~");
-    return JSON.stringify({...args, path: shortPath}).slice(0, 120);
-  }
-  if (args.command) {
-    return JSON.stringify({command: args.command.slice(0, 80)}).slice(0, 120);
-  }
-  return JSON.stringify(args).slice(0, 120);
-}
-
-function printToolCall(name, args, result) {
-  const argsStr = JSON.stringify(args).slice(0, 100);
-  console.log("\n  " + tui.styled("  🔧 Tool: " + name, { color: tui.PALETTE.accent, bold: true }));
-  console.log("  " + tui.styled("     Args: " + argsStr, { color: tui.PALETTE.muted }));
-  if (result) {
-    if (result.error) {
-      console.log("  " + tui.styled(L("     ✗ Hata: ", "     ✗ Error: ") + result.error.slice(0, 200), { color: tui.PALETTE.danger }));
-    } else if (result.success !== false) {
-      const out = typeof result === "string" ? result.slice(0, 200) : JSON.stringify(result).slice(0, 200);
-      console.log("  " + tui.styled(L("     ✓ Sonuç: ", "     ✓ Result: ") + out, { color: tui.PALETTE.success }));
+function captureFileSnapshot(args, { allowMissing = false } = {}) {
+  const filePath = args?.filePath || args?.path;
+  if (!filePath) return { available: false, reason: 'no-path' };
+  const resolved = path.resolve(filePath);
+  try {
+    const stat = fs.statSync(resolved);
+    if (!stat.isFile()) return { available: false, reason: 'not-file' };
+    if (stat.size > FILE_SNAPSHOT_MAX_BYTES) {
+      return { available: false, reason: 'over-budget' };
     }
+    return { available: true, content: fs.readFileSync(resolved, 'utf8') };
+  } catch (error) {
+    if (allowMissing && error && error.code === 'ENOENT') {
+      return { available: true, content: '' };
+    }
+    return { available: false, reason: 'unavailable' };
   }
+}
+
+function displayAssistantReply(raw, opts = {}) {
+  return renderMarkdown(raw, opts);
+}
+
+function writeToolCard(name, args, result, snapshots = {}) {
+  process.stdout.write('\n' + renderToolCall(name, args, result, snapshots) + '\n');
 }
 
 function scanProject(cwd) {
@@ -545,7 +509,7 @@ async function codeV5(targetPath) {
       if (wf.passthrough && wf.reply !== undefined && wf.reply !== null) {
         // Simple chat — workflow handled it directly
         const fullReply = String(wf.reply);
-        process.stdout.write('\n' + fullReply + '\n');
+        process.stdout.write('\n' + displayAssistantReply(fullReply) + '\n');
         messages.push({ role: 'assistant', content: fullReply });
         totalIn += Math.ceil(input.length / 4);
         totalOut += Math.ceil(fullReply.length / 4);
@@ -582,7 +546,7 @@ async function codeV5(targetPath) {
           // Remove workflow results after call
           messages.splice(preWfLen, 1);
           if (wfReply.content) {
-            process.stdout.write(wfReply.content);
+            process.stdout.write(displayAssistantReply(wfReply.content));
             messages.push({ role: "assistant", content: wfReply.content });
             totalOut += Math.ceil(wfReply.content.length / 4);
           }
@@ -607,7 +571,7 @@ async function codeV5(targetPath) {
               messages, toolDefs
             );
             if (reply.content) {
-              process.stdout.write(reply.content);
+              process.stdout.write(displayAssistantReply(reply.content));
               messages.push({ role: "assistant", content: reply.content });
               totalOut += Math.ceil(reply.content.length / 4);
             }
@@ -719,14 +683,11 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult)
   const parallelSafe = parsed.filter(p => PARALLEL_SAFE_TOOLS.has(p.name));
   const sequential = parsed.filter(p => !PARALLEL_SAFE_TOOLS.has(p.name));
 
-  // Print all tool calls
-  for (const p of parsed) printToolCall(p.name, p.args);
-
   // Run parallel-safe tools concurrently
   if (parallelSafe.length > 0) {
     const results = await Promise.all(parallelSafe.map(async (p) => {
       const result = runPostHooks(p.name, p.args, await executeTool(p.name, p.args, toolDefs));
-      printToolCallSafe(p.name, p.args, result);
+      writeToolCard(p.name, p.args, result);
       if (onToolResult) onToolResult(p.name, p.args, result);
       const out = result.error
         ? "ERROR: " + result.error
@@ -740,8 +701,12 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult)
 
   // Run sequential tools one at a time
   for (const p of sequential) {
-    const result = runPostHooks(p.name, p.args, await executeTool(p.name, p.args, toolDefs));
-    printToolCallSafe(p.name, p.args, result);
+    const tracksFile = p.name === 'write_file' || p.name === 'edit_file';
+    const before = tracksFile ? captureFileSnapshot(p.args, { allowMissing: true }) : undefined;
+    const executed = await executeTool(p.name, p.args, toolDefs);
+    const result = runPostHooks(p.name, p.args, executed);
+    const after = tracksFile ? captureFileSnapshot(p.args) : undefined;
+    writeToolCard(p.name, p.args, result, { before, after });
     if (onToolResult) onToolResult(p.name, p.args, result);
     const out = result.error
       ? "ERROR: " + result.error
@@ -763,3 +728,8 @@ function printSummary(files, cmds, msgs, startTime) {
 }
 
 module.exports = codeV5;
+module.exports._presentation = {
+  captureFileSnapshot,
+  displayAssistantReply,
+  processToolCalls,
+};

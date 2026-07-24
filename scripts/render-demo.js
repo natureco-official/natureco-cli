@@ -18,6 +18,7 @@ if (process.env.NO_COLOR || process.env.FORCE_COLOR === '0' || mode === 'none' |
 }
 
 const { renderMarkdown, highlightCode, renderDiff } = require('../src/utils/render');
+const { renderToolCall } = require('../src/utils/tool-card');
 
 const markdown = [
   '# NatureCo render engine',
@@ -39,5 +40,10 @@ const markdown = [
 
 process.stdout.write(`${renderMarkdown(markdown)}\n\n`);
 process.stdout.write(`${highlightCode('const answer = 42; // highlighted fence', 'js')}\n\n`);
-process.stdout.write(`${renderDiff('alpha\nbeta\n', 'alpha\ngamma\n', { path: 'demo.txt' })}\n`);
-
+process.stdout.write(`${renderDiff('alpha\nbeta\n', 'alpha\ngamma\n', { path: 'demo.txt' })}\n\n`);
+process.stdout.write(`${renderToolCall(
+  'edit_file',
+  { path: 'demo.txt', old_string: 'beta', new_string: 'gamma' },
+  { success: true, replacements: 1 },
+  { before: 'alpha\nbeta\n', after: 'alpha\ngamma\n' },
+)}\n`);
