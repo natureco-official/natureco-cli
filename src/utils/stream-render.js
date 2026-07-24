@@ -1,9 +1,13 @@
 'use strict';
 
 const { renderMarkdown } = require('./render');
+const tui = require('./tui');
 
 const ERASE_LINE = '\r\x1b[2K';
 const CURSOR_UP = '\x1b[1A';
+const CURSOR_HIDE = '\x1b[?25l';
+const CURSOR_SHOW = '\x1b[?25h';
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 function outputSupportsRepaint(output, options) {
   const isTTY = options.isTTY ?? output.isTTY;
@@ -11,6 +15,183 @@ function outputSupportsRepaint(output, options) {
     options.color !== false &&
     process.env.NO_COLOR === undefined &&
     process.env.FORCE_COLOR !== '0';
+}
+
+function tokenValue(usage, names, fallback = 0) {
+  for (const name of names) {
+    if (usage?.[name] !== undefined) return Math.max(0, Math.round(Number(usage[name]) || 0));
+  }
+  return Math.max(0, Math.round(Number(fallback) || 0));
+}
+
+function formatStatusLine(status = {}, options = {}) {
+  const usage = status.usage || status;
+  const input = tokenValue(usage, ['prompt_tokens', 'input_tokens', 'input'], status.inputTokens);
+  const output = tokenValue(usage, ['completion_tokens', 'output_tokens', 'output'], status.outputTokens);
+  const elapsed = Math.max(0, Math.floor(Number(
+    status.elapsedSeconds ?? status.elapsed ?? 0
+  ) || 0));
+  const model = String(status.model || '');
+  const plain = `${model} · ${input}↑/${output}↓ · ${elapsed}s`;
+  const styled = typeof options.style === 'function' ? options.style(plain) : plain;
+  const width = options.width ?? process.stdout.columns ?? 80;
+  return tui.truncateAnsi(styled, width);
+}
+
+/**
+ * Turn-scoped terminal effects. All transient output and committed cards/text
+ * pass through this object, so a spinner tick cannot bisect another write.
+ */
+function createPresentationWriter(options = {}) {
+  const output = options.output || process.stdout;
+  const enabled = outputSupportsRepaint(output, options);
+  const scheduler = options.scheduler || {
+    setInterval: (fn, ms) => setInterval(fn, ms),
+    clearInterval: timer => clearInterval(timer),
+  };
+  const writeOutput = options.write || (value => output.write(value));
+  const now = options.now || Date.now;
+  const interval = options.interval ?? 80;
+  const frames = options.frames || SPINNER_FRAMES;
+  const startedAt = options.startedAt ?? now();
+  const status = {
+    model: options.model || '',
+    inputTokens: options.inputTokens || 0,
+    outputTokens: options.outputTokens || 0,
+    elapsedSeconds: 0,
+  };
+  const spinners = new Map();
+  let nextSpinnerId = 0;
+  let frame = 0;
+  let timer = null;
+  let transientVisible = false;
+  let cursorHidden = false;
+  let disposed = false;
+
+  function emit(value) {
+    if (value) writeOutput(String(value));
+  }
+
+  function clearTransient() {
+    if (!enabled || !transientVisible) return;
+    emit(ERASE_LINE);
+    transientVisible = false;
+  }
+
+  function currentSpinner() {
+    const values = Array.from(spinners.values());
+    return values.length ? values[values.length - 1] : null;
+  }
+
+  function renderTransient() {
+    if (!enabled || disposed) return;
+    status.elapsedSeconds = Math.max(0, Math.floor((now() - startedAt) / 1000));
+    const estimate = typeof options.getEstimate === 'function' ? options.getEstimate() : null;
+    if (estimate) {
+      if (status.usage === undefined && estimate.inputTokens !== undefined) {
+        status.inputTokens = estimate.inputTokens;
+      }
+      if (status.usage === undefined && estimate.outputTokens !== undefined) {
+        status.outputTokens = estimate.outputTokens;
+      }
+    }
+    const spinner = currentSpinner();
+    const statusText = formatStatusLine(status, {
+      width: Math.max(1, (options.width ?? output.columns ?? 80) - (spinner ? 4 : 0)),
+      style: options.statusStyle || (text => tui.C.muted(text)),
+    });
+    const spinnerText = spinner ? `${frames[frame % frames.length]} ${spinner} · ` : '';
+    const line = tui.truncateAnsi(
+      (spinner ? (options.spinnerStyle || (text => tui.C.sky(text)))(spinnerText) : '') + statusText,
+      options.width ?? output.columns ?? 80,
+    );
+    emit(ERASE_LINE + line);
+    transientVisible = true;
+    frame++;
+  }
+
+  function ensureTimer() {
+    if (!enabled || disposed || timer) return;
+    timer = scheduler.setInterval(renderTransient, interval);
+  }
+
+  function updateStatus(update = {}) {
+    if (!enabled || disposed) return;
+    if (update.usage === null) delete status.usage;
+    else if (update.usage) status.usage = { ...(status.usage || {}), ...update.usage };
+    if (update.model !== undefined) status.model = update.model;
+    if (update.inputTokens !== undefined) status.inputTokens = update.inputTokens;
+    if (update.outputTokens !== undefined) status.outputTokens = update.outputTokens;
+    if (update.elapsedSeconds !== undefined) status.elapsedSeconds = update.elapsedSeconds;
+    ensureTimer();
+    renderTransient();
+  }
+
+  function startSpinner(label) {
+    if (!enabled || disposed) return { stop() {} };
+    const id = ++nextSpinnerId;
+    spinners.set(id, String(label || ''));
+    if (!cursorHidden) {
+      emit(CURSOR_HIDE);
+      cursorHidden = true;
+    }
+    ensureTimer();
+    renderTransient();
+    let stopped = false;
+    return {
+      stop() {
+        if (stopped) return;
+        stopped = true;
+        spinners.delete(id);
+        if (spinners.size === 0 && cursorHidden) {
+          emit(CURSOR_SHOW);
+          cursorHidden = false;
+        }
+        renderTransient();
+      },
+    };
+  }
+
+  function writeCommitted(value) {
+    if (disposed) {
+      if (value) emit(value);
+      return;
+    }
+    clearTransient();
+    emit(value);
+  }
+
+  function dispose() {
+    if (disposed) return;
+    disposed = true;
+    if (timer) {
+      scheduler.clearInterval(timer);
+      timer = null;
+    }
+    spinners.clear();
+    clearTransient();
+    // Always restore the cursor on a capable terminal, even if a caller failed
+    // between hiding it and recording spinner state.
+    if (enabled) emit(CURSOR_SHOW);
+    cursorHidden = false;
+  }
+
+  if (options.status !== false && enabled) {
+    ensureTimer();
+    renderTransient();
+  }
+
+  return {
+    startSpinner,
+    stopSpinner(handle) { handle?.stop?.(); },
+    updateStatus,
+    writeCommitted,
+    clearTransient,
+    dispose,
+    get isEnabled() { return enabled; },
+    get isDisposed() { return disposed; },
+    get hasTimer() { return timer !== null; },
+  };
 }
 
 function stableMarkdownBoundary(source) {
@@ -44,6 +225,7 @@ function stableMarkdownBoundary(source) {
 
 function createStreamWriter(options = {}) {
   const output = options.output || process.stdout;
+  const presentation = options.presentation;
   const render = options.render || renderMarkdown;
   const repaint = outputSupportsRepaint(output, options);
   const renderOptions = options.renderOptions || {};
@@ -55,7 +237,9 @@ function createStreamWriter(options = {}) {
   let commitCount = 0;
 
   function write(value) {
-    if (value) output.write(value);
+    if (!value) return;
+    if (presentation) presentation.writeCommitted(value);
+    else output.write(value);
   }
 
   function clearActive() {
@@ -145,6 +329,13 @@ function createStreamWriter(options = {}) {
 }
 
 module.exports = {
+  createPresentationWriter,
   createStreamWriter,
+  formatStatusLine,
   stableMarkdownBoundary,
+  _sequences: {
+    ERASE_LINE,
+    CURSOR_HIDE,
+    CURSOR_SHOW,
+  },
 };

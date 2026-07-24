@@ -22,7 +22,7 @@ const { getLang: _gl } = require("../utils/i18n");
 const L = (tr, en) => (_gl() === "en" ? en : tr);
 const tui = require("../utils/tui");
 const { renderMarkdown } = require("../utils/render");
-const { createStreamWriter } = require("../utils/stream-render");
+const { createPresentationWriter, createStreamWriter } = require("../utils/stream-render");
 const { renderToolCall } = require("../utils/tool-card");
 const {
   streamProviderCompletion,
@@ -300,6 +300,11 @@ function writeFinishedReply(raw, options = {}) {
 
 async function streamAssistantReply(providerUrl, providerKey, model, messages, toolDefs, options = {}) {
   const writer = createStreamWriter(options);
+  options.presentation?.updateStatus({ usage: null });
+  const thinking = options.presentation?.startSpinner(
+    options.thinkingLabel || L('Düşünüyor', 'Thinking')
+  );
+  let awaitingFirstDelta = true;
   let reply;
   try {
     reply = await sendMessageWithTools(
@@ -311,12 +316,26 @@ async function streamAssistantReply(providerUrl, providerKey, model, messages, t
       {
         signal: options.signal,
         onEvent: event => {
+          if (awaitingFirstDelta &&
+              (event?.type === 'text_delta' || event?.type === 'tool_call_delta')) {
+            awaitingFirstDelta = false;
+            thinking?.stop();
+          }
+          if (event?.type === 'usage') {
+            options.presentation?.updateStatus({ usage: event.usage || event });
+          } else if (event?.type === 'text_delta') {
+            options.presentation?.updateStatus({
+              outputTokens: (options.estimatedOutputTokens || 0) +
+                Math.ceil((writer.getRaw().length + String(event.text || '').length) / 4),
+            });
+          }
           writer.event(event);
           if (typeof options.onEvent === 'function') options.onEvent(event);
         },
       },
     );
   } finally {
+    thinking?.stop();
     writer.end();
   }
   const raw = writer.getRaw();
@@ -360,6 +379,10 @@ async function runInterruptibleTurn(options) {
   let cause = null;
   let keypressHandler;
   let priorKeypressListeners = [];
+  const presentation = options.presentation || createPresentationWriter({
+    output,
+    ...(options.presentationOptions || {}),
+  });
 
   rl?.pause();
   try {
@@ -378,7 +401,7 @@ async function runInterruptibleTurn(options) {
         if (key.name !== 'escape') return;
         cause = 'escape';
         if (activeTools.size > 0) {
-          output.write('\n  ' + tui.C.yellow(
+          presentation.writeCommitted('\n  ' + tui.C.yellow(
             `⏳ ${L('iptal ediliyor — bekleniyor', 'cancelling — waiting for')} ${Array.from(activeTools).join(', ')}…`
           ) + '\n');
         }
@@ -387,18 +410,19 @@ async function runInterruptibleTurn(options) {
       input.on('keypress', keypressHandler);
     }
 
-    const value = await options.body(controller.signal, activeTools);
+    const value = await options.body(controller.signal, activeTools, presentation);
     controller.signal.throwIfAborted();
     return { value, interrupted: false, exited: false };
   } catch (error) {
     if (!isAbortError(error, controller.signal)) throw error;
     if (cause === 'sigint') return { interrupted: false, exited: true };
     if (cause === 'escape') {
-      output.write('\n  ' + tui.C.yellow(L('⏹ kesildi', '⏹ interrupted')) + '\n');
+      presentation.writeCommitted('\n  ' + tui.C.yellow(L('⏹ kesildi', '⏹ interrupted')) + '\n');
       return { interrupted: true, exited: false };
     }
     throw error;
   } finally {
+    presentation.dispose();
     if (keypressHandler) input.removeListener('keypress', keypressHandler);
     for (const listener of priorKeypressListeners) input.on('keypress', listener);
     if (tty && typeof input.setRawMode === 'function') input.setRawMode(priorRaw);
@@ -407,8 +431,10 @@ async function runInterruptibleTurn(options) {
   }
 }
 
-function writeToolCard(name, args, result, snapshots = {}) {
-  process.stdout.write('\n' + renderToolCall(name, args, result, snapshots) + '\n');
+function writeToolCard(name, args, result, snapshots = {}, presentation) {
+  const card = '\n' + renderToolCall(name, args, result, snapshots) + '\n';
+  if (presentation) presentation.writeCommitted(card);
+  else process.stdout.write(card);
 }
 
 function scanProject(cwd) {
@@ -658,11 +684,16 @@ async function codeV5(targetPath) {
       }
 
       // Workflow step — run before every request
-      process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
       const turnState = await runInterruptibleTurn({
         rl,
-        body: async (turnSignal, activeTools) => {
+        presentationOptions: {
+          model: config.providerModel,
+          inputTokens: totalIn + Math.ceil(input.length / 4),
+          outputTokens: totalOut,
+        },
+        body: async (turnSignal, activeTools, presentation) => {
       activeTools.add('workflow');
+      const workflowSpinner = presentation.startSpinner(L('İş akışı çalışıyor', 'Running workflow'));
       let wfResult;
       try {
         wfResult = await executeTool('workflow', {
@@ -675,14 +706,15 @@ async function codeV5(targetPath) {
         }, toolDefs, { signal: turnSignal });
         turnSignal.throwIfAborted();
       } finally {
+        workflowSpinner.stop();
         activeTools.delete('workflow');
       }
       const wf = wfResult?.result || {};
       if (wf.success !== false) {
         const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
-        process.stdout.write(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
+        presentation.writeCommitted(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
       } else {
-        process.stdout.write(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
+        presentation.writeCommitted(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
       }
 
       messages.push({ role: "user", content: input });
@@ -690,9 +722,10 @@ async function codeV5(targetPath) {
       if (wf.passthrough && wf.reply !== undefined && wf.reply !== null) {
         // Simple chat — workflow handled it directly
         const fullReply = String(wf.reply);
-        process.stdout.write('\n');
+        presentation.writeCommitted('\n');
+        presentation.clearTransient();
         writeFinishedReply(fullReply);
-        process.stdout.write('\n');
+        presentation.writeCommitted('\n');
         messages.push({ role: 'assistant', content: fullReply });
         totalIn += Math.ceil(input.length / 4);
         totalOut += Math.ceil(fullReply.length / 4);
@@ -717,7 +750,7 @@ async function codeV5(targetPath) {
           content: `=== ${L('WORKFLOW SONUÇLARI', 'WORKFLOW RESULTS')} ===\n${L('Şu araçlar çalıştı', 'These tools ran')}:\n${report}${skillInfo}\n\n${L('Kullanıcıya bu sonuçları anlamlı bir şekilde özetle.', 'Summarize these results for the user in a meaningful way.')}\n=== ${L('SONUÇ BİTTİ', 'END RESULT')} ===`,
         });
 
-        process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
+        presentation.writeCommitted("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
 
         // Single LLM call to summarize workflow results
         let wfReply = null;
@@ -725,7 +758,7 @@ async function codeV5(targetPath) {
           wfReply = await runTransactionalRound(messages, async signal => {
             const streamed = await streamAssistantReply(
               config.providerUrl, config.providerApiKey, config.providerModel,
-              messages, toolDefs, { signal }
+              messages, toolDefs, { signal, presentation, estimatedOutputTokens: totalOut }
             );
             const roundReply = streamed.reply;
             if (roundReply.content && !(roundReply.tool_calls && roundReply.tool_calls.length > 0)) {
@@ -736,6 +769,7 @@ async function codeV5(targetPath) {
               await processToolCallsWithTracking(roundReply, config, toolDefs, messages, {
                 signal,
                 activeTools,
+                presentation,
               });
             }
             return roundReply;
@@ -746,13 +780,13 @@ async function codeV5(targetPath) {
             messages.splice(preWfLen);
             throw e;
           }
-          console.log("\n  " + tui.C.red("❌ " + e.message));
+          presentation.writeCommitted("\n  " + tui.C.red("❌ " + e.message) + "\n");
         }
 
         totalIn += Math.ceil(((wfReply?.content || '') + report + skillInfo).length / 4) + Math.ceil(input.length / 4);
       } else {
         // Workflow failed or returned unexpected format — fallback to multi-turn LLM
-        process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
+        presentation.writeCommitted("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
         let iter = 0;
         while (iter < MAX_ITERATIONS) {
           iter++;
@@ -760,7 +794,7 @@ async function codeV5(targetPath) {
             const reply = await runTransactionalRound(messages, async signal => {
               const streamed = await streamAssistantReply(
                 config.providerUrl, config.providerApiKey, config.providerModel,
-                messages, toolDefs, { signal }
+                messages, toolDefs, { signal, presentation, estimatedOutputTokens: totalOut }
               );
               const roundReply = streamed.reply;
               if (roundReply.content && !(roundReply.tool_calls && roundReply.tool_calls.length > 0)) {
@@ -771,19 +805,20 @@ async function codeV5(targetPath) {
                 await processToolCallsWithTracking(roundReply, config, toolDefs, messages, {
                   signal,
                   activeTools,
+                  presentation,
                 });
               }
               return roundReply;
             }, { signal: turnSignal });
 
             if (reply.tool_calls && reply.tool_calls.length > 0) {
-              process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
+              presentation.writeCommitted("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
               continue;
             }
             break;
           } catch (e) {
             if (isAbortError(e, turnSignal)) throw e;
-            console.log("\n  " + tui.C.red("❌ " + e.message));
+            presentation.writeCommitted("\n  " + tui.C.red("❌ " + e.message) + "\n");
             break;
           }
         }
@@ -891,17 +926,22 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult,
   if (parallelSafe.length > 0) {
     const settled = await Promise.allSettled(parallelSafe.map(async (p) => {
       options.activeTools?.add(p.name);
+      const spinner = options.presentation?.startSpinner(
+        `${L('Çalışıyor', 'Running')} ${p.name}`
+      );
       try {
         const executed = await executeTool(p.name, p.args, toolDefs, { signal: options.signal });
         options.signal?.throwIfAborted();
         const result = runPostHooks(p.name, p.args, executed);
-        writeToolCard(p.name, p.args, result);
+        spinner?.stop();
+        writeToolCard(p.name, p.args, result, {}, options.presentation);
         if (onToolResult) onToolResult(p.name, p.args, result);
         const out = result.error
           ? "ERROR: " + result.error
           : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
         return { id: p.id, content: (out || "(empty)").slice(0, 8000) };
       } finally {
+        spinner?.stop();
         options.activeTools?.delete(p.name);
       }
     }));
@@ -918,18 +958,23 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult,
     const tracksFile = p.name === 'write_file' || p.name === 'edit_file';
     const before = tracksFile ? captureFileSnapshot(p.args, { allowMissing: true }) : undefined;
     options.activeTools?.add(p.name);
+    const spinner = options.presentation?.startSpinner(
+      `${L('Çalışıyor', 'Running')} ${p.name}`
+    );
     try {
       const executed = await executeTool(p.name, p.args, toolDefs, { signal: options.signal });
       options.signal?.throwIfAborted();
       const result = runPostHooks(p.name, p.args, executed);
       const after = tracksFile ? captureFileSnapshot(p.args) : undefined;
-      writeToolCard(p.name, p.args, result, { before, after });
+      spinner?.stop();
+      writeToolCard(p.name, p.args, result, { before, after }, options.presentation);
       if (onToolResult) onToolResult(p.name, p.args, result);
       const out = result.error
         ? "ERROR: " + result.error
         : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
       messages.push({ role: "tool", tool_call_id: p.id, content: (out || "(empty)").slice(0, 8000) });
     } finally {
+      spinner?.stop();
       options.activeTools?.delete(p.name);
     }
   }
