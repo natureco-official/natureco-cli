@@ -215,15 +215,12 @@ async function generateCommitMessage(diff, providerConfig) {
 async function streamMessage(providerConfig, messages, tools) {
   const result = await streamProviderCompletion(providerConfig, messages, tools);
   if (!result) return { text: '', toolCalls: [] };
-  if (result.type === 'text') {
-    return { text: result.content, toolCalls: [] };
-  }
-  const toolCalls = result?.message?.tool_calls?.map(tc => ({
+  const toolCalls = result.tool_calls?.map(tc => ({
     id: tc.id,
     name: tc.function.name,
     input: (() => { try { return JSON.parse(tc.function.arguments); } catch { return {}; } })(),
   })) || [];
-  return { text: result?.message?.content || '', toolCalls };
+  return { text: result.content || '', toolCalls };
 }
 
 // ── Tool execution ────────────────────────────────────────────────────────────

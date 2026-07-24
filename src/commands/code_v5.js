@@ -22,7 +22,12 @@ const { getLang: _gl } = require("../utils/i18n");
 const L = (tr, en) => (_gl() === "en" ? en : tr);
 const tui = require("../utils/tui");
 const { renderMarkdown } = require("../utils/render");
+const { createStreamWriter } = require("../utils/stream-render");
 const { renderToolCall } = require("../utils/tool-card");
+const {
+  streamProviderCompletion,
+  _internals: { buildProviderRequest },
+} = require("../utils/api");
 const { getConfig } = require("../utils/config");
 const { loadToolDefinitions, executeTool, toOpenAIFormat } = require("../utils/tools");
 const { checkPreHooks, runPostHooks, permissionSummary } = require("../utils/tool-hooks");
@@ -76,25 +81,25 @@ async function apiRequest(url, key, body) {
   });
 }
 
-async function sendMessageWithTools(providerUrl, providerKey, model, messages, toolDefs) {
-  const isMM = isMiniMax(providerUrl);
+async function sendMessageWithToolsBuffered(providerUrl, providerKey, model, messages, toolDefs) {
   const effortLevel = getEffortLevel();
   const effortCfg = getEffortConfig(effortLevel);
   const fallbackChain = getFallbackChain();
   const openaiTools = toOpenAIFormat(toolDefs);
-  const body = {
-    model: fallbackChain.current || model,
-    messages,
-    temperature: effortCfg.temperature,
-    max_tokens: effortCfg.maxTokens,
-    stream: false,
-  };
-  if (openaiTools.length > 0) {
-    body.tools = openaiTools;
-    body.tool_choice = "auto";
-  }
+  const selectedModel = fallbackChain.current || model;
   const respFmt = getResponseFormat({});
-  if (respFmt) body.response_format = respFmt;
+  const request = buildProviderRequest({
+    url: providerUrl,
+    apiKey: providerKey,
+    model: selectedModel,
+  }, messages, openaiTools, {
+    model: selectedModel,
+    temperature: effortCfg.temperature,
+    maxTokens: effortCfg.maxTokens,
+    responseFormat: respFmt,
+    stream: false,
+  });
+  const body = request.body;
   try {
     const res = await apiRequest(providerUrl, providerKey, body);
     return res.choices?.[0]?.message || {};
@@ -102,9 +107,48 @@ async function sendMessageWithTools(providerUrl, providerKey, model, messages, t
     const fb = fallbackChain.recordError(body.model, err);
     if (fb.fallback) {
       console.log(tui.C.yellow(`\n  ⚠ ${body.model} ${L('başarısız', 'failed')} → ${fb.nextModel} ${L('deneniyor...', 'trying...')}\n`));
-      return sendMessageWithTools(providerUrl, providerKey, fb.nextModel, messages, toolDefs);
+      return sendMessageWithToolsBuffered(providerUrl, providerKey, fb.nextModel, messages, toolDefs);
     }
     throw err;
+  }
+}
+
+async function sendMessageWithTools(providerUrl, providerKey, model, messages, toolDefs, options = {}) {
+  const effortLevel = getEffortLevel();
+  const effortCfg = getEffortConfig(effortLevel);
+  const fallbackChain = getFallbackChain();
+  const selectedModel = fallbackChain.current || model;
+  const tools = toOpenAIFormat(toolDefs);
+  const responseFormat = getResponseFormat({});
+  const providerConfig = {
+    url: providerUrl,
+    apiKey: providerKey,
+    model: selectedModel,
+  };
+
+  try {
+    return await streamProviderCompletion(providerConfig, messages, tools, {
+      signal: options.signal,
+      onEvent: options.onEvent,
+      model: selectedModel,
+      temperature: effortCfg.temperature,
+      maxTokens: effortCfg.maxTokens,
+      responseFormat,
+    });
+  } catch (error) {
+    const fallback = fallbackChain.recordError(selectedModel, error);
+    if (fallback.fallback) {
+      console.log(tui.C.yellow(`\n  ⚠ ${selectedModel} ${L('başarısız', 'failed')} → ${fallback.nextModel} ${L('deneniyor...', 'trying...')}\n`));
+      return sendMessageWithTools(
+        providerUrl,
+        providerKey,
+        fallback.nextModel,
+        messages,
+        toolDefs,
+        options,
+      );
+    }
+    throw error;
   }
 }
 
@@ -234,6 +278,39 @@ function captureFileSnapshot(args, { allowMissing = false } = {}) {
 
 function displayAssistantReply(raw, opts = {}) {
   return renderMarkdown(raw, opts);
+}
+
+function writeFinishedReply(raw, options = {}) {
+  const writer = createStreamWriter(options);
+  writer.push(String(raw));
+  writer.end();
+  return writer.getRaw();
+}
+
+async function streamAssistantReply(providerUrl, providerKey, model, messages, toolDefs, options = {}) {
+  const writer = createStreamWriter(options);
+  let reply;
+  try {
+    reply = await sendMessageWithTools(
+      providerUrl,
+      providerKey,
+      model,
+      messages,
+      toolDefs,
+      {
+        signal: options.signal,
+        onEvent: event => {
+          writer.event(event);
+          if (typeof options.onEvent === 'function') options.onEvent(event);
+        },
+      },
+    );
+  } finally {
+    writer.end();
+  }
+  const raw = writer.getRaw();
+  if (reply && reply.content !== null && reply.content !== undefined) reply.content = raw;
+  return { reply, raw };
 }
 
 function writeToolCard(name, args, result, snapshots = {}) {
@@ -509,7 +586,9 @@ async function codeV5(targetPath) {
       if (wf.passthrough && wf.reply !== undefined && wf.reply !== null) {
         // Simple chat — workflow handled it directly
         const fullReply = String(wf.reply);
-        process.stdout.write('\n' + displayAssistantReply(fullReply) + '\n');
+        process.stdout.write('\n');
+        writeFinishedReply(fullReply);
+        process.stdout.write('\n');
         messages.push({ role: 'assistant', content: fullReply });
         totalIn += Math.ceil(input.length / 4);
         totalOut += Math.ceil(fullReply.length / 4);
@@ -539,17 +618,17 @@ async function codeV5(targetPath) {
         // Single LLM call to summarize workflow results
         let wfReply = null;
         try {
-          wfReply = await sendMessageWithTools(
+          const streamed = await streamAssistantReply(
             config.providerUrl, config.providerApiKey, config.providerModel,
             messages, toolDefs
           );
+          wfReply = streamed.reply;
           // Remove workflow results after call
           messages.splice(preWfLen, 1);
-          if (wfReply.content) {
-            process.stdout.write(displayAssistantReply(wfReply.content));
+          if (wfReply.content && !(wfReply.tool_calls && wfReply.tool_calls.length > 0)) {
             messages.push({ role: "assistant", content: wfReply.content });
-            totalOut += Math.ceil(wfReply.content.length / 4);
           }
+          if (wfReply.content) totalOut += Math.ceil(wfReply.content.length / 4);
           // Handle any tool calls from the summary (rare but possible)
           if (wfReply.tool_calls && wfReply.tool_calls.length > 0) {
             await processToolCallsWithTracking(wfReply, config, toolDefs, messages);
@@ -566,15 +645,15 @@ async function codeV5(targetPath) {
         while (iter < MAX_ITERATIONS) {
           iter++;
           try {
-            const reply = await sendMessageWithTools(
+            const streamed = await streamAssistantReply(
               config.providerUrl, config.providerApiKey, config.providerModel,
               messages, toolDefs
             );
-            if (reply.content) {
-              process.stdout.write(displayAssistantReply(reply.content));
+            const reply = streamed.reply;
+            if (reply.content && !(reply.tool_calls && reply.tool_calls.length > 0)) {
               messages.push({ role: "assistant", content: reply.content });
-              totalOut += Math.ceil(reply.content.length / 4);
             }
+            if (reply.content) totalOut += Math.ceil(reply.content.length / 4);
 
             if (reply.tool_calls && reply.tool_calls.length > 0) {
               await processToolCallsWithTracking(reply, config, toolDefs, messages);
@@ -731,5 +810,7 @@ module.exports = codeV5;
 module.exports._presentation = {
   captureFileSnapshot,
   displayAssistantReply,
+  writeFinishedReply,
+  streamAssistantReply,
   processToolCalls,
 };

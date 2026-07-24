@@ -43,8 +43,8 @@ afterEach(() => {
 describe('Rock C code_v5 rendering integration', () => {
   it('(g) renders all three assistant reply branches while preserving byte-identical raw history', () => {
     const source = fs.readFileSync(path.resolve('src/commands/code_v5.js'), 'utf8');
-    const displaySites = source.match(/process\.stdout\.write\([^;\n]*displayAssistantReply\(/g) || [];
-    expect(displaySites).toHaveLength(3);
+    expect(source.match(/writeFinishedReply\(fullReply\)/g) || []).toHaveLength(1);
+    expect(source.match(/await streamAssistantReply\(/g) || []).toHaveLength(2);
 
     for (const branch of ['workflow-passthrough', 'workflow-summary', 'normal-agent']) {
       const raw = `# ${branch}\n\n**bold** \`code\`\nraw-byte:\u00a0end`;

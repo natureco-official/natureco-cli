@@ -9,7 +9,7 @@ const { getConfig } = require('./config');
 const { getToolDefinitions, executeToolCalls } = require('./tool-runner');
 const { MCPClient } = require('./mcp-client');
 const TB = require('./token-budget');
-const { accumulateToolCallDeltas } = require('./streaming-tools');
+const { accumulateToolCallDeltas, finalizeToolCalls } = require('./streaming-tools');
 const { AgentCore } = require('./agent-core');
 
 /**
@@ -101,18 +101,70 @@ function extractSystemForAnthropic(messages) {
  * - OpenAI: messages[].role=system
  * - Anthropic: ayrı 'system' field
  */
-function buildRequestBody(messages, model, options, provider) {
+function toAnthropicMessages(messages) {
+  const converted = [];
+  for (const message of messages.filter(item => item.role !== 'system')) {
+    if (message.role === 'assistant') {
+      const content = [];
+      if (typeof message.content === 'string' && message.content.length > 0) {
+        content.push({ type: 'text', text: message.content });
+      } else if (Array.isArray(message.content)) {
+        content.push(...message.content);
+      }
+      for (const call of message.tool_calls || []) {
+        let input = {};
+        try { input = JSON.parse(call.function?.arguments || '{}'); } catch {}
+        content.push({
+          type: 'tool_use',
+          id: call.id,
+          name: call.function?.name,
+          input,
+        });
+      }
+      converted.push({ role: 'assistant', content: content.length > 0 ? content : '' });
+      continue;
+    }
+    if (message.role === 'tool') {
+      converted.push({
+        role: 'user',
+        content: [{
+          type: 'tool_result',
+          tool_use_id: message.tool_call_id,
+          content: typeof message.content === 'string'
+            ? message.content
+            : JSON.stringify(message.content ?? ''),
+        }],
+      });
+      continue;
+    }
+    converted.push({ role: message.role, content: message.content });
+  }
+  const merged = [];
+  const blocks = content => Array.isArray(content)
+    ? content
+    : [{ type: 'text', text: String(content ?? '') }];
+  for (const message of converted) {
+    const previous = merged[merged.length - 1];
+    if (previous && previous.role === message.role) {
+      previous.content = [...blocks(previous.content), ...blocks(message.content)];
+    } else {
+      merged.push(message);
+    }
+  }
+  return merged;
+}
+
+function buildRequestBody(messages, model, options = {}, provider) {
+  const maxTokens = options.max_tokens ?? options.maxTokens ??
+    (provider === 'anthropic' ? 2000 : 2048);
+  const temperature = options.temperature ?? 0.7;
   if (provider === 'anthropic') {
-    const userMsgs = messages.filter(m => m.role !== 'system');
     return {
       model,
-      messages: userMsgs.map(m => ({
-        role: m.role,
-        content: m.content
-      })),
+      messages: toAnthropicMessages(messages),
       system: extractSystemForAnthropic(messages),
-      max_tokens: options.max_tokens || 4096,
-      temperature: options.temperature || 0.7,
+      max_tokens: maxTokens,
+      temperature,
       ...(options.tools && options.tools.length > 0 ? { tools: options.tools } : {})
     };
   }
@@ -120,9 +172,51 @@ function buildRequestBody(messages, model, options, provider) {
   return {
     model,
     messages,
-    max_tokens: options.max_tokens || 4096,
-    temperature: options.temperature || 0.7,
+    max_tokens: maxTokens,
+    temperature,
     ...(options.tools && options.tools.length > 0 ? { tools: options.tools, tool_choice: 'auto' } : {})
+  };
+}
+
+function buildProviderRequest(providerConfig, messages, tools, options = {}) {
+  const anthropic = providerConfig.isAnthropic ||
+    detectProvider(providerConfig.url, providerConfig.model) === 'anthropic';
+  const provider = anthropic ? 'anthropic' : 'openai';
+  let usableTools = !anthropic && providerConfig.url.includes('api.natureco.me')
+    ? []
+    : (tools || []);
+  if (anthropic) {
+    usableTools = usableTools.map(tool => tool.function ? {
+      name: tool.function.name,
+      description: tool.function.description,
+      input_schema: tool.function.parameters || { type: 'object', properties: {} },
+    } : tool);
+  }
+  const body = buildRequestBody(messages, options.model || providerConfig.model, {
+    temperature: options.temperature,
+    maxTokens: options.maxTokens,
+    tools: usableTools,
+  }, provider);
+  if (anthropic && options.temperature === undefined) delete body.temperature;
+  if (options.responseFormat && !anthropic) body.response_format = options.responseFormat;
+  if (options.stream !== undefined) body.stream = Boolean(options.stream);
+
+  return {
+    provider,
+    endpoint: anthropic
+      ? `${providerConfig.url.replace(/\/+$/, '')}/v1/messages`
+      : buildChatEndpoint(providerConfig.url),
+    headers: anthropic
+      ? {
+          'x-api-key': providerConfig.apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        }
+      : {
+          'Authorization': `Bearer ${providerConfig.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+    body,
   };
 }
 
@@ -546,15 +640,13 @@ function formatToolsForAnthropic() {
  * Send message to OpenAI-compatible provider (Groq, OpenAI, Together, etc.)
  */
 async function sendMessageOpenAICompatible(providerConfig, messages, tools) {
-  const baseUrl = providerConfig.url.replace(/\/+$/, '');
+  const request = buildProviderRequest(providerConfig, messages, tools, {
+    stream: false,
+    maxTokens: 2048,
+  });
   // Tek doğruluk kaynağı: provider-detect.buildChatEndpoint (MiniMax /v1 toleransı dahil)
-  const endpoint = buildChatEndpoint(baseUrl);
-  const requestBody = {
-    model: providerConfig.model,
-    messages: messages,
-    temperature: 0.7,
-    max_tokens: 2048,
-  };
+  const endpoint = request.endpoint;
+  const requestBody = request.body;
 
   // NatureCo için tool calling desteklenmiyor
   if (!providerConfig.url.includes('api.natureco.me')) {
@@ -566,10 +658,7 @@ async function sendMessageOpenAICompatible(providerConfig, messages, tools) {
   
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${providerConfig.apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: request.headers,
     body: JSON.stringify(requestBody),
   });
 
@@ -615,25 +704,16 @@ function recordUsageSafe(providerConfig, usage) {
  * Send message to Anthropic API
  */
 async function sendMessageAnthropic(providerConfig, messages, tools) {
-  const endpoint = `${providerConfig.url}/v1/messages`;
-
-  // Anthropic requires system message separate; never send empty string.
-  const userMessages = messages.filter(m => m.role !== 'system');
+  const request = buildProviderRequest(providerConfig, messages, tools, {
+    stream: false,
+    maxTokens: 2000,
+  });
+  const endpoint = request.endpoint;
 
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'x-api-key': providerConfig.apiKey,
-      'anthropic-version': '2023-06-01',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: providerConfig.model,
-      max_tokens: 2000,
-      system: extractSystemForAnthropic(messages),
-      messages: userMessages,
-      tools: tools,
-    }),
+    headers: request.headers,
+    body: JSON.stringify(request.body),
   });
 
   if (!response.ok) {
@@ -735,13 +815,7 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
     let assistantMessage;
 
     if (stream) {
-      const result = await streamProviderCompletion(providerConfig, messages, tools);
-      if (result.type === 'text') {
-        messages.push({ role: 'assistant', content: result.content });
-        finalResponse = result.content;
-        break;
-      }
-      assistantMessage = result.message;
+      assistantMessage = await streamProviderCompletion(providerConfig, messages, tools);
     } else {
       assistantMessage = providerConfig.isAnthropic
         ? await sendMessageAnthropic(providerConfig, messages, tools)
@@ -1034,14 +1108,14 @@ async function getBots(apiKey) {
 
 // ── Streaming Support ────────────────────────────────────────────────────────────
 
-async function streamProviderCompletion(providerConfig, messages, tools) {
+async function legacyStreamProviderCompletion(providerConfig, messages, tools) {
   if (providerConfig.isAnthropic) {
     return streamAnthropicCompletion(providerConfig, messages);
   }
   return streamOpenAICompletion(providerConfig, messages, tools);
 }
 
-async function streamOpenAICompletion(providerConfig, messages, tools) {
+async function legacyStreamOpenAICompletion(providerConfig, messages, tools) {
   const baseUrl = providerConfig.url.replace(/\/+$/, '');
   // Tek doğruluk kaynağı: provider-detect.buildChatEndpoint (MiniMax /v1 toleransı dahil)
   const endpoint = buildChatEndpoint(baseUrl);
@@ -1106,7 +1180,7 @@ async function streamOpenAICompletion(providerConfig, messages, tools) {
 
         const token = delta.content || '';
         if (token) {
-          if (!hasToolCalls) process.stdout.write(token);
+          // Legacy implementation retained only for compatibility reference.
           fullText += token;
         }
       } catch {}
@@ -1116,7 +1190,6 @@ async function streamOpenAICompletion(providerConfig, messages, tools) {
   recordUsageSafe(providerConfig, streamUsage);
 
       if (hasToolCalls) {
-    process.stdout.write('\n');
     return {
       type: 'tool_calls',
       message: {
@@ -1133,11 +1206,10 @@ async function streamOpenAICompletion(providerConfig, messages, tools) {
     };
   }
 
-  process.stdout.write('\n');
   return { type: 'text', content: fullText };
 }
 
-async function streamAnthropicCompletion(providerConfig, messages) {
+async function legacyStreamAnthropicCompletion(providerConfig, messages) {
   const endpoint = `${providerConfig.url}/v1/messages`;
 
   const userMessages = messages.filter(m => m.role !== 'system');
@@ -1180,15 +1252,181 @@ async function streamAnthropicCompletion(providerConfig, messages) {
         const parsed = JSON.parse(data);
         const token = parsed.delta?.text || '';
         if (token) {
-          process.stdout.write(token);
           fullText += token;
         }
       } catch {}
     }
   }
 
-  process.stdout.write('\n');
   return { type: 'text', content: fullText };
+}
+
+function emitStreamEvent(onEvent, event) {
+  if (typeof onEvent === 'function') onEvent(event);
+}
+
+async function consumeSse(response, onData) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+    const lines = buffer.split(/\r?\n/);
+    buffer = done ? '' : (lines.pop() || '');
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      try { onData(JSON.parse(data)); } catch {}
+    }
+    if (done) break;
+  }
+
+  if (buffer.startsWith('data:')) {
+    const data = buffer.slice(5).trim();
+    if (data && data !== '[DONE]') {
+      try { onData(JSON.parse(data)); } catch {}
+    }
+  }
+}
+
+async function streamProviderCompletion(providerConfig, messages, tools, options = {}) {
+  if (providerConfig.isAnthropic ||
+      detectProvider(providerConfig.url, providerConfig.model) === 'anthropic') {
+    return streamAnthropicCompletion(providerConfig, messages, tools, options);
+  }
+  return streamOpenAICompletion(providerConfig, messages, tools, options);
+}
+
+async function streamOpenAICompletion(providerConfig, messages, tools, options = {}) {
+  const request = buildProviderRequest(providerConfig, messages, tools, {
+    stream: true,
+    temperature: options.temperature,
+    maxTokens: options.maxTokens ?? 2048,
+    responseFormat: options.responseFormat,
+    model: options.model,
+  });
+  const response = await fetch(request.endpoint, {
+    method: 'POST',
+    headers: request.headers,
+    body: JSON.stringify(request.body),
+    signal: options.signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Provider API error: ${response.status} - ${await response.text()}`);
+  }
+
+  let content = '';
+  let usage;
+  const toolCallBuffer = [];
+  await consumeSse(response, parsed => {
+    if (parsed.usage) {
+      usage = parsed.usage;
+      emitStreamEvent(options.onEvent, { type: 'usage', usage, ...usage });
+    }
+    const delta = parsed.choices?.[0]?.delta;
+    if (!delta) return;
+    if (Array.isArray(delta.tool_calls)) {
+      accumulateToolCallDeltas(toolCallBuffer, delta.tool_calls);
+      for (const item of delta.tool_calls) {
+        emitStreamEvent(options.onEvent, { ...item, type: 'tool_call_delta' });
+      }
+    }
+    if (typeof delta.content === 'string' && delta.content) {
+      content += delta.content;
+      emitStreamEvent(options.onEvent, { type: 'text_delta', text: delta.content });
+    }
+  });
+
+  recordUsageSafe(providerConfig, usage);
+  emitStreamEvent(options.onEvent, { type: 'done' });
+  const toolCalls = finalizeToolCalls(toolCallBuffer);
+  return {
+    role: 'assistant',
+    content: content || (toolCalls.length > 0 ? null : ''),
+    ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+    ...(usage ? { usage } : {}),
+  };
+}
+
+async function streamAnthropicCompletion(providerConfig, messages, tools, options = {}) {
+  const request = buildProviderRequest(providerConfig, messages, tools, {
+    stream: true,
+    temperature: options.temperature,
+    maxTokens: options.maxTokens ?? 2000,
+    model: options.model,
+  });
+  const response = await fetch(request.endpoint, {
+    method: 'POST',
+    headers: request.headers,
+    body: JSON.stringify(request.body),
+    signal: options.signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Anthropic API error: ${response.status} - ${await response.text()}`);
+  }
+
+  let content = '';
+  let usage;
+  const toolBlocks = new Map();
+  await consumeSse(response, parsed => {
+    if (parsed.type === 'message_start' && parsed.message?.usage) {
+      usage = { ...(usage || {}), ...parsed.message.usage };
+      emitStreamEvent(options.onEvent, { type: 'usage', usage, ...usage });
+    }
+    if (parsed.type === 'message_delta' && parsed.usage) {
+      usage = { ...(usage || {}), ...parsed.usage };
+      emitStreamEvent(options.onEvent, { type: 'usage', usage, ...usage });
+    }
+    if (parsed.type === 'content_block_start' && parsed.content_block?.type === 'tool_use') {
+      const initialInput = parsed.content_block.input;
+      toolBlocks.set(parsed.index, {
+        id: parsed.content_block.id,
+        type: 'function',
+        function: {
+          name: parsed.content_block.name,
+          arguments: initialInput && Object.keys(initialInput).length > 0
+            ? JSON.stringify(initialInput)
+            : '',
+        },
+      });
+      emitStreamEvent(options.onEvent, {
+        type: 'tool_call_delta',
+        index: parsed.index,
+        id: parsed.content_block.id,
+        function: { name: parsed.content_block.name, arguments: '' },
+      });
+    }
+    if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'input_json_delta') {
+      const partial = parsed.delta.partial_json || '';
+      const block = toolBlocks.get(parsed.index);
+      if (block) block.function.arguments += partial;
+      emitStreamEvent(options.onEvent, {
+        type: 'tool_call_delta',
+        index: parsed.index,
+        function: { arguments: partial },
+      });
+    }
+    if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+      const text = parsed.delta.text || '';
+      if (text) {
+        content += text;
+        emitStreamEvent(options.onEvent, { type: 'text_delta', text });
+      }
+    }
+  });
+
+  recordUsageSafe(providerConfig, usage);
+  emitStreamEvent(options.onEvent, { type: 'done' });
+  const toolCalls = Array.from(toolBlocks.values());
+  return {
+    role: 'assistant',
+    content: content || (toolCalls.length > 0 ? null : ''),
+    ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+    ...(usage ? { usage } : {}),
+  };
 }
 
 module.exports = {
@@ -1201,6 +1439,7 @@ module.exports = {
   startMcpServers,
   stopMcpServers,
   getMcpTools,
+  sendMessageOpenAICompatible,
   streamProviderCompletion,
   streamOpenAICompletion,
   streamAnthropicCompletion,
@@ -1210,6 +1449,8 @@ module.exports = {
     extractSystemForAnthropic,
     DEFAULT_ANTHROPIC_SYSTEM,
     buildRequestBody,
+    buildProviderRequest,
+    toAnthropicMessages,
   },
   _sendMessage: sendMessage,
 };
