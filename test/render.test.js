@@ -78,6 +78,28 @@ describe('Rock A terminal render engine', () => {
     expect(output.endsWith('\x1b[')).toBe(false);
   });
 
+  it('keeps full headers by default, supports compact hunks, and expands tabs', () => {
+    const full = withoutAnsi(renderDiff('a\n\told\n', 'a\n\tnew\n', { path: 'sample.txt' }));
+    const compact = withoutAnsi(renderDiff('a\n\told\n', 'a\n\tnew\n', {
+      path: 'sample.txt',
+      compact: true,
+    }));
+
+    expect(full).toContain('Index: sample.txt');
+    expect(full).toContain('===================================================================');
+    expect(full).toContain('--- sample.txt');
+    expect(full).toContain('+++ sample.txt');
+    expect(full).not.toContain('\t');
+    expect(compact).toContain('@@');
+    expect(compact).toContain('-   old');
+    expect(compact).toContain('+   new');
+    expect(compact).not.toContain('Index:');
+    expect(compact).not.toContain('===================================================================');
+    expect(compact).not.toContain('--- ');
+    expect(compact).not.toContain('+++ ');
+    expect(compact).not.toContain('\t');
+  });
+
   it('(d) emits zero ANSI when NO_COLOR is set', () => {
     process.env.NO_COLOR = '1';
     expect(renderMarkdown('# Heading **bold** `code`')).not.toMatch(/\x1b\[/);
@@ -123,4 +145,3 @@ describe('Rock A terminal render engine', () => {
     expect(plain).not.toContain('\x1b');
   });
 });
-

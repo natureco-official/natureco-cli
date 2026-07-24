@@ -474,6 +474,26 @@ function highlightCode(code, lang, opts = {}) {
   });
 }
 
+function expandTabs(value, tabWidth = 4) {
+  let column = 0;
+  let output = '';
+
+  for (const grapheme of segmentGraphemes(String(value))) {
+    if (grapheme === '\n') {
+      output += grapheme;
+      column = 0;
+    } else if (grapheme === '\t') {
+      const spaces = tabWidth - (column % tabWidth);
+      output += ' '.repeat(spaces);
+      column += spaces;
+    } else {
+      output += grapheme;
+      column += stringWidth(grapheme);
+    }
+  }
+  return output;
+}
+
 function renderDiff(oldStr, newStr, opts = {}) {
   return withoutTerminalColor(opts, () => {
     const oldText = inputText(oldStr, opts);
@@ -488,7 +508,13 @@ function renderDiff(oldStr, newStr, opts = {}) {
       patch = `--- ${path}\n+++ ${path}\n`;
     }
 
-    const rendered = patch.split('\n').map(line => {
+    let patchLines = expandTabs(patch).split('\n');
+    if (opts.compact === true) {
+      const firstHunk = patchLines.findIndex(line => line.startsWith('@@'));
+      patchLines = firstHunk === -1 ? [] : patchLines.slice(firstHunk);
+    }
+
+    const rendered = patchLines.map(line => {
       if (line.startsWith('@@')) return styled(line, { color: paletteColor('secondary') });
       if (line.startsWith('+++') || line.startsWith('---')) return C.bold(line);
       if (line.startsWith('+')) return styled(line, { color: paletteColor('success') });

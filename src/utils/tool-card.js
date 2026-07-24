@@ -215,7 +215,12 @@ function bodyLines(name, args, model, opts, innerWidth) {
       const diff = renderDiff(
         redactText(before.content, opts),
         redactText(after.content, opts),
-        { path: cleanPath, maxColumns: innerWidth, maxBytes: opts.maxDiffBytes || 64 * 1024 },
+        {
+          path: cleanPath,
+          compact: true,
+          maxColumns: innerWidth,
+          maxBytes: opts.maxDiffBytes || 64 * 1024,
+        },
       );
       lines.push(...diff.split('\n'));
     } else {

@@ -81,9 +81,35 @@ describe('Rock C unified tool-card renderer', () => {
 
     expect(stripped).toContain('@@');
     expect(content).toEqual(['-b', '+c']);
+    expect(stripped).not.toContain('Index:');
+    expect(stripped).not.toContain('--- ');
+    expect(stripped).not.toContain('+++ ');
     expect(output).toContain(`${tui.fg(tui.PALETTE.danger)}-b\x1b[0m`);
     expect(output).toContain(`${tui.fg(tui.PALETTE.success)}+c\x1b[0m`);
     expect(output.endsWith('\x1b[')).toBe(false);
+  });
+
+  it('expands tabs in changed lines without exceeding the card width', () => {
+    const width = 36;
+    const output = renderToolCall(
+      'write_file',
+      { path: 'tabs.txt' },
+      { success: true },
+      {
+        before: 'prefix\n\told value that wraps near the edge\n',
+        after: 'prefix\n\tnew value that wraps near the edge\n',
+        width,
+        maxLines: 30,
+        lang: 'en',
+        color: false,
+      },
+    );
+
+    expect(output).toContain('@@');
+    expect(output).toContain('-   old value');
+    expect(output).toContain('+   new value');
+    expect(output).not.toContain('\t');
+    expect(output.split('\n').every(line => tui.stringWidth(line) <= width)).toBe(true);
   });
 
   it('(d) caps long output with a localized +N footer and terminal-width lines', () => {
