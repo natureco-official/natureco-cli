@@ -200,6 +200,11 @@ Continue? (Y/n)
 | `natureco models` | Manage provider models |
 | `natureco ultrareview <file>` | Deep code review |
 
+`natureco code` uses its chat-style input box in VT-capable terminals (Windows Terminal,
+Cupertino Terminal, and VS Code included). Set `NATURECO_PLAIN_INPUT=1` to use the
+classic readline prompt on older or incompatible terminals. `NO_COLOR` keeps the box
+but removes its colors.
+
 **REPL slash commands:**
 ```
 /clear      Clear screen

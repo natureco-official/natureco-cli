@@ -21,6 +21,11 @@ const chalk = require("chalk");
 const { getLang: _gl } = require("../utils/i18n");
 const L = (tr, en) => (_gl() === "en" ? en : tr);
 const tui = require("../utils/tui");
+const {
+  canUseInputBox,
+  promptInput,
+  getKeypressTransport,
+} = require("../utils/input-box");
 const { renderMarkdown } = require("../utils/render");
 const { createPresentationWriter, createStreamWriter } = require("../utils/stream-render");
 const { renderToolCall } = require("../utils/tool-card");
@@ -61,6 +66,45 @@ function isAbortError(error, signal) {
 
 function isMiniMax(url) {
   return url && (url.includes("minimax.io") || url.includes("minimaxi.com"));
+}
+
+function createCodeInputSession({
+  stdin = process.stdin,
+  stdout = process.stdout,
+  env = process.env,
+  readlineModule = readline,
+  prompt = promptInput,
+} = {}) {
+  const boxed = canUseInputBox({ stdin, stdout, env });
+  const history = [];
+  const transport = boxed ? getKeypressTransport(stdin) : null;
+  const rl = boxed ? null : readlineModule.createInterface({ input: stdin, output: stdout });
+  let closed = false;
+
+  return {
+    boxed,
+    rl,
+    async read() {
+      if (!boxed) {
+        return new Promise(resolve => rl.question("", resolve));
+      }
+      const value = await prompt({
+        stdin,
+        stdout,
+        env,
+        history,
+        placeholder: L('Bir mesaj yazın…', 'Type a message…'),
+      });
+      stdout.write("  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }) + value + "\n");
+      return value;
+    },
+    close() {
+      if (closed) return;
+      closed = true;
+      rl?.close();
+      transport?.dispose();
+    },
+  };
 }
 
 async function apiRequest(url, key, body) {
@@ -377,8 +421,7 @@ async function runInterruptibleTurn(options) {
   const tty = Boolean(input.isTTY);
   const priorRaw = Boolean(input.isRaw);
   let cause = null;
-  let keypressHandler;
-  let priorKeypressListeners = [];
+  let releaseKeypress;
   const presentation = options.presentation || createPresentationWriter({
     output,
     ...(options.presentationOptions || {}),
@@ -387,11 +430,8 @@ async function runInterruptibleTurn(options) {
   rl?.pause();
   try {
     if (tty) {
-      readline.emitKeypressEvents(input);
-      priorKeypressListeners = input.listeners('keypress');
-      input.removeAllListeners('keypress');
       if (typeof input.setRawMode === 'function') input.setRawMode(true);
-      keypressHandler = (_text, key = {}) => {
+      const keypressHandler = (_text, key = {}) => {
         if (controller.signal.aborted) return;
         if (key.ctrl && key.name === 'c') {
           cause = 'sigint';
@@ -407,7 +447,7 @@ async function runInterruptibleTurn(options) {
         }
         controller.abort(createAbortError('Interrupted'));
       };
-      input.on('keypress', keypressHandler);
+      releaseKeypress = getKeypressTransport(input).acquire(keypressHandler);
     }
 
     const value = await options.body(controller.signal, activeTools, presentation);
@@ -423,11 +463,13 @@ async function runInterruptibleTurn(options) {
     throw error;
   } finally {
     presentation.dispose();
-    if (keypressHandler) input.removeListener('keypress', keypressHandler);
-    for (const listener of priorKeypressListeners) input.on('keypress', listener);
+    releaseKeypress?.();
     if (tty && typeof input.setRawMode === 'function') input.setRawMode(priorRaw);
     if (cause === 'sigint') rl?.close();
-    else rl?.resume();
+    else {
+      rl?.resume();
+      if (rl) input.resume?.();
+    }
   }
 }
 
@@ -644,21 +686,32 @@ async function codeV5(targetPath) {
   const startTime = Date.now();
 
   // Input loop
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  process.stdout.write("\n  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
+  const inputSession = createCodeInputSession();
+  const { rl } = inputSession;
+  const writePlainPrompt = (prefix = '') => {
+    if (!inputSession.boxed) {
+      process.stdout.write(prefix + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
+    }
+  };
+  writePlainPrompt("\n  ");
 
-  const ask = () => {
-    rl.question("", async (input) => {
+  const ask = async () => {
+    let input;
+    try {
+      input = await inputSession.read();
+    } catch (error) {
+      if (error?.code === 'SIGINT') return;
+      throw error;
+    }
       input = input.trim();
-      if (!input) { process.stdout.write("  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true })); return ask(); }
+      if (!input) { writePlainPrompt("  "); return ask(); }
       if (input === "/summary") {
         printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
-        process.stdout.write("\n  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
+        writePlainPrompt("\n  ");
         return ask();
       }
       if (input === "/done" || input === "exit" || input === "quit") {
         printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
-        rl.close();
         return;
       }
       if (input.startsWith("/plan ")) {
@@ -679,7 +732,7 @@ async function codeV5(targetPath) {
         } else {
           console.log(tui.C.yellow(L('  Kullanım: /plan on|approve|reject|show', '  Usage: /plan on|approve|reject|show')));
         }
-        process.stdout.write("\n  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
+        writePlainPrompt("\n  ");
         return ask();
       }
 
@@ -829,11 +882,14 @@ async function codeV5(targetPath) {
       });
       if (turnState.exited) return;
 
-      process.stdout.write("\n\n  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
-      ask();
-    });
+      writePlainPrompt("\n\n  ");
+      return ask();
   };
-  ask();
+  try {
+    await ask();
+  } finally {
+    inputSession.close();
+  }
 }
 
 const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
@@ -1002,4 +1058,5 @@ module.exports._presentation = {
   runTransactionalRound,
   runInterruptibleTurn,
   isAbortError,
+  createCodeInputSession,
 };
