@@ -9,6 +9,7 @@ async function executeThroughGateway(options) {
   const {
     toolName, args = {}, resolveTool, checkAvailability, policyChecks = [],
     execute, postProcess, allowSensitivePaths = false, standardResult = false,
+    signal,
     normalizeSuccess = result => ({ result }),
     normalizeError = error => ({ error }),
   } = options || {};
@@ -26,6 +27,7 @@ async function executeThroughGateway(options) {
   if (typeof executor !== 'function') return normalizeError(`Tool execute fonksiyonu yok: ${toolName}`);
 
   try {
+    signal?.throwIfAborted();
     const schema = tool.inputSchema || tool.parameters || tool.schema?.parameters;
     const validation = validateJsonSchema(schema, args);
     if (!validation.valid) return normalizeError(`Geçersiz araç argümanları: ${validation.errors.join('; ')}`);
@@ -44,11 +46,13 @@ async function executeThroughGateway(options) {
       if (decision === false) return normalizeError('Araç çalıştırma politikası engelledi');
       if (decision?.allowed === false) return normalizeError(decision.reason || 'Araç çalıştırma politikası engelledi');
     }
-    let result = await executor.call(tool, args);
+    let result = await executor.call(tool, args, { signal });
+    signal?.throwIfAborted();
     if (postProcess) result = await postProcess({ toolName, args, tool, result });
     if (standardResult) return standardToolResult(result, { tool: toolName });
     return normalizeSuccess(result);
   } catch (error) {
+    if (signal && (signal.aborted || error?.name === 'AbortError')) throw error;
     return normalizeError(error?.message || String(error));
   }
 }

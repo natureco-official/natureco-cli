@@ -287,10 +287,11 @@ function toOpenAIFormat(toolDefs) {
     });
 }
 
-async function executeTool(toolName, args, toolDefs) {
+async function executeTool(toolName, args, toolDefs, options = {}) {
   return executeThroughGateway({
     toolName,
     args: args || {},
+    signal: options.signal,
     resolveTool: name => (toolDefs || []).find(tool => tool.name === name),
     checkAvailability: ({ tool }) => !tool.checkFn || _cachedCheckFn(tool.checkFn, tool.name)
       ? true

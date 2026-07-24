@@ -1265,30 +1265,43 @@ function emitStreamEvent(onEvent, event) {
   if (typeof onEvent === 'function') onEvent(event);
 }
 
-async function consumeSse(response, onData) {
+async function consumeSse(response, onData, signal) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  const cancelReader = () => {
+    try {
+      const cancelled = reader.cancel(signal?.reason);
+      if (cancelled && typeof cancelled.catch === 'function') cancelled.catch(() => {});
+    } catch {}
+  };
+  if (signal) signal.addEventListener('abort', cancelReader, { once: true });
 
-  while (true) {
-    const { done, value } = await reader.read();
-    buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
-    const lines = buffer.split(/\r?\n/);
-    buffer = done ? '' : (lines.pop() || '');
-    for (const line of lines) {
-      if (!line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
-      if (!data || data === '[DONE]') continue;
-      try { onData(JSON.parse(data)); } catch {}
+  try {
+    signal?.throwIfAborted();
+    while (true) {
+      const { done, value } = await reader.read();
+      signal?.throwIfAborted();
+      buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+      const lines = buffer.split(/\r?\n/);
+      buffer = done ? '' : (lines.pop() || '');
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === '[DONE]') continue;
+        try { onData(JSON.parse(data)); } catch {}
+      }
+      if (done) break;
     }
-    if (done) break;
-  }
 
-  if (buffer.startsWith('data:')) {
-    const data = buffer.slice(5).trim();
-    if (data && data !== '[DONE]') {
-      try { onData(JSON.parse(data)); } catch {}
+    if (buffer.startsWith('data:')) {
+      const data = buffer.slice(5).trim();
+      if (data && data !== '[DONE]') {
+        try { onData(JSON.parse(data)); } catch {}
+      }
     }
+  } finally {
+    if (signal) signal.removeEventListener('abort', cancelReader);
   }
 }
 
@@ -1338,7 +1351,7 @@ async function streamOpenAICompletion(providerConfig, messages, tools, options =
       content += delta.content;
       emitStreamEvent(options.onEvent, { type: 'text_delta', text: delta.content });
     }
-  });
+  }, options.signal);
 
   recordUsageSafe(providerConfig, usage);
   emitStreamEvent(options.onEvent, { type: 'done' });
@@ -1416,7 +1429,7 @@ async function streamAnthropicCompletion(providerConfig, messages, tools, option
         emitStreamEvent(options.onEvent, { type: 'text_delta', text });
       }
     }
-  });
+  }, options.signal);
 
   recordUsageSafe(providerConfig, usage);
   emitStreamEvent(options.onEvent, { type: 'done' });

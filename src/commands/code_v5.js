@@ -49,6 +49,16 @@ const agentCore = new AgentCore({ maxIterations: 10 });
 const IS_MAC = os.platform() === "darwin";
 const MAX_ITERATIONS = 10;
 
+function createAbortError(message = 'The operation was aborted') {
+  const error = new Error(message);
+  error.name = 'AbortError';
+  return error;
+}
+
+function isAbortError(error, signal) {
+  return Boolean(signal?.aborted || error?.name === 'AbortError' || error?.code === 'ABORT_ERR');
+}
+
 function isMiniMax(url) {
   return url && (url.includes("minimax.io") || url.includes("minimaxi.com"));
 }
@@ -136,6 +146,7 @@ async function sendMessageWithTools(providerUrl, providerKey, model, messages, t
       responseFormat,
     });
   } catch (error) {
+    if (isAbortError(error, options.signal)) throw error;
     const fallback = fallbackChain.recordError(selectedModel, error);
     if (fallback.fallback) {
       console.log(tui.C.yellow(`\n  ⚠ ${selectedModel} ${L('başarısız', 'failed')} → ${fallback.nextModel} ${L('deneniyor...', 'trying...')}\n`));
@@ -313,6 +324,89 @@ async function streamAssistantReply(providerUrl, providerKey, model, messages, t
   return { reply, raw };
 }
 
+async function runTransactionalRound(messages, operation, options = {}) {
+  const boundary = messages.length;
+  const controller = new AbortController();
+  const parentSignal = options.signal;
+  const abortRound = () => controller.abort(parentSignal.reason || createAbortError());
+  if (parentSignal?.aborted) abortRound();
+  else parentSignal?.addEventListener('abort', abortRound, { once: true });
+
+  try {
+    const value = await operation(controller.signal);
+    controller.signal.throwIfAborted();
+    return value;
+  } catch (error) {
+    if (isAbortError(error, controller.signal)) {
+      messages.splice(boundary);
+      throw controller.signal.reason instanceof Error
+        ? controller.signal.reason
+        : createAbortError();
+    }
+    throw error;
+  } finally {
+    parentSignal?.removeEventListener('abort', abortRound);
+  }
+}
+
+async function runInterruptibleTurn(options) {
+  const input = options.input || process.stdin;
+  const output = options.output || process.stdout;
+  const rl = options.rl;
+  const controller = new AbortController();
+  const activeTools = new Set();
+  const tty = Boolean(input.isTTY);
+  const priorRaw = Boolean(input.isRaw);
+  let cause = null;
+  let keypressHandler;
+  let priorKeypressListeners = [];
+
+  rl?.pause();
+  try {
+    if (tty) {
+      readline.emitKeypressEvents(input);
+      priorKeypressListeners = input.listeners('keypress');
+      input.removeAllListeners('keypress');
+      if (typeof input.setRawMode === 'function') input.setRawMode(true);
+      keypressHandler = (_text, key = {}) => {
+        if (controller.signal.aborted) return;
+        if (key.ctrl && key.name === 'c') {
+          cause = 'sigint';
+          controller.abort(createAbortError('SIGINT'));
+          return;
+        }
+        if (key.name !== 'escape') return;
+        cause = 'escape';
+        if (activeTools.size > 0) {
+          output.write('\n  ' + tui.C.yellow(
+            `⏳ ${L('iptal ediliyor — bekleniyor', 'cancelling — waiting for')} ${Array.from(activeTools).join(', ')}…`
+          ) + '\n');
+        }
+        controller.abort(createAbortError('Interrupted'));
+      };
+      input.on('keypress', keypressHandler);
+    }
+
+    const value = await options.body(controller.signal, activeTools);
+    controller.signal.throwIfAborted();
+    return { value, interrupted: false, exited: false };
+  } catch (error) {
+    if (!isAbortError(error, controller.signal)) throw error;
+    if (cause === 'sigint') return { interrupted: false, exited: true };
+    if (cause === 'escape') {
+      output.write('\n  ' + tui.C.yellow(L('⏹ kesildi', '⏹ interrupted')) + '\n');
+      return { interrupted: true, exited: false };
+    }
+    throw error;
+  } finally {
+    if (keypressHandler) input.removeListener('keypress', keypressHandler);
+    for (const listener of priorKeypressListeners) input.on('keypress', listener);
+    if (tty && typeof input.setRawMode === 'function') input.setRawMode(priorRaw);
+    if (cause === 'sigint') rl?.close();
+    else rl?.resume();
+  }
+}
+
 function writeToolCard(name, args, result, snapshots = {}) {
   process.stdout.write('\n' + renderToolCall(name, args, result, snapshots) + '\n');
 }
@@ -375,8 +469,8 @@ async function codeV5(targetPath) {
     if (toolName === 'bash' || toolName === 'shell_command') commandsRun++;
   }
 
-  function processToolCallsWithTracking(reply, config, toolDefs, messages) {
-    return processToolCalls(reply, config, toolDefs, messages, trackFileChanges);
+  function processToolCallsWithTracking(reply, config, toolDefs, messages, options) {
+    return processToolCalls(reply, config, toolDefs, messages, trackFileChanges, options);
   }
   const virtualTools = [
     {
@@ -565,14 +659,24 @@ async function codeV5(targetPath) {
 
       // Workflow step — run before every request
       process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
-      const wfResult = await executeTool('workflow', {
+      const turnState = await runInterruptibleTurn({
+        rl,
+        body: async (turnSignal, activeTools) => {
+      activeTools.add('workflow');
+      let wfResult;
+      try {
+        wfResult = await executeTool('workflow', {
         action: 'run',
         task: input,
         conversationHistory: prepareConversationHistory(messages, {
           maxMessages: tokenBudget.load().conversationInContext,
           maxTokens: tokenBudget.load().workflowHistoryMaxTokens,
         }),
-      }, toolDefs);
+        }, toolDefs, { signal: turnSignal });
+        turnSignal.throwIfAborted();
+      } finally {
+        activeTools.delete('workflow');
+      }
       const wf = wfResult?.result || {};
       if (wf.success !== false) {
         const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
@@ -618,22 +722,30 @@ async function codeV5(targetPath) {
         // Single LLM call to summarize workflow results
         let wfReply = null;
         try {
-          const streamed = await streamAssistantReply(
-            config.providerUrl, config.providerApiKey, config.providerModel,
-            messages, toolDefs
-          );
-          wfReply = streamed.reply;
-          // Remove workflow results after call
+          wfReply = await runTransactionalRound(messages, async signal => {
+            const streamed = await streamAssistantReply(
+              config.providerUrl, config.providerApiKey, config.providerModel,
+              messages, toolDefs, { signal }
+            );
+            const roundReply = streamed.reply;
+            if (roundReply.content && !(roundReply.tool_calls && roundReply.tool_calls.length > 0)) {
+              messages.push({ role: "assistant", content: roundReply.content });
+            }
+            if (roundReply.content) totalOut += Math.ceil(roundReply.content.length / 4);
+            if (roundReply.tool_calls && roundReply.tool_calls.length > 0) {
+              await processToolCallsWithTracking(roundReply, config, toolDefs, messages, {
+                signal,
+                activeTools,
+              });
+            }
+            return roundReply;
+          }, { signal: turnSignal });
           messages.splice(preWfLen, 1);
-          if (wfReply.content && !(wfReply.tool_calls && wfReply.tool_calls.length > 0)) {
-            messages.push({ role: "assistant", content: wfReply.content });
-          }
-          if (wfReply.content) totalOut += Math.ceil(wfReply.content.length / 4);
-          // Handle any tool calls from the summary (rare but possible)
-          if (wfReply.tool_calls && wfReply.tool_calls.length > 0) {
-            await processToolCallsWithTracking(wfReply, config, toolDefs, messages);
-          }
         } catch (e) {
+          if (isAbortError(e, turnSignal)) {
+            messages.splice(preWfLen);
+            throw e;
+          }
           console.log("\n  " + tui.C.red("❌ " + e.message));
         }
 
@@ -645,29 +757,42 @@ async function codeV5(targetPath) {
         while (iter < MAX_ITERATIONS) {
           iter++;
           try {
-            const streamed = await streamAssistantReply(
-              config.providerUrl, config.providerApiKey, config.providerModel,
-              messages, toolDefs
-            );
-            const reply = streamed.reply;
-            if (reply.content && !(reply.tool_calls && reply.tool_calls.length > 0)) {
-              messages.push({ role: "assistant", content: reply.content });
-            }
-            if (reply.content) totalOut += Math.ceil(reply.content.length / 4);
+            const reply = await runTransactionalRound(messages, async signal => {
+              const streamed = await streamAssistantReply(
+                config.providerUrl, config.providerApiKey, config.providerModel,
+                messages, toolDefs, { signal }
+              );
+              const roundReply = streamed.reply;
+              if (roundReply.content && !(roundReply.tool_calls && roundReply.tool_calls.length > 0)) {
+                messages.push({ role: "assistant", content: roundReply.content });
+              }
+              if (roundReply.content) totalOut += Math.ceil(roundReply.content.length / 4);
+              if (roundReply.tool_calls && roundReply.tool_calls.length > 0) {
+                await processToolCallsWithTracking(roundReply, config, toolDefs, messages, {
+                  signal,
+                  activeTools,
+                });
+              }
+              return roundReply;
+            }, { signal: turnSignal });
 
             if (reply.tool_calls && reply.tool_calls.length > 0) {
-              await processToolCallsWithTracking(reply, config, toolDefs, messages);
               process.stdout.write("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
               continue;
             }
             break;
           } catch (e) {
+            if (isAbortError(e, turnSignal)) throw e;
             console.log("\n  " + tui.C.red("❌ " + e.message));
             break;
           }
         }
         totalIn += Math.ceil(input.length / 4);
       }
+
+        },
+      });
+      if (turnState.exited) return;
 
       process.stdout.write("\n\n  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }));
       ask();
@@ -678,7 +803,7 @@ async function codeV5(targetPath) {
 
 const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
 
-async function processToolCalls(reply, config, toolDefs, messages, onToolResult) {
+async function processToolCalls(reply, config, toolDefs, messages, onToolResult, options = {}) {
   agentCore.startIteration();
   const coreBlocked = new Map();
   for (const tc of reply.tool_calls) {
@@ -764,15 +889,25 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult)
 
   // Run parallel-safe tools concurrently
   if (parallelSafe.length > 0) {
-    const results = await Promise.all(parallelSafe.map(async (p) => {
-      const result = runPostHooks(p.name, p.args, await executeTool(p.name, p.args, toolDefs));
-      writeToolCard(p.name, p.args, result);
-      if (onToolResult) onToolResult(p.name, p.args, result);
-      const out = result.error
-        ? "ERROR: " + result.error
-        : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
-      return { id: p.id, content: (out || "(empty)").slice(0, 8000) };
+    const settled = await Promise.allSettled(parallelSafe.map(async (p) => {
+      options.activeTools?.add(p.name);
+      try {
+        const executed = await executeTool(p.name, p.args, toolDefs, { signal: options.signal });
+        options.signal?.throwIfAborted();
+        const result = runPostHooks(p.name, p.args, executed);
+        writeToolCard(p.name, p.args, result);
+        if (onToolResult) onToolResult(p.name, p.args, result);
+        const out = result.error
+          ? "ERROR: " + result.error
+          : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
+        return { id: p.id, content: (out || "(empty)").slice(0, 8000) };
+      } finally {
+        options.activeTools?.delete(p.name);
+      }
     }));
+    const rejected = settled.find(item => item.status === 'rejected');
+    if (rejected) throw rejected.reason;
+    const results = settled.map(item => item.value);
     for (const r of results) {
       messages.push({ role: "tool", tool_call_id: r.id, content: r.content });
     }
@@ -782,15 +917,21 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult)
   for (const p of sequential) {
     const tracksFile = p.name === 'write_file' || p.name === 'edit_file';
     const before = tracksFile ? captureFileSnapshot(p.args, { allowMissing: true }) : undefined;
-    const executed = await executeTool(p.name, p.args, toolDefs);
-    const result = runPostHooks(p.name, p.args, executed);
-    const after = tracksFile ? captureFileSnapshot(p.args) : undefined;
-    writeToolCard(p.name, p.args, result, { before, after });
-    if (onToolResult) onToolResult(p.name, p.args, result);
-    const out = result.error
-      ? "ERROR: " + result.error
-      : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
-    messages.push({ role: "tool", tool_call_id: p.id, content: (out || "(empty)").slice(0, 8000) });
+    options.activeTools?.add(p.name);
+    try {
+      const executed = await executeTool(p.name, p.args, toolDefs, { signal: options.signal });
+      options.signal?.throwIfAborted();
+      const result = runPostHooks(p.name, p.args, executed);
+      const after = tracksFile ? captureFileSnapshot(p.args) : undefined;
+      writeToolCard(p.name, p.args, result, { before, after });
+      if (onToolResult) onToolResult(p.name, p.args, result);
+      const out = result.error
+        ? "ERROR: " + result.error
+        : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
+      messages.push({ role: "tool", tool_call_id: p.id, content: (out || "(empty)").slice(0, 8000) });
+    } finally {
+      options.activeTools?.delete(p.name);
+    }
   }
 }
 
@@ -813,4 +954,7 @@ module.exports._presentation = {
   writeFinishedReply,
   streamAssistantReply,
   processToolCalls,
+  runTransactionalRound,
+  runInterruptibleTurn,
+  isAbortError,
 };
