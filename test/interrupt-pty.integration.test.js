@@ -51,7 +51,8 @@ describe('Rock D2 simulated PTY lifecycle', () => {
     input.emit('keypress', '\u001b', { name: 'escape' });
     await expect(turn).resolves.toMatchObject({ interrupted: true, exited: false });
     expect(aborts).toBe(1);
-    expect(output.value.match(/interrupted/g)).toHaveLength(1);
+    // Dil-agnostik: L(tr,en) ortam diline göre '⏹ kesildi' ya da '⏹ interrupted' basar.
+    expect(output.value.match(/interrupted|kesildi/g)).toHaveLength(1);
     expect(input.listenerCount('keypress')).toBe(0);
     expect(input.isRaw).toBe(false);
     expect(rl.resume).toHaveBeenCalledTimes(1);
@@ -78,7 +79,8 @@ describe('Rock D2 simulated PTY lifecycle', () => {
     });
     await vi.waitFor(() => expect(release).toBeTypeOf('function'));
     input.emit('keypress', '\u001b', { name: 'escape' });
-    expect(output.value).toContain('cancelling — waiting for slow_tool');
+    // Dil-agnostik: 'cancelling — waiting for slow_tool…' / 'iptal ediliyor — bekleniyor slow_tool…'
+    expect(output.value).toMatch(/(cancelling — waiting for|iptal ediliyor — bekleniyor) slow_tool/);
     expect(input.isRaw).toBe(true);
     release();
     await expect(turn).resolves.toMatchObject({ interrupted: true });
@@ -116,6 +118,6 @@ describe('Rock D2 simulated PTY lifecycle', () => {
     expect(rl.close).toHaveBeenCalledOnce();
     expect(rl.resume).not.toHaveBeenCalled();
     expect(input.isRaw).toBe(false);
-    expect(output.value).not.toContain('interrupted');
+    expect(output.value).not.toMatch(/interrupted|kesildi/);
   });
 });
