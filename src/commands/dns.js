@@ -11,7 +11,7 @@ function dnsCmd(args) {
   if (action === 'resolve') return resolveHost(params[0]);
   if (action === 'services') return discoverServices();
 
-  console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
+  console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${action}\n`));
   console.log(chalk.gray(L('  Kullanım: natureco dns [discover|resolve <host>|services]\n', '  Usage: natureco dns [discover|resolve <host>|services]\n')));
   process.exit(1);
 }

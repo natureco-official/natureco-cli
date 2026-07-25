@@ -133,6 +133,60 @@ function capMcpDesc(desc) {
   return (desc || '').slice(0, budget.mcpDescMaxChars);
 }
 
+/**
+ * Tool-call pairing repair.
+ *
+ * Both trims below drop messages by score/position, which can orphan either
+ * side of a tool exchange. Providers reject both shapes: OpenAI 400s on a
+ * `role:"tool"` message that does not directly answer a preceding
+ * `tool_calls` message, and Anthropic 400s on a `tool_use` block with no
+ * matching `tool_result`. Run every trimmed transcript through this before
+ * returning it.
+ */
+function repairToolPairing(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return messages;
+
+  // Pass 1: drop tool results whose parent tool_calls message survived the trim.
+  const announced = new Set();
+  const firstPass = [];
+  for (const msg of messages) {
+    if (msg.role === 'assistant' && Array.isArray(msg.tool_calls)) {
+      for (const call of msg.tool_calls) if (call?.id) announced.add(call.id);
+      firstPass.push(msg);
+      continue;
+    }
+    if (msg.role === 'tool') {
+      if (msg.tool_call_id && announced.has(msg.tool_call_id)) firstPass.push(msg);
+      continue;
+    }
+    firstPass.push(msg);
+  }
+
+  // Pass 2: drop tool_calls that never got an answer (or narrow the message to
+  // the calls that did). An assistant turn left with no content and no calls is
+  // dropped entirely rather than sent as an empty message.
+  const answered = new Set(
+    firstPass.filter(m => m.role === 'tool' && m.tool_call_id).map(m => m.tool_call_id),
+  );
+  const repaired = [];
+  for (const msg of firstPass) {
+    if (msg.role !== 'assistant' || !Array.isArray(msg.tool_calls)) {
+      repaired.push(msg);
+      continue;
+    }
+    const kept = msg.tool_calls.filter(call => call?.id && answered.has(call.id));
+    if (kept.length === msg.tool_calls.length) {
+      repaired.push(msg);
+    } else if (kept.length > 0) {
+      repaired.push({ ...msg, tool_calls: kept });
+    } else if (msg.content) {
+      const { tool_calls: _dropped, ...rest } = msg;
+      repaired.push(rest);
+    }
+  }
+  return repaired;
+}
+
 function trimMessages(messages) {
   const budget = load();
   if (!messages || messages.length === 0) return messages;
@@ -148,7 +202,7 @@ function trimMessages(messages) {
     content: `[Previous conversation compressed: ${nonSystem.length - tail.length} messages omitted. Key context retained below.]`
   };
 
-  return [...systemMsgs, compacted, ...tail];
+  return repairToolPairing([...systemMsgs, compacted, ...tail]);
 }
 
 function trimMemory(memories) {
@@ -234,7 +288,37 @@ function smartTrim(messages) {
   // Sort kept messages back to original order
   const originalOrder = nonSystem.filter(m => kept.includes(m) || tail.includes(m));
 
-  return [...systemMsgs, ...originalOrder];
+  return repairToolPairing([...systemMsgs, ...originalOrder]);
+}
+
+/**
+ * Rough token estimate for a whole transcript (chars/4, plus per-message
+ * overhead and serialized tool_calls, which are billed but carry no `content`).
+ */
+function estimateMessageTokens(messages) {
+  if (!Array.isArray(messages)) return 0;
+  let chars = 0;
+  for (const msg of messages) {
+    chars += 16; // role + framing overhead
+    const content = msg?.content;
+    if (typeof content === 'string') chars += content.length;
+    else if (content) { try { chars += JSON.stringify(content).length; } catch { /* unserializable */ } }
+    if (Array.isArray(msg?.tool_calls)) {
+      try { chars += JSON.stringify(msg.tool_calls).length; } catch { /* unserializable */ }
+    }
+  }
+  return Math.ceil(chars / 4);
+}
+
+/**
+ * True when the transcript is close enough to the context ceiling that the
+ * next request risks a context-length error.
+ */
+function needsCompaction(messages, budget = load()) {
+  if (!budget.autoCompact) return false;
+  const limit = Math.max(0, (budget.maxContextTokens || 0) - (budget.reservedTokens || 0));
+  if (limit === 0) return false;
+  return estimateMessageTokens(messages) > limit * 0.8;
 }
 
 // ── Token usage tracking ──────────────────────────────────────────────
@@ -304,4 +388,7 @@ module.exports = {
   USAGE_FILE,
   importanceScore,
   smartTrim,
+  repairToolPairing,
+  estimateMessageTokens,
+  needsCompaction,
 };

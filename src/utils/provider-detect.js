@@ -65,6 +65,46 @@ function buildChatEndpoint(providerUrl) {
   return `${base}/chat/completions`;
 }
 
+/**
+ * Can this provider be trusted to emit OpenAI-style `tool_calls`?
+ *
+ * When it can, the agent loop talks to it directly. When it cannot, requests
+ * are routed through the workflow tool's XML agentic runner, which costs an
+ * extra classify/plan round trip per message.
+ *
+ * The check used to blanket-exclude MiniMax. That was right for M2.x, but
+ * MiniMax-M2.5 emits well-formed tool_calls over the streaming endpoint —
+ * verified end to end against read_file, http_request and code_execution — so
+ * excluding it forced every MiniMax user down the expensive path for no reason.
+ *
+ * `nativeToolCalls: true|false` in config overrides the heuristic either way.
+ *
+ * @param {string} url
+ * @param {string} [model]
+ * @param {object} [config]
+ */
+function supportsNativeToolCalls(url, model, config = {}) {
+  if (typeof config.nativeToolCalls === 'boolean') return config.nativeToolCalls;
+
+  const u = (url || '').toLowerCase();
+  const m = String(model || '');
+
+  if (isMiniMax(u)) {
+    // M2.5 and anything numbered above it; M2.0–M2.4 and unnumbered stay on the
+    // XML path.
+    const match = m.match(/M(\d+)(?:\.(\d+))?/i);
+    if (!match) return false;
+    const major = Number(match[1]);
+    const minor = Number(match[2] || 0);
+    return major > 2 || (major === 2 && minor >= 5);
+  }
+
+  // Gemini "thinking" returns empty at the low max_tokens the plan path uses;
+  // Ollama/local and Groq remain unreliable for strict tool schemas.
+  if (isGemini(u) || isOllama(u) || isGroq(u)) return false;
+  return true;
+}
+
 module.exports = {
   detectProvider,
   isAnthropic,
@@ -73,4 +113,5 @@ module.exports = {
   isOllama,
   isGemini,
   buildChatEndpoint,
+  supportsNativeToolCalls,
 };

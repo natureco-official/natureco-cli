@@ -36,25 +36,40 @@ const ASCII_LOGO = [
 ];
 
 // ── Tips ─────────────────────────────────────────────────────────────────────
-const TIPS = [
-  "🌿 Nature.co'da canlı yayın yapabilir, sesli odalarda buluşabilirsin — natureco.me",
-  '🤖 NatureBot AI ile içerik üret, topluluğunu yönet, trendi yakala — natureco.me/robot-house',
-  '📡 Geliştirici API ile platformu entegre et — natureco.me/developer',
-  '🏆 Günlük görevler tamamla, XP kazan, liderlik tablosuna gir — natureco.me',
-  "📺 Nature TV'de doğa belgeselleri ve oyun yayınları tek platformda!",
-  '👥 Kendi sunucunu kur, özel kanallar ve roller oluştur — natureco.me',
-  '🔌 WordPress sitene tek tıkla NatureBot ekle — natureco SDK ile entegre et',
-  "📱 Nature.co masaüstü uygulaması — Mac, Windows ve Android TV'de mevcut!",
-  '🌍 Forum, blog ve etkinlikler — topluluğa katıl, doğa projelerinde yer al',
+// Shown to every user, so they follow the same two rules as the rest of the
+// product: bilingual, and no nature framing — NatureCo is a community and
+// content platform, the name is not a theme.
+const TIPS = () => [
+  L('📡 Canlı yayın aç, sesli odalarda buluş — natureco.me',
+    '📡 Go live and meet in voice rooms — natureco.me'),
+  L('🤖 NatureBot ile içerik üret ve topluluğunu yönet — natureco.me/robot-house',
+    '🤖 Create content and run your community with NatureBot — natureco.me/robot-house'),
+  L('🔗 Geliştirici API ile platformu entegre et — natureco.me/developer',
+    '🔗 Integrate the platform with the developer API — natureco.me/developer'),
+  L('🏆 Günlük görevleri tamamla, XP kazan, liderlik tablosuna gir',
+    '🏆 Finish daily quests, earn XP, climb the leaderboard'),
+  L('👥 Kendi sunucunu kur, kanallar ve roller oluştur — natureco.me',
+    '👥 Run your own server with custom channels and roles — natureco.me'),
+  L('🔌 WordPress sitene tek tıkla NatureBot ekle — natureco SDK',
+    '🔌 Add NatureBot to your WordPress site in one click — natureco SDK'),
+  L('📱 Masaüstü uygulaması — Mac, Windows ve Android TV',
+    '📱 Desktop app — Mac, Windows and Android TV'),
+  L('💬 Forum, blog ve etkinlikler — topluluğa katıl',
+    '💬 Forums, blogs and events — join the community'),
 ];
 
 // ── What's New ────────────────────────────────────────────────────────────────
-const CHANGELOG = [
-  'Eklendi: Chalk TUI — saf readline tabanlı arayüz',
-  'Eklendi: agents, plugins, pairing, uninstall komutları',
-  'Eklendi: channels, models, memory, logs, status, security, reset',
-  'Düzeltildi: Çift karakter ve input sorunu giderildi',
-  'Düzeltildi: Token optimizasyonu — sistem prompt sıkıştırıldı',
+const CHANGELOG = () => [
+  L('Eklendi: MCP sunucuları artık code ve chat modunda kullanılabilir',
+    'Added: MCP servers are now usable from both code and chat'),
+  L('Eklendi: devam ettirilebilir oturumlar (--continue / --resume) ve headless -p modu',
+    'Added: resumable sessions (--continue / --resume) and headless -p mode'),
+  L('Değişti: araç şemaları isteğe göre yükleniyor — istek başına ~%65 daha az token',
+    'Changed: tool schemas load on demand — about 65% fewer tokens per request'),
+  L('Değişti: workflow ön-adımı artık isteğe bağlı; ajan döngüsü doğrudan sürüyor',
+    'Changed: the workflow pre-step is opt-in; the agent loop drives directly'),
+  L('Düzeltildi: riskli araç çağrıları artık chat tarafında da onay istiyor',
+    'Fixed: risky tool calls now ask for approval on the chat side too'),
 ];
 
 const sep = () => chalk.gray('─'.repeat(process.stdout.columns || 80));
@@ -203,14 +218,15 @@ async function chat(botName, options = {}) {
   // ── What's New ──────────────────────────────────────────────────────────────
   if (isNewVersion) {
     console.log(centerText(chalk.yellow(`── v${version} yenilikleri ──`)));
-    CHANGELOG.forEach(c => console.log(centerText(chalk.gray(`· ${c}`))));
+    CHANGELOG().forEach(c => console.log(centerText(chalk.gray(`· ${c}`))));
     console.log();
     try { fs.writeFileSync(lastVersionFile, version); } catch {}
   } else {
     // Yeni versiyon yoksa günlük tip göster
-    const dayIndex = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) % TIPS.length;
+    const tips = TIPS();
+    const dayIndex = Math.floor(Date.now() / (1000 * 60 * 60 * 24)) % tips.length;
     console.log(chalk.gray('─'.repeat(process.stdout.columns || 120)));
-    console.log(centerText(chalk.yellow(TIPS[dayIndex])));
+    console.log(centerText(chalk.yellow(tips[dayIndex])));
     console.log(chalk.gray('─'.repeat(process.stdout.columns || 120)));
     console.log();
   }

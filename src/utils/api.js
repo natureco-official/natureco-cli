@@ -11,6 +11,7 @@ const { MCPClient } = require('./mcp-client');
 const TB = require('./token-budget');
 const { accumulateToolCallDeltas, finalizeToolCalls } = require('./streaming-tools');
 const { AgentCore } = require('./agent-core');
+const { selectTools, buildCatalog, createEnableToolsTool } = require('./tool-profile');
 
 /**
  * v5.5.0: Provider-specific format detection
@@ -590,20 +591,48 @@ function getProviderConfig() {
 }
 
 /**
- * Format tool definitions for OpenAI-compatible APIs
+ * Every tool the chat agent knows about — local plus MCP.
+ * Execution resolves against this full set; only the advertised subset is
+ * serialized into a request (see advertisedTools).
  */
-function formatToolsForOpenAI() {
+function allKnownTools() {
   const config = getConfig();
-  const localTools = getToolDefinitions();
-  
-  // Only add MCP tools if enabled
-  let allTools = [...localTools];
+  const allTools = [...getToolDefinitions()];
   if (config.mcpEnabled !== false) {
     const mcpTools = getMcpToolsForAI().map(minimizeMcpTool);
-    const normalizedMcpTools = mcpTools.map(tool => normalizeMcpToolSchema(tool));
-    allTools = [...allTools, ...normalizedMcpTools];
+    allTools.push(...mcpTools.map(tool => normalizeMcpToolSchema(tool)));
   }
-  
+  // `enable_tools` is a session-scoped meta-tool handled inside this loop, not
+  // a manifest entry. Tools here are described with `inputSchema`.
+  const enableTool = createEnableToolsTool(chatEnabledTools, () => allTools.map(t => t.name));
+  allTools.push({ ...enableTool, inputSchema: enableTool.parameters });
+  return allTools;
+}
+
+/**
+ * Trim the advertised set the same way the coding agent does.
+ *
+ * `natureco chat` was serializing all 90 tool schemas — ~14.7k tokens — into
+ * every single request, on a default 16k context budget. The user pays for that
+ * on every message whether the turn touches a tool or not.
+ */
+function advertisedTools(allTools) {
+  const config = getConfig();
+  const profile = config.toolProfile === 'all' ? 'all' : 'core';
+  const { exposed, hidden } = selectTools(allTools, { profile, enabled: chatEnabledTools });
+  return { exposed, hidden, catalog: buildCatalog(hidden) };
+}
+
+/**
+ * Names the chat agent has pulled in via `enable_tools` this process.
+ */
+const chatEnabledTools = new Set();
+
+/**
+ * Format tool definitions for OpenAI-compatible APIs
+ */
+function formatToolsForOpenAI(toolList) {
+  const allTools = toolList || allKnownTools();
   return allTools.map(tool => ({
     type: 'function',
     function: {
@@ -617,18 +646,8 @@ function formatToolsForOpenAI() {
 /**
  * Format tool definitions for Anthropic API
  */
-function formatToolsForAnthropic() {
-  const config = getConfig();
-  const localTools = getToolDefinitions();
-  
-  // Only add MCP tools if enabled
-  let allTools = [...localTools];
-  if (config.mcpEnabled !== false) {
-    const mcpTools = getMcpToolsForAI().map(minimizeMcpTool);
-    const normalizedMcpTools = mcpTools.map(tool => normalizeMcpToolSchema(tool));
-    allTools = [...allTools, ...normalizedMcpTools];
-  }
-  
+function formatToolsForAnthropic(toolList) {
+  const allTools = toolList || allKnownTools();
   return allTools.map(tool => ({
     name: tool.name,
     description: tool.description,
@@ -789,17 +808,44 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
   messages.push(...history);
   messages.push({ role: 'user', content: message });
 
-  // Get tool definitions (local + MCP) — skip if noTools flag set (chat mode)
-  const tools = options.noTools 
-    ? [] 
-    : (providerConfig.isAnthropic ? formatToolsForAnthropic() : formatToolsForOpenAI());
+  // Get tool definitions (local + MCP) — skip if noTools flag set (chat mode).
+  // Only the advertised subset is serialized; `enable_tools` pulls in the rest
+  // on demand and the catalogue tells the model what exists.
+  const knownTools = options.noTools ? [] : allKnownTools();
+
+  // Recomputed per iteration: `enable_tools` widens the advertised set mid-turn,
+  // and the model must see the new schemas on its very next step.
+  function currentTools() {
+    if (options.noTools) return { tools: [], catalog: '' };
+    const advertised = advertisedTools(knownTools);
+    return {
+      tools: providerConfig.isAnthropic
+        ? formatToolsForAnthropic(advertised.exposed)
+        : formatToolsForOpenAI(advertised.exposed),
+      catalog: advertised.catalog,
+    };
+  }
+
+  function applyCatalog(catalog) {
+    if (!catalog) return;
+    const marker = '\n\n' + catalog;
+    const systemIndex = messages.findIndex(m => m.role === 'system');
+    if (systemIndex < 0) {
+      messages.unshift({ role: 'system', content: catalog });
+      return;
+    }
+    const previous = messages[systemIndex].content || '';
+    // Replace any earlier catalogue rather than stacking one per iteration.
+    const stripped = previous.split(/\n\nAdditional tools \(|\n\nEk araçlar \(/)[0];
+    messages[systemIndex] = { ...messages[systemIndex], content: stripped + marker };
+  }
 
   debugLog('\n[Provider] Sending request...');
   debugLog('[Provider] URL:', providerConfig.url);
   debugLog('[Provider] Model:', providerConfig.model);
   debugLog('[Provider] Type:', providerConfig.isAnthropic ? 'Anthropic' : 'OpenAI-compatible');
   debugLog('[Provider] Messages:', messages.length);
-  debugLog('[Provider] Tools:', tools.length, `(${Object.keys(mcpClients).length} MCP servers)`);
+  debugLog('[Provider] Known tools:', knownTools.length, `(${Object.keys(mcpClients).length} MCP servers)`);
 
   // Tool execution loop (max 10 iterations)
   let iteration = 0;
@@ -813,6 +859,22 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
     debugLog(`\n[Provider] Iteration ${iteration}/${maxIterations}`);
 
     let assistantMessage;
+
+    // Keep the transcript under the context ceiling BEFORE the request. This
+    // used to run once after the loop and its return value was discarded
+    // (`TB.trimMessages(messages)` as a bare statement), so the chat agent had
+    // no working context trimming at all and long conversations eventually
+    // failed with a provider context-length error.
+    if (TB.needsCompaction(messages)) {
+      const trimmed = TB.trimMessages(messages);
+      messages.splice(0, messages.length, ...trimmed);
+      debugLog(`[Context] Compacted transcript to ${messages.length} messages`);
+    }
+
+    const advertised = currentTools();
+    const tools = advertised.tools;
+    applyCatalog(advertised.catalog);
+    debugLog('[Provider] Advertised tools:', tools.length);
 
     if (stream) {
       assistantMessage = await streamProviderCompletion(providerConfig, messages, tools);
@@ -849,17 +911,39 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
     if (hasToolCalls) {
       debugLog(`[Provider] Tool calls: ${assistantMessage.tool_calls.length}`);
 
-      // Separate local and MCP tool calls
-      const toolCalls = assistantMessage.tool_calls.map(tc => ({
-        id: tc.id,
-        name: tc.function.name,
-        input: JSON.parse(tc.function.arguments)
-      }));
+      // Separate local and MCP tool calls.
+      // A model that emits truncated or malformed arguments used to throw here
+      // and take the whole turn down with an unhandled SyntaxError; report the
+      // bad call back to the model instead so it can correct itself.
+      const malformedCalls = [];
+      const toolCalls = [];
+      for (const tc of assistantMessage.tool_calls) {
+        try {
+          toolCalls.push({ id: tc.id, name: tc.function.name, input: JSON.parse(tc.function.arguments || '{}') });
+        } catch (parseError) {
+          malformedCalls.push({
+            id: tc.id,
+            name: tc.function.name,
+            result: { error: `Tool arguments were not valid JSON: ${parseError.message}` },
+          });
+        }
+      }
+
+      // `enable_tools` is served here rather than from the manifest: it only
+      // mutates what this loop advertises on the next iteration.
+      const enableResults = [];
+      const enableCalls = toolCalls.filter(tc => tc.name === 'enable_tools');
+      for (const tc of enableCalls) {
+        const enableTool = createEnableToolsTool(chatEnabledTools, () => knownTools.map(t => t.name));
+        const outcome = await enableTool.execute(tc.input);
+        enableResults.push({ id: tc.id, name: tc.name, result: { success: true, output: JSON.stringify(outcome) } });
+      }
 
       // Group MCP and local tools
       const mcpTools = getMcpTools();
-      const mcpCalls = toolCalls.filter(tc => mcpTools.find(t => t.name === tc.name));
-      const localCalls = toolCalls.filter(tc => !mcpTools.find(t => t.name === tc.name));
+      const dispatchable = toolCalls.filter(tc => tc.name !== 'enable_tools');
+      const mcpCalls = dispatchable.filter(tc => mcpTools.find(t => t.name === tc.name));
+      const localCalls = dispatchable.filter(tc => !mcpTools.find(t => t.name === tc.name));
 
       // Guardrails: filter blocked tools
       agentCore.startIteration();
@@ -901,6 +985,8 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
 
       // Add blocked tool results as errors
       const allResults = [
+        ...enableResults,
+        ...malformedCalls,
         ...blockedMcp.map(tc => ({ id: tc.id, name: tc.name, result: { error: `blocked_by_guardrails: ${tc.name}` } })),
         ...blockedLocal.map(tc => ({ id: tc.id, name: tc.name, result: { error: `blocked_by_guardrails: ${tc.name}` } })),
         ...localResults,
@@ -930,9 +1016,6 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
     debugLog('\n[Provider] Max iterations reached');
     finalResponse = finalResponse || 'Max tool execution iterations reached.';
   }
-
-  // Apply token budget trimming
-  TB.trimMessages(messages);
 
   // Save to conversation history (only user and final assistant message)
   history.push({ role: 'user', content: message });
@@ -1452,6 +1535,10 @@ module.exports = {
   startMcpServers,
   stopMcpServers,
   getMcpTools,
+  // Needed by src/utils/mcp-tools.js so the coding agent can expose MCP
+  // servers as ordinary tools instead of re-implementing the transport.
+  getMcpToolsForAI,
+  executeMcpTool,
   sendMessageOpenAICompatible,
   streamProviderCompletion,
   streamOpenAICompletion,

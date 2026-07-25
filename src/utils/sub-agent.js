@@ -3,20 +3,68 @@ const path = require('path');
 const os = require('os');
 const { getProviderConfig } = require('./api');
 const { AgentWorkspaceManager } = require('./agent-workspace');
+const { getLang: _gl } = require('./i18n');
 
 const SUB_AGENTS_FILE = path.join(os.homedir(), '.natureco', 'sub-agents.json');
 
-const SYSTEM_PROMPTS = {
-  explore: 'You are a research agent. Find information, explore codebases, search files. Be concise.',
-  general: 'You are a general-purpose implementation agent. Write code, fix bugs, refactor.',
-  review: 'You are a code review agent. Analyze code for bugs, security, performance, style.',
-  // Phase 7 — NatureCo specialized agents
-  seo: 'Sen bir SEO uzmanısın. Anahtar kelime analizi, meta tag önerisi, içerik optimizasyonu yaparsın. Türkçe ve İngilizce içerik için öneri ver.',
-  content: 'Sen bir içerik yazarısın. NatureCo için SEO uyumlu, özgün blog yazıları ve sosyal medya içerikleri üretirsin. Hedef kitle: doğa ve teknoloji meraklıları, geliştiriciler.',
-  security: 'Sen bir güvenlik uzmanısın. OWASP top 10, dependency güvenliği, secret sızıntısı tespiti yapar, remediation önerirsin.',
-  translator: 'Sen bir çevirmensin. Doğal, akıcı, bağlama uygun çeviriler yaparsın. Teknik terimleri koruyarak sade dil kullanırsın.',
-  debugger: 'Sen bir debugging uzmanısın. Hata mesajlarını analiz eder, kök nedeni bulur, minimal bir fix önerir veya uygularsın.',
-};
+/**
+ * Sub-agent personas.
+ *
+ * These are both shown in `natureco team list` and sent to the model as the
+ * sub-agent's system prompt. Five of the eight were Turkish-only while the rest
+ * were English, so `team list` printed a mix and a sub-agent's working language
+ * depended on which type you picked rather than on the interface language.
+ *
+ * Exposed as a getter so the language is resolved at call time, not at require
+ * time (`natureco lang` can change it within a process).
+ */
+function buildSystemPrompts() {
+  const L = (tr, en) => (_gl() === 'en' ? en : tr);
+  return {
+    explore: L(
+      'Sen bir araştırma ajanısın. Bilgi bul, kod tabanını keşfet, dosyalarda ara. Kısa ve öz ol.',
+      'You are a research agent. Find information, explore codebases, search files. Be concise.',
+    ),
+    general: L(
+      'Sen genel amaçlı bir uygulama ajanısın. Kod yaz, hata düzelt, yeniden düzenle.',
+      'You are a general-purpose implementation agent. Write code, fix bugs, refactor.',
+    ),
+    review: L(
+      'Sen bir kod inceleme ajanısın. Kodu hata, güvenlik, performans ve stil açısından analiz et.',
+      'You are a code review agent. Analyze code for bugs, security, performance, style.',
+    ),
+    seo: L(
+      'Sen bir SEO uzmanısın. Anahtar kelime analizi, meta tag önerisi ve içerik optimizasyonu yaparsın.',
+      'You are an SEO specialist. You do keyword analysis, meta tag suggestions and content optimization.',
+    ),
+    content: L(
+      'Sen bir içerik yazarısın. NatureCo için SEO uyumlu, özgün blog yazıları ve sosyal medya içerikleri üretirsin. Hedef kitle: topluluk yöneticileri, içerik üreticileri ve geliştiriciler.',
+      'You are a content writer. You produce original, SEO-friendly blog posts and social content for NatureCo. Audience: community managers, creators and developers.',
+    ),
+    security: L(
+      'Sen bir güvenlik uzmanısın. OWASP Top 10, bağımlılık güvenliği ve secret sızıntısı tespiti yapar, düzeltme önerirsin.',
+      'You are a security specialist. You cover the OWASP Top 10, dependency security and secret-leak detection, and propose remediation.',
+    ),
+    translator: L(
+      'Sen bir çevirmensin. Doğal, akıcı, bağlama uygun çeviriler yaparsın. Teknik terimleri koruyarak sade dil kullanırsın.',
+      'You are a translator. You produce natural, fluent, context-appropriate translations, keeping technical terms intact and the language plain.',
+    ),
+    debugger: L(
+      'Sen bir hata ayıklama uzmanısın. Hata mesajlarını analiz eder, kök nedeni bulur, minimal bir düzeltme önerir veya uygularsın.',
+      'You are a debugging specialist. You analyze error messages, find the root cause, and propose or apply a minimal fix.',
+    ),
+  };
+}
+
+// Reads like the old constant at every call site, but resolves per language.
+const SYSTEM_PROMPTS = new Proxy({}, {
+  get: (_t, key) => buildSystemPrompts()[key],
+  ownKeys: () => Reflect.ownKeys(buildSystemPrompts()),
+  has: (_t, key) => key in buildSystemPrompts(),
+  getOwnPropertyDescriptor: (_t, key) => ({
+    value: buildSystemPrompts()[key], enumerable: true, configurable: true, writable: false,
+  }),
+});
 
 function ensureDir() {
   const dir = path.dirname(SUB_AGENTS_FILE);

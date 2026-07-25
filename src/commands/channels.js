@@ -40,6 +40,10 @@ function addChannel() {
     'imessage - Connect iMessage bridge',
     'sms      - Connect SMS/Twilio',
     'webhooks - Connect webhooks',
+    'matrix     - Connect Matrix (Element / Synapse)',
+    'teams      - Connect Microsoft Teams',
+    'googlechat - Connect Google Chat',
+    'zalo       - Connect Zalo Official Account',
   ]);
   F.info('Use: natureco <channel> connect');
 }
@@ -47,7 +51,7 @@ function addChannel() {
 function loginChannel(channel) {
   if (!channel) {
     F.error('Channel name required');
-    F.info('Usage: natureco channels login <telegram|whatsapp|discord|slack|signal|irc|mattermost|imessage|sms|webhooks>');
+    F.info('Usage: natureco channels login <telegram|whatsapp|discord|slack|signal|irc|mattermost|imessage|sms|webhooks|matrix|teams|googlechat|zalo>');
     process.exit(1);
   }
 
@@ -64,6 +68,10 @@ function loginChannel(channel) {
     imessage: 'imessageBotId',
     sms: 'smsBotId',
     webhooks: 'webhooks',
+    matrix: 'matrixBotId',
+    teams: 'teamsBotId',
+    googlechat: 'googlechatBotId',
+    zalo: 'zaloBotId',
   };
 
   const key = channelKeys[ch];
@@ -89,7 +97,7 @@ function loginChannel(channel) {
 function logoutChannel(channel) {
   if (!channel) {
     F.error('Channel name required');
-    F.info('Usage: natureco channels logout <telegram|whatsapp|discord|slack|signal|irc|mattermost|imessage|sms|webhooks>');
+    F.info('Usage: natureco channels logout <telegram|whatsapp|discord|slack|signal|irc|mattermost|imessage|sms|webhooks|matrix|teams|googlechat|zalo>');
     process.exit(1);
   }
 
@@ -157,6 +165,10 @@ function capabilitiesChannels(channel) {
     { name: 'imessage',   send: '✓', receive: '✓', media: '✓', polls: '✗', admin: '✗', webhooks: '✗', threads: '✓' },
     { name: 'sms',        send: '✓', receive: '✓', media: '✗', polls: '✗', admin: '✗', webhooks: '✓', threads: '✗' },
     { name: 'webhooks',   send: '✗', receive: '✓', media: '✗', polls: '✗', admin: '✗', webhooks: '✗', threads: '✗' },
+    { name: 'matrix',     send: '✓', receive: '✓', media: '✗', polls: '✗', admin: '✗', webhooks: '✗', threads: '✓' },
+    { name: 'teams',      send: '✓', receive: '✓', media: '✗', polls: '✗', admin: '✗', webhooks: '✓', threads: '✓' },
+    { name: 'googlechat', send: '✓', receive: '✓', media: '✗', polls: '✗', admin: '✗', webhooks: '✓', threads: '✓' },
+    { name: 'zalo',       send: '✓', receive: '✓', media: '✗', polls: '✗', admin: '✗', webhooks: '✓', threads: '✗' },
   ];
 
   const entries = channel
@@ -188,7 +200,7 @@ function resolveIdentifier(channel, identifier) {
     process.exit(1);
   }
 
-  const knownKinds = ['telegram', 'whatsapp', 'discord', 'slack', 'signal', 'irc', 'mattermost', 'imessage', 'sms', 'webhooks'];
+  const knownKinds = ['telegram', 'whatsapp', 'discord', 'slack', 'signal', 'irc', 'mattermost', 'imessage', 'sms', 'webhooks', 'matrix', 'teams', 'googlechat', 'zalo'];
   const ch = channel.toLowerCase();
 
   if (!knownKinds.includes(ch)) {
@@ -270,6 +282,42 @@ function listChannels() {
     });
   }
 
+  if (config.matrixBotId) {
+    channels.push({
+      name: 'Matrix',
+      type: '🔷',
+      status: 'connected',
+      detail: `homeserver: ${config.matrixHomeserver || 'connected'}`,
+    });
+  }
+
+  if (config.teamsBotId) {
+    channels.push({
+      name: 'Microsoft Teams',
+      type: '🟦',
+      status: 'connected',
+      detail: `app: ${config.teamsAppId || 'connected'} (webhook)`,
+    });
+  }
+
+  if (config.googlechatBotId) {
+    channels.push({
+      name: 'Google Chat',
+      type: '🟩',
+      status: 'connected',
+      detail: config.googlechatKeyFile ? 'service account (webhook)' : 'webhook URL (send only)',
+    });
+  }
+
+  if (config.zaloBotId) {
+    channels.push({
+      name: 'Zalo',
+      type: '🔵',
+      status: 'connected',
+      detail: 'Official Account (webhook)',
+    });
+  }
+
   if (config.imessageBotId) {
     channels.push({
       name: 'iMessage',
@@ -303,7 +351,7 @@ function listChannels() {
     console.log('\n' + tui.styled(L('  📡 Bağlı Kanal Yok', '  📡 No Connected Channels'), { color: tui.PALETTE.warning, bold: true }));
     console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
     console.log('\n  ' + tui.C.muted(L('Bağlamak için:', 'To connect:')));
-    const connectCmds = ['telegram', 'whatsapp', 'discord', 'slack', 'signal', 'irc', 'mattermost', 'imessage', 'sms', 'webhooks'];
+    const connectCmds = ['telegram', 'whatsapp', 'discord', 'slack', 'signal', 'irc', 'mattermost', 'imessage', 'sms', 'webhooks', 'matrix', 'teams', 'googlechat', 'zalo'];
     for (const c of connectCmds) {
       console.log('   ' + tui.C.brand('natureco ' + c + ' connect'));
     }
@@ -356,7 +404,7 @@ function statusChannels() {
 function removeChannel(channel) {
   if (!channel) {
     F.error('Channel name required');
-    F.info('Usage: natureco channels remove <telegram|whatsapp|discord|slack|signal|irc|mattermost|imessage|sms|webhooks>');
+    F.info('Usage: natureco channels remove <telegram|whatsapp|discord|slack|signal|irc|mattermost|imessage|sms|webhooks|matrix|teams|googlechat|zalo>');
     process.exit(1);
   }
 

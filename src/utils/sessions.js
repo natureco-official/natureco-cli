@@ -125,21 +125,35 @@ function loadLastSession(commandName) {
 function listSessions(commandName) {
   if (!fs.existsSync(SESSIONS_DIR)) return [];
   return fs.readdirSync(SESSIONS_DIR)
+    .filter(f => f.endsWith('.json'))
     .filter(f => !commandName || f.startsWith(commandName + '-'))
+    // One unreadable or truncated file used to throw and take the whole
+    // listing with it; skip the bad entry instead.
     .map(f => {
-      const data = JSON.parse(
-        fs.readFileSync(path.join(SESSIONS_DIR, f), 'utf8')
-      );
+      const data = readJsonSafeSync(path.join(SESSIONS_DIR, f), null);
+      if (!data) return null;
+      const messages = Array.isArray(data.messages) ? data.messages : [];
       return {
         id: data.id,
+        file: f,
         commandName: data.commandName,
-        savedAt: data.savedAt,
-        messageCount: data.messages.length,
-        preview: data.messages
-          .find(m => m.role === 'user')?.content?.slice(0, 60)
+        savedAt: data.savedAt || '',
+        messageCount: messages.length,
+        preview: messages.find(m => m.role === 'user')?.content?.slice(0, 60),
       };
     })
-    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+    .filter(Boolean)
+    .sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)));
+}
+
+/**
+ * Load one command session by id (or unique id prefix).
+ */
+function loadCommandSession(commandName, id) {
+  const match = listSessions(commandName)
+    .find(session => session.id === id || String(session.id).startsWith(id));
+  if (!match) return null;
+  return readJsonSafeSync(path.join(SESSIONS_DIR, match.file), null);
 }
 
 function deleteSession(id) {
@@ -159,5 +173,7 @@ module.exports = {
   saveSession,
   loadLastSession,
   listSessions,
+  loadCommandSession,
   deleteSession,
+  SESSIONS_DIR,
 };

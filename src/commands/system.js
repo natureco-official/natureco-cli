@@ -10,7 +10,7 @@ function system(args) {
   if (action === 'events' || action === 'heartbeat') return systemHeartbeat();
   if (action === 'presence') return systemPresence();
 
-  console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
+  console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${action}\n`));
   console.log(chalk.gray(L('  Kullanım: natureco system [status|events|presence]\n', '  Usage: natureco system [status|events|presence]\n')));
   process.exit(1);
 }

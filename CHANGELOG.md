@@ -2,6 +2,116 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.0] - 2026-07-25 — Token economy, one agent, and gates that actually fire
+
+An end-to-end audit of the agent surface. The headline is cost: tool schemas were being serialized
+into **every** request — 13.8k tokens in `code`, 14.7k in `chat`, against a default 16k context
+budget — so most of the window was spent before a single message was written. That is now ~4.5k.
+Several gates that looked implemented turned out never to run. 995 → 1125 tests.
+
+### Changed — token economy
+- **Tool schemas load on demand.** A core set (~23 tools) is advertised per request; the rest
+  appear as a one-line name catalogue costing ~3 tokens each instead of ~166 for a full schema,
+  and the model pulls in any schema it needs with `enable_tools`. Execution still resolves against
+  the complete set, so nothing is unreachable — a catalogued tool called directly still works.
+  **~65% fewer tokens per request** in both `code` and `chat`. `--all-tools` /
+  `toolProfile: "all"` restores the old behaviour.
+- **The workflow pre-step is opt-in.** It ran before every message: one model call to classify the
+  request, then either a second chat call or an up-front JSON plan whose steps execute with the
+  model out of the loop. Measured at 8.1s versus 2.5s for the agent loop alone on a plain
+  greeting, and a pre-baked plan cannot adapt to what a tool returns. The agent loop now drives
+  directly; `--workflow` / `codeWorkflow` / `chatWorkflow` bring the planner back for models that
+  need the scaffolding.
+- **Provider capability detection is model-aware.** MiniMax was blanket-excluded from native
+  `tool_calls`, forcing every MiniMax user down the XML agentic path. M2.5 emits well-formed tool
+  calls (verified against `read_file`, `http_request`, `code_execution`), so the check now reads
+  the model version, and `nativeToolCalls` overrides it either way.
+- Platform-dead tools (macOS-only tools off macOS) are no longer advertised.
+
+### Fixed — gates that never fired
+- **Risky tool calls now ask on the chat side too.** `chat`, `ask`, `run` and the channels execute
+  through `tool-runner`, which consulted only permission rules and pre-hooks — both of which
+  default to *allow* with no user config. `rm -rf` reached the shell unchallenged. The risk table
+  existed but only the `code` agent called it; it is now shared (`src/utils/tool-gate.js`) by
+  every surface, and refuses rather than prompting where no human can answer. `NATURECO_FORCE=1`
+  opts out.
+- **The confirmation prompt in `tool-runner` was unreachable.** It sat behind an `agentMode` flag
+  that no caller in the repo ever set, so `natureco chat` wrote files and ran destructive commands
+  with no prompt at all. It now derives from "there is a terminal", and non-TTY origins fail
+  closed.
+- **The headless agent ran ungated.** `!code` over WhatsApp reached the same model and the same
+  tools with no risk assessment, plan mode, permission rules or hooks. It now screens through the
+  shared gate and reports refused steps back to both the model and the user.
+- **`--dry-run` was bypassable.** Asked to create a file with `write_file` refused, the model ran a
+  Python snippet through `code_execution` and the file appeared anyway. `code_execution` — an
+  arbitrary interpreter — is now treated as mutating, alongside 20 other side-effecting tools, and
+  its code is scanned for deletion and shell-out patterns expressed in Python or Node.
+- **`--dir` did not change the working directory.** The project was indexed and displayed, but
+  tools resolved relative paths against whatever directory the shell happened to be in.
+- **Refused tool calls vanished from the transcript**, leaving it identical to the one that
+  produced them, so the model re-issued the call and the user was re-prompted every iteration up
+  to the loop cap. Every announced call now gets exactly one answer, and a refusal no longer
+  cancels its sibling calls.
+- **Context compaction did not work.** `code` never compacted at all; `chat` called
+  `TB.trimMessages(messages)` as a bare statement and discarded the returned array — after the
+  loop, too late to matter. Both now compact before each request, and the trims are
+  tool-pairing-safe (`repairToolPairing`), which they were not: they could orphan either half of a
+  tool exchange and produce transcripts both OpenAI and Anthropic reject.
+- **Windows destructive commands passed every gate.** The risk table was POSIX-only, so
+  `Remove-Item -Recurse -Force`, `del /f /s /q`, `format`, `vssadmin delete shadows`,
+  `-Verb RunAs`, `reg delete`, `iwr … | iex` and `Stop-Computer` ran unprompted. 17 rules added;
+  the `.ssh` and Windows-directory write checks are now separator-agnostic; and a `/System/` rule
+  that compared a capitalized needle against a lower-cased command never matched, and now does.
+- Loop-detection counters were never recorded in `code`, so the guardrails could not fire.
+- Malformed tool arguments took the whole turn down with an unhandled `SyntaxError`; they are now
+  reported back to the model.
+- Snapshots for `/undo` and `RestoreFile` were taken *after* the write, so undo restored exactly
+  the version being discarded. History keys also broke on Windows separators and could escape the
+  history directory via `..`.
+- `natureco code` exited 0 when the provider was unconfigured, so CI could not tell failure from
+  success.
+- One unreadable session file no longer breaks the whole `sessions` listing.
+
+### Added — one coding agent
+- `code` and the legacy `--legacy` agent are merged. Project indexing, project memory and the
+  `/run` `/test` `/git` `/commit` `/retry` `/index` `/memory` commands moved into the default
+  agent, joined by `/help` `/clear` `/compact` `/context` `/tools` `/model` `/undo`. `--legacy`
+  still works but warns; `acp` was silently pinned to the older agent and now resolves to the
+  merged one. Project indexing is one implementation shared by all three front-ends.
+- **MCP servers are usable from `code`.** They were reachable only from `chat`/`repl`; the coding
+  agent built its tool list from the built-in manifest alone. Server tools are namespaced
+  `mcp__<server>__<tool>`, flow through the normal gate and tool cards, and stop with the session.
+- **Resumable sessions and headless mode:** `code -c` / `--resume <id>` / `--list`, and
+  `code -p "task"` which prints only the answer on stdout (progress to stderr, exit 0/1/2) and
+  persists its session, so `-p` followed by `-c` continues the thread.
+- Reaching the tool-round cap now says so instead of ending the turn silently.
+
+### Added — channels (experimental, not yet verified live)
+- **Matrix, Microsoft Teams, Google Chat and Zalo**, taking the channel count to 14. Matrix
+  long-polls `/sync` and needs no public address; the other three are webhook-driven at
+  `/webhooks/{teams,googlechat,zalo}` and need a public HTTPS address. Each supports
+  `connect|disconnect|status|probe`.
+- These four ship **unverified against live services.** They were built and unit-tested (38 tests,
+  plus a real network probe against matrix.org) but nobody has yet run them with real accounts and
+  tokens. Treat them as experimental and please report what breaks. The other ten channels are
+  unaffected.
+- New channels declare a descriptor and share one connect/status/probe implementation
+  (`src/utils/channel-setup.js`) and one inbound router (`src/utils/channel-runtime.js`) instead of
+  copying ~150 lines each. No new dependencies: the Google service-account JWT is signed with
+  `crypto.sign`.
+
+### Fixed — interface language
+- The interface language is one setting, but i18n was rolled out file by file, so some commands
+  printed the other language. Audited 52 commands in both languages: 6 leaks found, 0 remain.
+  The `health` table headers and summary, and the unknown-action errors in `sandbox`, `dns`,
+  `directory` and `system`, were Turkish-only.
+- **Sub-agent personas were mixed-language** — 5 of 8 were Turkish-only. These are system prompts,
+  so a sub-agent's working language depended on which type you picked rather than on the interface
+  language. All eight are now bilingual.
+- Removed nature framing from the `content` persona and the `chat` tips, matching the brand
+  correction already applied to the website: NatureCo is a community and content platform, the
+  name is not a theme.
+
 ## [5.70.0] - 2026-07-25 — `natureco code`: a visual + experience overhaul of the coding agent
 
 Five reviewed-and-proven rocks (Codex adversarial plan review + independent verification on every

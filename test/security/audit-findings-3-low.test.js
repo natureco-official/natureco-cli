@@ -103,7 +103,9 @@ describe('AUDIT_FINDINGS_3 low-severity regressions', () => {
 
     expect(count).toBe(91);
     expect(result.status).toBe(0);
-    expect(normalizedOutput).toContain(`(${count} tools, TUI, auto tool selection)`);
+    // Asserts the count, not the surrounding marketing copy, so the guard
+    // survives a reworded description but still catches a drifting count.
+    expect(normalizedOutput).toContain(`${count} tools`);
     console.log(`[L-03 proof] code: manifest=${count}; help=${count} tools`);
   });
 

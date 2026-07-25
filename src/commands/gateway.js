@@ -481,6 +481,12 @@ async function startWhatsAppProvider(sessionDir, config) {
               if (result.filesChanged?.length) {
                 reply += `\n\n📝 ${L('Değiştirilen dosyalar', 'Changed files')}:\n${result.filesChanged.map(f => `• ${f}`).join('\n')}`;
               }
+              // Unattended runs refuse anything that would need approval; say
+              // so rather than reporting a silently partial result as success.
+              if (result.refusals?.length) {
+                const shown = result.refusals.slice(0, 5).map(r => `• ${r.tool}: ${r.reason}`).join('\n');
+                reply += `\n\n⛔ ${L('Onay gerektiği için atlanan adımlar', 'Steps skipped because they need approval')}:\n${shown}`;
+              }
 
               await sock.sendMessage(msg.key.remoteJid, { text: reply.slice(0, 4000) });
               console.log(chalk.cyan('[whatsapp]'), chalk.green(`!code ${L('tamamlandı', 'completed')} (${result.iterations} ${L('iterasyon', 'iterations')})`));

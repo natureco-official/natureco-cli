@@ -16,9 +16,23 @@ function ensureDir() {
   fs.mkdirSync(HISTORY_DIR, { recursive: true });
 }
 
+/**
+ * Flatten an absolute path into a single directory name.
+ *
+ * This used to be `path.relative(cwd, …)` with only forward slashes replaced,
+ * which broke twice off the happy path: on Windows the `\` separators survived
+ * and turned the key into a nested tree that `listAll` could not read back, and
+ * a file outside the project produced a leading `..` that escaped the history
+ * directory entirely. Normalize the separators and neutralize traversal.
+ */
 function snapshotKey(filePath) {
   const rel = path.relative(process.cwd(), path.resolve(filePath));
-  return rel.replace(/\//g, '__');
+  return rel
+    .split(/[\\/]/)
+    .map(segment => (segment === '..' ? '__up__' : segment))
+    .filter(segment => segment && segment !== '.')
+    .join('__')
+    .replace(/[:*?"<>|]/g, '_');
 }
 
 function getHistory(filePath) {

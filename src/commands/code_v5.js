@@ -1,22 +1,22 @@
 /**
- * natureco code v5 — Claude Code alternatif (v5.0)
+ * natureco code — agentic coding mode.
  *
- * TUI engine + 47 tool + auto tool selection ile modern code agent.
- * v2.23'ün code.js'inin yerini alir.
+ * The single interactive coding agent. The v2.23 agent (src/commands/code.js,
+ * still reachable via `--legacy`) is deprecated; its project indexing, project
+ * memory and workflow slash commands live here now, and both it and the
+ * headless agent share this file's policy through src/utils/tool-gate.js.
  *
- * Ozellikler:
- * - TUI welcome card (round border, status pill)
- * - 47 tool otomatik yuklu (OpenAI function calling)
- * - Multi-turn tool execution (max 10 iter)
- * - Auto-context: dosya/klasor tarama (proje baglami)
- * - Token tracking
- * - Approval prompt (write_file, bash, dangerous komutlar)
+ * - Live streaming render with Esc-interrupt and transactional per-round rollback
+ * - Built-in tools plus any configured MCP server (src/utils/mcp-tools.js)
+ * - Risk / plan-mode / permission / hook screening on every tool call
+ * - Automatic context compaction, resumable sessions, headless one-shot mode
  */
 
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
 const readline = require("readline");
+const { execSync, execFileSync } = require("child_process");
 const chalk = require("chalk");
 const { getLang: _gl } = require("../utils/i18n");
 const L = (tr, en) => (_gl() === "en" ? en : tr);
@@ -31,12 +31,13 @@ const { createPresentationWriter, createStreamWriter } = require("../utils/strea
 const { renderToolCall } = require("../utils/tool-card");
 const {
   streamProviderCompletion,
-  _internals: { buildProviderRequest },
+  stopMcpServers,
 } = require("../utils/api");
+const { loadMcpToolDefinitions } = require("../utils/mcp-tools");
 const { getConfig } = require("../utils/config");
 const { loadToolDefinitions, executeTool, toOpenAIFormat } = require("../utils/tools");
-const { checkPreHooks, runPostHooks, permissionSummary } = require("../utils/tool-hooks");
-const { checkPermission, isApproved, markApproved, formatPermissionPrompt } = require("../utils/permissions");
+const { runPostHooks } = require("../utils/tool-hooks");
+const { createToolGate, assessRisk } = require("../utils/tool-gate");
 const { getPlanMode } = require("../utils/plan-mode");
 const { getWorktree } = require("../utils/worktree");
 const { getLevel: getEffortLevel, getConfig: getEffortConfig } = require("../utils/effort-levels");
@@ -45,14 +46,53 @@ const { getFallbackChain } = require("../utils/fallback-chain");
 const { getTaskManager } = require("../utils/tasks");
 const { buildTiers, assemble, discoverProjectRules } = require("../utils/system-prompt");
 const { buildSkillIndex } = require("../utils/skill-index");
+const {
+  indexProject,
+  buildIndexPrompt,
+  detectTestCommand,
+  loadProjectMemory,
+  appendProjectMemory,
+} = require("../utils/project-index");
+const { saveSession, loadLastSession, listSessions, loadCommandSession } = require("../utils/sessions");
+const { selectTools, buildCatalog, createEnableToolsTool } = require("../utils/tool-profile");
 const { AgentCore } = require("../utils/agent-core");
 const { prepareConversationHistory } = require("../utils/conversation-context");
 const tokenBudget = require("../utils/token-budget");
 
-const agentCore = new AgentCore({ maxIterations: 10 });
+const agentCore = new AgentCore({ maxIterations: 30 });
 
-const IS_MAC = os.platform() === "darwin";
-const MAX_ITERATIONS = 10;
+const MAX_ITERATIONS = 30;
+
+/**
+ * Keep the transcript under the provider's context ceiling.
+ *
+ * The loop appends an assistant turn plus one result per tool call every
+ * iteration, so a long session grew without bound until the provider returned
+ * a context-length error mid-task. Compact in place (the caller holds the same
+ * array reference) once the estimate crosses the budget.
+ */
+function compactIfNeeded(messages, { force = false, presentation, quiet = false } = {}) {
+  if (!force && !tokenBudget.needsCompaction(messages)) return null;
+  const before = messages.length;
+  const beforeTokens = tokenBudget.estimateMessageTokens(messages);
+  const trimmed = tokenBudget.smartTrim(messages);
+  if (trimmed.length >= before) return null;
+  messages.splice(0, messages.length, ...trimmed);
+  const summary = {
+    before,
+    after: messages.length,
+    beforeTokens,
+    afterTokens: tokenBudget.estimateMessageTokens(messages),
+  };
+  const line = "  " + tui.C.muted(
+    `↯ ${L('bağlam sıkıştırıldı', 'context compacted')}: ${summary.before} → ${summary.after} ` +
+    `(~${summary.beforeTokens} → ~${summary.afterTokens} token)`,
+  ) + "\n";
+  if (presentation) presentation.writeCommitted(line);
+  else if (quiet) process.stderr.write(line);
+  else process.stdout.write(line);
+  return summary;
+}
 
 function createAbortError(message = 'The operation was aborted') {
   const error = new Error(message);
@@ -62,10 +102,6 @@ function createAbortError(message = 'The operation was aborted') {
 
 function isAbortError(error, signal) {
   return Boolean(signal?.aborted || error?.name === 'AbortError' || error?.code === 'ABORT_ERR');
-}
-
-function isMiniMax(url) {
-  return url && (url.includes("minimax.io") || url.includes("minimaxi.com"));
 }
 
 function createCodeInputSession({
@@ -107,72 +143,14 @@ function createCodeInputSession({
   };
 }
 
-async function apiRequest(url, key, body) {
-  const https = require("https");
-  return new Promise((resolve, reject) => {
-    const isMM = isMiniMax(url);
-    const endpoint = isMM
-      ? url.replace(/\/+$/, "") + "/v1/text/chatcompletion_v2"
-      : url.replace(/\/+$/, "") + "/chat/completions";
-    const data = JSON.stringify(body);
-    const req = https.request(endpoint, {
-      method: "POST",
-      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-      timeout: 60000,
-    }, res => {
-      let body = "";
-      res.on("data", c => body += c);
-      res.on("end", () => {
-        if (res.statusCode === 200) {
-          try { resolve(JSON.parse(body)); } catch (e) { reject(new Error(L("Parse hatasi", "Parse error"))); }
-        } else reject(new Error("HTTP " + res.statusCode + ": " + body.slice(0, 200)));
-      });
-    });
-    req.on("error", reject);
-    req.on("timeout", () => req.destroy() && reject(new Error("Timeout")));
-    req.write(data);
-    req.end();
-  });
-}
-
-async function sendMessageWithToolsBuffered(providerUrl, providerKey, model, messages, toolDefs) {
-  const effortLevel = getEffortLevel();
-  const effortCfg = getEffortConfig(effortLevel);
-  const fallbackChain = getFallbackChain();
-  const openaiTools = toOpenAIFormat(toolDefs);
-  const selectedModel = fallbackChain.current || model;
-  const respFmt = getResponseFormat({});
-  const request = buildProviderRequest({
-    url: providerUrl,
-    apiKey: providerKey,
-    model: selectedModel,
-  }, messages, openaiTools, {
-    model: selectedModel,
-    temperature: effortCfg.temperature,
-    maxTokens: effortCfg.maxTokens,
-    responseFormat: respFmt,
-    stream: false,
-  });
-  const body = request.body;
-  try {
-    const res = await apiRequest(providerUrl, providerKey, body);
-    return res.choices?.[0]?.message || {};
-  } catch (err) {
-    const fb = fallbackChain.recordError(body.model, err);
-    if (fb.fallback) {
-      console.log(tui.C.yellow(`\n  ⚠ ${body.model} ${L('başarısız', 'failed')} → ${fb.nextModel} ${L('deneniyor...', 'trying...')}\n`));
-      return sendMessageWithToolsBuffered(providerUrl, providerKey, fb.nextModel, messages, toolDefs);
-    }
-    throw err;
-  }
-}
-
 async function sendMessageWithTools(providerUrl, providerKey, model, messages, toolDefs, options = {}) {
   const effortLevel = getEffortLevel();
   const effortCfg = getEffortConfig(effortLevel);
   const fallbackChain = getFallbackChain();
   const selectedModel = fallbackChain.current || model;
-  const tools = toOpenAIFormat(toolDefs);
+  // Only the advertised subset is serialized into the request; `toolDefs` still
+  // holds everything, so execution can resolve a tool the model enabled mid-turn.
+  const tools = toOpenAIFormat(options.exposedTools || toolDefs);
   const responseFormat = getResponseFormat({});
   const providerConfig = {
     url: providerUrl,
@@ -207,108 +185,54 @@ async function sendMessageWithTools(providerUrl, providerKey, model, messages, t
   }
 }
 
-function confirm(prompt) {
+/**
+ * Read a single line from the user while a turn is in flight.
+ *
+ * The turn owns stdin in raw mode (Esc-interrupt), so a readline interface
+ * created here would fight it: keystrokes reach both consumers and the prompt
+ * echoes twice. Drop raw mode for the duration of the question and restore it
+ * afterwards so Esc keeps working once the answer is in.
+ */
+function askLine(question) {
   return new Promise(resolve => {
-    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    rl.question(chalk.yellow("\n  ⚠ " + prompt + " "), ans => {
+    const input = process.stdin;
+    const wasRaw = Boolean(input.isRaw);
+    if (wasRaw && typeof input.setRawMode === 'function') input.setRawMode(false);
+    const rl = readline.createInterface({ input, output: process.stdout });
+    rl.question(question, answer => {
       rl.close();
-      resolve(!ans || ans.toLowerCase().startsWith("y"));
+      if (wasRaw && typeof input.setRawMode === 'function') input.setRawMode(true);
+      resolve(String(answer || '').trim());
     });
   });
 }
 
 /**
- * v5.6.21: Risk seviyesi tespiti - sadece riskli işlemlerde onay iste
- * @param {string} tool - tool adı
- * @param {object} args - tool parametreleri
- * @returns {{requiresApproval: boolean, reason: string, level: string}}
+ * Yes/no confirmation. Defaults to NO: these prompts guard destructive tool
+ * calls, so a bare Enter (or a stray newline pasted into the terminal) must
+ * never be read as approval.
  */
-function assessRisk(tool, args) {
-  const argsStr = JSON.stringify(args || {});
-
-  // ============================================================
-  // YÜKSEK RİSK - Mutlaka onay iste
-  // ============================================================
-
-  // bash / shell_command: Tehlikeli komutlar
-  if (tool === "bash" || tool === "shell_command") {
-    const cmd = (args.command || args.cmd || "").toLowerCase();
-
-    // Dosya/klasör silme
-    if (/\brm\s+(-[rf]+\s+)*/.test(cmd) || /rmdir/.test(cmd)) {
-      return { requiresApproval: true, level: "high", reason: `${L('Dosya silme komutu', 'File deletion command')}: ${args.command}` };
-    }
-    if (cmd.includes("sudo ") || cmd.includes("doas ")) {
-      return { requiresApproval: true, level: "high", reason: `${L('Yetki yükseltme', 'Privilege escalation')}: ${args.command}` };
-    }
-    if (cmd.includes("dd if=") || cmd.includes("mkfs") || cmd.includes("fdisk")) {
-      return { requiresApproval: true, level: "high", reason: `${L('Disk işlemi', 'Disk operation')}: ${args.command}` };
-    }
-    if (cmd.match(/^\s*mv\s+.*\/(?:\.|\.\.)/)) {
-      return { requiresApproval: true, level: "medium", reason: `${L('Üzerine yazma riski', 'Overwrite risk')}: ${args.command}` };
-    }
-    // chmod 777 veya chown -R
-    if (/chmod\s+(-[rR]+\s+)*777/.test(cmd) || /chown\s+-R/.test(cmd)) {
-      return { requiresApproval: true, level: "medium", reason: `${L('İzin değişikliği', 'Permission change')}: ${args.command}` };
-    }
-    // git push --force
-    if (/git\s+push.*--force/.test(cmd) || /git\s+push.*-f\s/.test(cmd)) {
-      return { requiresApproval: true, level: "high", reason: `${L('Zorla push', 'Force push')}: ${args.command}` };
-    }
-    // git reset --hard
-    if (/git\s+reset\s+--hard/.test(cmd)) {
-      return { requiresApproval: true, level: "high", reason: `Hard reset: ${args.command}` };
-    }
-    // Üretim/kök dizin
-    if (cmd.includes("/etc/") || cmd.includes("/usr/") || cmd.includes("/var/") || cmd.includes("/System/")) {
-      return { requiresApproval: true, level: "high", reason: `${L('Sistem dizinine erişim', 'System directory access')}: ${args.command}` };
-    }
-    // curl/wget internet download
-    if (/curl.*\|\s*(bash|sh)/.test(cmd) || /wget.*\|\s*(bash|sh)/.test(cmd)) {
-      return { requiresApproval: true, level: "high", reason: `${L('İnternet üzerinden script çalıştırma', 'Running a script from the internet')}: ${args.command}` };
-    }
-    // mac_app_quit veya killall
-    if (cmd.includes("killall") || cmd.includes("pkill") || cmd.includes("kill -9")) {
-      return { requiresApproval: true, level: "high", reason: `${L('Süreç sonlandırma', 'Process termination')}: ${args.command}` };
-    }
-    // .natureco veya önemli dosyalara dokunma
-    if (cmd.includes(".natureco") && (cmd.includes("rm") || cmd.includes("mv"))) {
-      return { requiresApproval: true, level: "high", reason: `${L('NatureCo dizininde tehlikeli işlem', 'Dangerous operation in the NatureCo directory')}: ${args.command}` };
-    }
-  }
-
-  // ============================================================
-  // ORTA RİSK - Onay iste (bilgilendir)
-  // ============================================================
-
-  // mac_app_quit - uygulama kapatma
-  if (tool === "mac_app_quit") {
-    return { requiresApproval: true, level: "medium", reason: `${L('Uygulama kapatma', 'App quit')}: ${args.app || args.name || "?"}` };
-  }
-
-  // write_file / edit_file - kritik yollara yazma
-  if (tool === "write_file" || tool === "edit_file") {
-    const path = (args.path || args.file || "").toLowerCase();
-    // Hassas dosyalar
-    if (path.includes(".env") || path.includes("credentials") || path.includes("secret")) {
-      return { requiresApproval: true, level: "high", reason: `${L('Hassas dosya', 'Sensitive file')}: ${args.path}` };
-    }
-    if (path.includes("/etc/") || path.includes("/usr/") || path.includes("~/.ssh/")) {
-      return { requiresApproval: true, level: "high", reason: `${L('Sistem dosyası', 'System file')}: ${args.path}` };
-    }
-    if (path.includes(".natureco/config.json") || path.includes(".natureco/soul/")) {
-      return { requiresApproval: true, level: "medium", reason: `${L('NatureCo config dosyası', 'NatureCo config file')}: ${args.path}` };
-    }
-  }
-
-  // ============================================================
-  // GÜVENLİ - Onay isteme
-  // ============================================================
-
-  // Normal tool'lar (read_file, list_dir, grep_search, vs.)
-  return { requiresApproval: false, level: "low", reason: "" };
+async function confirm(prompt) {
+  const answer = await askLine(chalk.yellow("\n  ⚠ " + prompt + " "));
+  return /^(y|yes|e|evet)$/i.test(answer);
 }
 
+const PERMISSION_ANSWERS = {
+  y: 'once', yes: 'once', e: 'once', evet: 'once',
+  s: 'session', session: 'session', o: 'session', oturum: 'session',
+  p: 'persistent', persistent: 'persistent', k: 'persistent', kalici: 'persistent',
+};
+
+/**
+ * Permission prompt with the three grant scopes the prompt actually advertises.
+ * Previously every answer collapsed to a boolean, so "p" (persistent) was read
+ * as a refusal and no answer could ever grant beyond the session.
+ */
+async function askPermission(prompt) {
+  const answer = await askLine(chalk.yellow("\n  ⚠ " + prompt + " "));
+  const normalized = answer.toLowerCase().replace(/[ıİ]/g, 'i');
+  return PERMISSION_ANSWERS[normalized] || 'no';
+}
 
 const FILE_SNAPSHOT_MAX_BYTES = 256 * 1024;
 
@@ -343,12 +267,17 @@ function writeFinishedReply(raw, options = {}) {
 }
 
 async function streamAssistantReply(providerUrl, providerKey, model, messages, toolDefs, options = {}) {
-  const writer = createStreamWriter(options);
+  // `--no-stream` was accepted by the CLI and then ignored. Honour it by
+  // buffering the reply and rendering it once, while keeping the transport
+  // streaming so Esc-interrupt, usage events and the fallback chain still work.
+  const live = options.stream !== false;
+  const writer = live ? createStreamWriter(options) : null;
   options.presentation?.updateStatus({ usage: null });
   const thinking = options.presentation?.startSpinner(
     options.thinkingLabel || L('Düşünüyor', 'Thinking')
   );
   let awaitingFirstDelta = true;
+  let bufferedLength = 0;
   let reply;
   try {
     reply = await sendMessageWithTools(
@@ -359,6 +288,7 @@ async function streamAssistantReply(providerUrl, providerKey, model, messages, t
       toolDefs,
       {
         signal: options.signal,
+        exposedTools: options.exposedTools,
         onEvent: event => {
           if (awaitingFirstDelta &&
               (event?.type === 'text_delta' || event?.type === 'tool_call_delta')) {
@@ -368,21 +298,27 @@ async function streamAssistantReply(providerUrl, providerKey, model, messages, t
           if (event?.type === 'usage') {
             options.presentation?.updateStatus({ usage: event.usage || event });
           } else if (event?.type === 'text_delta') {
+            bufferedLength += String(event.text || '').length;
             options.presentation?.updateStatus({
               outputTokens: (options.estimatedOutputTokens || 0) +
-                Math.ceil((writer.getRaw().length + String(event.text || '').length) / 4),
+                Math.ceil(((writer ? writer.getRaw().length : bufferedLength)) / 4),
             });
           }
-          writer.event(event);
+          writer?.event(event);
           if (typeof options.onEvent === 'function') options.onEvent(event);
         },
       },
     );
   } finally {
     thinking?.stop();
-    writer.end();
+    writer?.end();
   }
-  const raw = writer.getRaw();
+  const raw = writer
+    ? writer.getRaw()
+    : (typeof reply?.content === 'string' ? reply.content : '');
+  // `quiet` is the headless case: the caller owns stdout and prints the final
+  // answer itself, so rendering here would emit it twice.
+  if (!writer && raw && !options.quiet) writeFinishedReply(raw, options);
   if (reply && reply.content !== null && reply.content !== undefined) reply.content = raw;
   return { reply, raw };
 }
@@ -473,48 +409,136 @@ async function runInterruptibleTurn(options) {
   }
 }
 
-function writeToolCard(name, args, result, snapshots = {}, presentation) {
+function writeToolCard(name, args, result, snapshots = {}, presentation, { quiet = false } = {}) {
   const card = '\n' + renderToolCall(name, args, result, snapshots) + '\n';
   if (presentation) presentation.writeCommitted(card);
+  // Headless: progress belongs on stderr so `-p` output stays pipeable.
+  else if (quiet) process.stderr.write(card);
   else process.stdout.write(card);
 }
 
-function scanProject(cwd) {
+/**
+ * One-shot, tool-free model call used for `/commit` messages and `/done`
+ * summaries. Deliberately does not go through the agent loop.
+ */
+async function askModelOnce(config, prompt, systemPrompt) {
+  const messages = [];
+  if (systemPrompt) messages.push({ role: 'system', content: systemPrompt });
+  messages.push({ role: 'user', content: prompt });
+  const reply = await streamProviderCompletion(
+    { url: config.providerUrl, apiKey: config.providerApiKey, model: config.providerModel },
+    messages,
+    [],
+    { model: config.providerModel, maxTokens: 512 },
+  );
+  return String(reply?.content || '').trim();
+}
+
+async function generateCommitMessage(diff, config) {
+  const system = L(
+    'Sen bir git commit mesajı üreticisisin. Conventional Commits formatında (feat/fix/refactor/chore vb.) kısa ve açıklayıcı tek satırlık bir mesaj yaz. Sadece mesajı yaz.',
+    'You are a git commit message generator. Write a short, descriptive single-line message in Conventional Commits format (feat/fix/refactor/chore etc.). Output only the message.',
+  );
   try {
-    const files = fs.readdirSync(cwd, { withFileTypes: true });
-    const summary = {
-      totalFiles: 0,
-      dirs: [],
-      configFiles: [],
-      readme: null,
-    };
-    for (const f of files) {
-      if (f.name.startsWith(".") || f.name === "node_modules") continue;
-      if (f.isDirectory()) summary.dirs.push(f.name);
-      else {
-        summary.totalFiles++;
-        if (f.name === "package.json" || f.name === "Cargo.toml" || f.name === "go.mod" || f.name.endsWith(".lock")) {
-          summary.configFiles.push(f.name);
-        }
-        if (f.name.toLowerCase() === "readme.md") summary.readme = f.name;
-      }
-    }
-    return summary;
+    const message = await askModelOnce(config, `Generate a commit message for this diff:\n\n${diff}`, system);
+    return message.split('\n')[0].replace(/^["']|["']$/g, '') || 'chore: update files';
   } catch {
-    return null;
+    return 'chore: update files';
   }
 }
 
-async function codeV5(targetPath) {
+/**
+ * Restore a previous transcript.
+ * Sessions are stored by src/utils/sessions.js under the "code" command name.
+ */
+function restoreSession(cliOptions) {
+  if (cliOptions.continue) {
+    const last = loadLastSession('code');
+    return last ? { messages: last.messages || [], id: last.id, meta: last.metadata } : null;
+  }
+  if (typeof cliOptions.resume === 'string' && cliOptions.resume) {
+    const data = loadCommandSession('code', cliOptions.resume);
+    return data ? { messages: data.messages || [], id: data.id, meta: data.metadata } : null;
+  }
+  if (cliOptions.resume === true) {
+    const last = loadLastSession('code');
+    return last ? { messages: last.messages || [], id: last.id, meta: last.metadata } : null;
+  }
+  return null;
+}
+
+function printSessionList() {
+  const sessions = listSessions('code');
+  if (!sessions.length) {
+    console.log("\n  " + tui.C.muted(L('Kayıtlı code oturumu yok.', 'No saved code sessions.')));
+    return;
+  }
+  console.log("\n  " + tui.styled(L('Kayıtlı code oturumları', 'Saved code sessions'), { color: tui.PALETTE.primary, bold: true }));
+  for (const session of sessions.slice(0, 20)) {
+    const when = session.savedAt ? new Date(session.savedAt).toLocaleString() : '—';
+    console.log("    " + tui.C.amber(String(session.id).padEnd(12)) +
+      tui.C.muted(`${when}  ${session.messageCount} msg  `) +
+      tui.C.text(session.preview ? session.preview.replace(/\s+/g, ' ') : ''));
+  }
+  console.log("");
+}
+
+async function codeV5(targetPath, cliOptions = {}) {
+  const dryRun = Boolean(cliOptions.dryRun);
+  const streaming = cliOptions.stream !== false;
+  // `-p "task"` runs one turn and prints only the answer, for scripts and CI.
+  const headlessPrompt = typeof cliOptions.print === 'string' && cliOptions.print.trim()
+    ? cliOptions.print.trim()
+    : null;
+  // Opt-in workflow pre-step (see the turn body for why it is no longer the default).
+  const useWorkflow = cliOptions.workflow === true || getConfig().codeWorkflow === true;
+
+  if (cliOptions.list) { printSessionList(); return; }
+
   const config = getConfig();
   if (!config.providerUrl || !config.providerApiKey) {
-    console.log(tui.C.red(L("\n  ❌ Provider ayarlı değil. Önce: natureco setup\n", "\n  ❌ Provider not configured. First: natureco setup\n")));
+    // Exit non-zero: a script or CI job that pipes `natureco code -p …` must be
+    // able to tell "not configured" from "ran successfully".
+    console.error(L(
+      "\n  ❌ Provider ayarlı değil. Önce: natureco setup\n  (Bot seçilmedi. Önce `natureco bots` komutunu çalıştırın.)\n",
+      "\n  ❌ Provider not configured. First: natureco setup\n  (No bot selected. Run `natureco bots` first.)\n",
+    ));
+    process.exitCode = 1;
     return;
   }
 
   const cwd = targetPath ? path.resolve(targetPath) : process.cwd();
-  const projectCtx = scanProject(cwd);
+  // Tools resolve relative paths against process.cwd(), so without this
+  // `--dir <project>` only changed what was indexed and displayed while every
+  // write still landed in whatever directory the shell happened to be in.
+  if (cwd !== process.cwd()) {
+    try {
+      process.chdir(cwd);
+    } catch (error) {
+      console.error(L(
+        `\n  ❌ Çalışma dizinine geçilemedi: ${cwd}\n  ${error.message}\n`,
+        `\n  ❌ Could not switch to the working directory: ${cwd}\n  ${error.message}\n`,
+      ));
+      process.exitCode = 1;
+      return;
+    }
+  }
+  // Full project index (type, entry points, npm scripts, git state) — the v5
+  // agent previously had only a one-level readdir here, so it had to spend
+  // tool calls rediscovering what the legacy agent already knew.
+  let projectCtx = indexProject(cwd);
+  const projectMemory = loadProjectMemory(cwd);
   const toolDefs = loadToolDefinitions();
+
+  // MCP servers, if any are configured. They were previously reachable only
+  // from chat/repl; the coding agent never saw them.
+  const mcp = await loadMcpToolDefinitions();
+  const builtinNames = new Set(toolDefs.map(t => t.name));
+  for (const tool of mcp.tools) {
+    if (builtinNames.has(tool.name)) continue;
+    toolDefs.push(tool);
+    builtinNames.add(tool.name);
+  }
 
   // Inject virtual tools
   const planMode = getPlanMode();
@@ -522,23 +546,28 @@ async function codeV5(targetPath) {
   const taskMgr = getTaskManager();
 
   // File tracking for summary + snapshots
-  function trackFileChanges(toolName, args, result) {
+  function trackFileChanges(toolName, args, result, snapshots = {}) {
     if (toolName === 'write_file' || toolName === 'edit_file') {
       const fp = args.filePath || args.path;
       if (fp && result && result.success !== false) {
         filesChanged++;
+        if (!changedFiles.includes(fp)) changedFiles.push(fp);
+        lastChangedFile = fp;
+        // Snapshot the content as it was BEFORE the edit. Snapshotting after
+        // the write stored the new content, so "undo"/RestoreFile handed back
+        // exactly the version the user wanted to discard.
         try {
-          const fh = require('../utils/file-history');
-          const content = fs.readFileSync(fp, 'utf8');
-          fh.snapshot(fp, content);
-        } catch {}
+          if (snapshots.before?.available) {
+            require('../utils/file-history').snapshot(fp, snapshots.before.content);
+          }
+        } catch { /* history is best-effort; never fail the tool call over it */ }
       }
     }
     if (toolName === 'bash' || toolName === 'shell_command') commandsRun++;
   }
 
   function processToolCallsWithTracking(reply, config, toolDefs, messages, options) {
-    return processToolCalls(reply, config, toolDefs, messages, trackFileChanges, options);
+    return processToolCalls(reply, config, toolDefs, messages, trackFileChanges, { ...options, dryRun });
   }
   const virtualTools = [
     {
@@ -636,6 +665,16 @@ async function codeV5(targetPath) {
   ];
   toolDefs.push(...virtualTools);
 
+  // Token economy: advertise a core set, catalogue the rest by name, and let
+  // the model load any schema it needs on demand. Execution keeps resolving
+  // against `toolDefs`, so an enabled tool works the moment it is enabled.
+  const sessionEnabledTools = new Set();
+  const toolProfile = cliOptions.allTools === true || getConfig().toolProfile === 'all' ? 'all' : 'core';
+  toolDefs.push(createEnableToolsTool(sessionEnabledTools, () => toolDefs.map(t => t.name)));
+  const exposedTools = () => selectTools(toolDefs, { profile: toolProfile, enabled: sessionEnabledTools }).exposed;
+  const toolCatalog = () => buildCatalog(selectTools(toolDefs, { profile: toolProfile, enabled: sessionEnabledTools }).hidden);
+
+  if (!headlessPrompt) {
   // Header / Welcome
   console.log("");
   console.log(tui.styled("  ╭" + "─".repeat(58) + "╮", { color: tui.PALETTE.primary }));
@@ -643,27 +682,46 @@ async function codeV5(targetPath) {
   console.log(tui.styled("  │", { color: tui.PALETTE.primary }) + tui.C.muted("  Proje:  ") + tui.styled(cwd.padEnd(47), { color: tui.PALETTE.text }) + tui.styled(" │", { color: tui.PALETTE.primary }));
   console.log(tui.styled("  │", { color: tui.PALETTE.primary }) + tui.C.muted("  Model:  ") + tui.styled((config.providerModel || "—").padEnd(47), { color: tui.PALETTE.text }) + tui.styled(" │", { color: tui.PALETTE.primary }));
   console.log(tui.styled("  │", { color: tui.PALETTE.primary }) + tui.C.muted("  Tools:  ") + tui.styled(String(toolDefs.length).padEnd(47), { color: tui.PALETTE.success, bold: true }) + tui.styled(" │", { color: tui.PALETTE.primary }));
+  if (mcp.servers.length > 0) {
+    const label = `${mcp.servers.join(", ")} (${mcp.tools.length})`;
+    console.log(tui.styled("  │", { color: tui.PALETTE.primary }) + tui.C.muted("  MCP:    ") + tui.styled(label.slice(0, 47).padEnd(47), { color: tui.PALETTE.text }) + tui.styled(" │", { color: tui.PALETTE.primary }));
+  }
   console.log(tui.styled("  ╰" + "─".repeat(58) + "╯", { color: tui.PALETTE.primary }));
+  for (const error of mcp.errors) {
+    console.log("  " + tui.C.yellow(`⚠ MCP: ${error}`));
+  }
 
   // Project context
   if (projectCtx) {
     console.log("\n  " + tui.C.muted(L("📂 Proje bağlamı:", "📂 Project context:")));
-    if (projectCtx.readme) console.log("    " + tui.C.muted("• README: ") + tui.C.text(projectCtx.readme));
-    if (projectCtx.configFiles.length) {
-      console.log("    " + tui.C.muted("• Config: ") + tui.C.text(projectCtx.configFiles.join(", ")));
+    console.log("    " + tui.C.muted(L("• Tip: ", "• Type: ")) + tui.C.text(projectCtx.type.toUpperCase()) +
+      tui.C.muted(`  ·  ${projectCtx.files.length} ${L('dosya', 'files')}`));
+    if (projectCtx.mainFiles.length) {
+      console.log("    " + tui.C.muted(L("• Giriş: ", "• Entry: ")) + tui.C.text(projectCtx.mainFiles.join(", ")));
     }
-    if (projectCtx.dirs.length) {
-      console.log("    " + tui.C.muted(L("• Klasörler: ", "• Folders: ")) + tui.C.text(projectCtx.dirs.slice(0, 8).join(", ")));
+    const scripts = Object.keys(projectCtx.packageJson?.scripts || {});
+    if (scripts.length) {
+      console.log("    " + tui.C.muted("• Scripts: ") + tui.C.text(scripts.slice(0, 10).join(", ")));
     }
-    console.log("    " + tui.C.muted(L("• Toplam dosya: ", "• Total files: ")) + tui.C.text(String(projectCtx.totalFiles)));
+    if (projectCtx.gitBranch) {
+      console.log("    " + tui.C.muted("• Git: ") + tui.C.text(projectCtx.gitBranch) +
+        tui.C.muted(`  ·  ${projectCtx.gitStatus?.length || 0} ${L('değişiklik', 'changes')}`));
+    }
+    if (projectMemory) {
+      console.log("    " + tui.C.muted(L("• Proje hafızası yüklendi (/memory)", "• Project memory loaded (/memory)")));
+    }
   }
 
-  console.log("\n  " + tui.C.muted(L("Komutlar:", "Commands:")));
-  console.log("    " + tui.C.amber("/plan on|approve|reject|show") + tui.C.muted(L(" — Plan modu", " — Plan mode")));
-  console.log("    " + tui.C.amber("/summary") + tui.C.muted(L(" — Oturum özeti", " — Session summary")));
-  console.log("    " + tui.C.amber("/done") + tui.C.muted(L("    — Özet + çıkış", "    — Summary + exit")));
-  console.log("    " + tui.C.amber("Ctrl+C") + tui.C.muted(L("  — Çıkış", "  — Exit")));
+  if (dryRun) {
+    console.log("\n  " + tui.C.yellow(L(
+      "⚠ DRY RUN — dosya yazma / komut çalıştırma araçları reddedilecek.",
+      "⚠ DRY RUN — file-writing and command-running tools will be refused.",
+    )));
+  }
+
+  console.log("\n  " + tui.C.muted(L("Komutlar: /help ile tam liste", "Commands: /help for the full list")));
   console.log("");
+  }
 
   // Three-tier system prompt (Hermes-style)
   const skillsIndexBlock = buildSkillIndex();
@@ -678,12 +736,86 @@ async function codeV5(targetPath) {
     userHome: os.homedir(),
   };
   const { stable, context, volatile } = buildTiers(promptOpts);
-  const systemPrompt = assemble(stable, context, volatile);
+  const catalogBlock = toolCatalog();
+  const systemPrompt = [
+    assemble(stable, context, volatile),
+    '',
+    buildIndexPrompt(projectCtx),
+    projectMemory ? `\nProject memory:\n${tokenBudget.trimProjectMemory(projectMemory)}` : '',
+    catalogBlock ? `\n${catalogBlock}` : '',
+  ].join('\n');
 
   let messages = [{ role: "system", content: systemPrompt }];
+
+  const restored = restoreSession(cliOptions);
+  if (restored) {
+    const carried = (restored.messages || []).filter(m => m.role !== 'system');
+    messages.push(...tokenBudget.repairToolPairing(carried));
+  }
+  if (!headlessPrompt) {
+    if (restored) {
+      console.log("  " + tui.C.green(
+        `↺ ${L('oturum geri yüklendi', 'session restored')}: ${restored.id} (${messages.length - 1} ${L('mesaj', 'messages')})`,
+      ));
+    } else if (cliOptions.continue || cliOptions.resume) {
+      console.log("  " + tui.C.yellow(L('Geri yüklenecek oturum bulunamadı, yeni oturum başlatılıyor.', 'No session to restore; starting a new one.')));
+    }
+    console.log("");
+  }
+
   let totalIn = 0, totalOut = 0;
   let filesChanged = 0, commandsRun = 0;
+  let lastChangedFile = null;
+  const changedFiles = [];
   const startTime = Date.now();
+
+  // ── Headless one-shot (`-p "task"`) ───────────────────────────────────────
+  // Same tools, same gate, same compaction as the interactive loop — only the
+  // presentation and the approval prompts are removed, so it is safe to run
+  // from CI or a script.
+  if (headlessPrompt) {
+    messages.push({ role: 'user', content: headlessPrompt });
+    let finalText = '';
+    let unresolved = true;
+    try {
+      for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+        compactIfNeeded(messages, { quiet: true });
+        const { reply } = await streamAssistantReply(
+          config.providerUrl, config.providerApiKey, config.providerModel,
+          messages, toolDefs, { stream: false, quiet: true, exposedTools: exposedTools() },
+        );
+        if (reply?.content) finalText = reply.content;
+        if (!reply?.tool_calls?.length) {
+          if (reply?.content) messages.push({ role: 'assistant', content: reply.content });
+          unresolved = false;
+          break;
+        }
+        await processToolCalls(reply, config, toolDefs, messages, trackFileChanges, {
+          dryRun,
+          interactive: false,
+          quiet: true,
+        });
+      }
+      process.stdout.write((finalText || L('(yanıt yok)', '(no answer)')) + '\n');
+      if (unresolved) {
+        process.stderr.write(L(
+          `Uyarı: ${MAX_ITERATIONS} tur sonunda görev tamamlanmadı.\n`,
+          `Warning: the task did not finish within ${MAX_ITERATIONS} rounds.\n`,
+        ));
+      }
+    } catch (error) {
+      process.stderr.write(`${error.message}\n`);
+      process.exitCode = 1;
+    } finally {
+      if (mcp.servers.length > 0) {
+        try { stopMcpServers(); } catch { /* best effort on shutdown */ }
+      }
+      // Persist here too, so `code -p …` then `code -c` continues the thread.
+      persistSession({ quiet: true });
+    }
+    if (process.exitCode !== 1) process.exitCode = unresolved ? 2 : 0;
+    return;
+  }
 
   // Input loop
   const inputSession = createCodeInputSession();
@@ -695,27 +827,206 @@ async function codeV5(targetPath) {
   };
   writePlainPrompt("\n  ");
 
-  const ask = async () => {
-    let input;
+  const SLASH_HELP = [
+    ['/help', L('Bu yardım', 'This help')],
+    ['/clear', L('Ekranı temizle', 'Clear the screen')],
+    ['/compact', L('Konuşma bağlamını şimdi sıkıştır', 'Compact the conversation context now')],
+    ['/context', L('Bağlam kullanımını göster', 'Show context usage')],
+    ['/tools', L('Yüklü araçları listele', 'List loaded tools')],
+    ['/model', L('Aktif modeli göster', 'Show the active model')],
+    ['/undo [dosya]', L('Son dosya değişikliğini geri al', 'Undo the last file change')],
+    ['/retry', L('Son isteği tekrar çalıştır', 'Re-run the last request')],
+    ['/run <komut>', L('Komutu çalıştır, çıktısını bağlama ekle', 'Run a command and add its output to context')],
+    ['/test', L('Proje testlerini çalıştır', "Run the project's tests")],
+    ['/git', L('Git durumu ve son commitler', 'Git status and recent commits')],
+    ['/commit', L('Staged değişiklikleri AI mesajıyla commit et', 'Commit staged changes with an AI message')],
+    ['/index', L('Projeyi yeniden indeksle', 'Re-index the project')],
+    ['/memory', L('Proje hafızasını göster', 'Show project memory')],
+    ['/plan on|approve|reject|show', L('Plan modu', 'Plan mode')],
+    ['/summary', L('Oturum özeti', 'Session summary')],
+    ['/done', L('Özet + kaydet + çıkış', 'Summary + save + exit')],
+    ['Esc', L('Süren turu kes', 'Interrupt the running turn')],
+    ['Ctrl+C', L('Çıkış', 'Exit')],
+  ];
+
+  let lastUserMessage = null;
+
+  const runShell = (command, label) => {
+    console.log("\n  " + tui.C.muted(`▶ ${command}`));
     try {
-      input = await inputSession.read();
+      const output = execSync(command, { cwd, timeout: 120000, stdio: 'pipe' }).toString();
+      console.log("  " + tui.C.green(L('✓ Başarılı', '✓ Success')));
+      if (output.trim()) console.log(tui.C.muted("  " + output.trim().split('\n').slice(0, 40).join('\n  ')));
+      return { ok: true, output };
     } catch (error) {
-      if (error?.code === 'SIGINT') return;
-      throw error;
+      const output = (error.stdout?.toString() || '') + (error.stderr?.toString() || error.message || '');
+      console.log("  " + tui.C.red(L('✗ Hata', '✗ Failed')));
+      console.log(tui.C.muted("  " + output.trim().split('\n').slice(0, 40).join('\n  ')));
+      return { ok: false, output };
+    } finally {
+      if (label) commandsRun++;
     }
-      input = input.trim();
-      if (!input) { writePlainPrompt("  "); return ask(); }
-      if (input === "/summary") {
-        printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
-        writePlainPrompt("\n  ");
-        return ask();
+  };
+
+  /**
+   * Feed a command's result into the transcript so the next turn can act on it
+   * without the model having to re-run the command itself.
+   */
+  const recordShellResult = (command, result) => {
+    messages.push({
+      role: 'system',
+      content: `[\`${command}\` ${result.ok ? 'succeeded' : 'FAILED'}]\n${String(result.output).slice(0, 4000)}`,
+    });
+    console.log("  " + tui.C.muted(L(
+      'Çıktı bağlama eklendi — düzeltmesi için mesaj yazın.',
+      'Output added to context — send a message to have it addressed.',
+    )));
+  };
+
+  /**
+   * Handle an input that starts with `/`.
+   * Returns 'exit' to leave the session, 'send' to forward `arg` to the model,
+   * or true when fully handled here.
+   */
+  const handleSlash = async (raw) => {
+    const [word, ...rest] = raw.slice(1).split(/\s+/);
+    const arg = rest.join(' ').trim();
+    switch (word.toLowerCase()) {
+      case 'help':
+        console.log("\n  " + tui.styled(L('Code Agent komutları', 'Code Agent commands'), { color: tui.PALETTE.primary, bold: true }));
+        for (const [cmd, desc] of SLASH_HELP) {
+          console.log("    " + tui.C.amber(cmd.padEnd(30)) + tui.C.muted(desc));
+        }
+        return true;
+      case 'clear':
+        console.clear();
+        return true;
+      case 'compact': {
+        const result = compactIfNeeded(messages, { force: true });
+        if (!result) console.log("\n  " + tui.C.muted(L('Sıkıştırılacak bir şey yok.', 'Nothing to compact.')));
+        return true;
       }
-      if (input === "/done" || input === "exit" || input === "quit") {
-        printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
-        return;
+      case 'context': {
+        const used = tokenBudget.estimateMessageTokens(messages);
+        const budget = tokenBudget.load();
+        const limit = Math.max(1, (budget.maxContextTokens || 0) - (budget.reservedTokens || 0));
+        const pct = Math.min(100, Math.round((used / limit) * 100));
+        console.log("\n  " + tui.C.muted(L('Bağlam', 'Context') + `: ~${used} / ${limit} token (${pct}%) · ${messages.length} ${L('mesaj', 'messages')}`));
+        console.log("  " + tui.C.muted(L('Otomatik sıkıştırma', 'Auto-compact') + ': ' + (budget.autoCompact ? 'on' : 'off') + ` · preset: ${budget.preset || '—'}`));
+        return true;
       }
-      if (input.startsWith("/plan ")) {
-        const arg = input.slice(6).trim();
+      case 'tools': {
+        const names = toolDefs.map(t => t.name).sort();
+        console.log("\n  " + tui.C.muted(`${names.length} ${L('araç', 'tools')}:`));
+        console.log("  " + tui.C.text(names.join(', ')));
+        return true;
+      }
+      case 'model':
+        console.log("\n  " + tui.C.muted(L('Model', 'Model') + ': ') + tui.C.text(config.providerModel || '—'));
+        console.log("  " + tui.C.muted(L('Sağlayıcı', 'Provider') + ': ') + tui.C.text(config.providerUrl || '—'));
+        console.log("  " + tui.C.muted(L('Değiştirmek için: natureco models', 'To change it: natureco models')));
+        return true;
+      case 'undo': {
+        const target = arg || lastChangedFile;
+        if (!target) {
+          console.log("\n  " + tui.C.yellow(L('Geri alınacak değişiklik yok.', 'No change to undo.')));
+          return true;
+        }
+        const fh = require('../utils/file-history');
+        const history = fh.getHistory(target);
+        if (!history.length) {
+          console.log("  " + tui.C.yellow(L('Bu dosya için anlık görüntü yok: ', 'No snapshot for this file: ') + target));
+          return true;
+        }
+        const restored = fh.restore(target, history[0].timestamp);
+        console.log("  " + (restored.error
+          ? tui.C.red(restored.error)
+          : tui.C.green(`✓ ${L('geri alındı', 'restored')}: ${target}`)));
+        return true;
+      }
+      case 'retry':
+        if (!lastUserMessage) {
+          console.log("\n  " + tui.C.yellow(L('Tekrarlanacak istek yok.', 'No request to retry.')));
+          return true;
+        }
+        console.log("\n  " + tui.C.muted(L('Tekrar: ', 'Retrying: ') + lastUserMessage.slice(0, 80)));
+        return 'send';
+      case 'run': {
+        const command = arg || projectCtx.packageJson?.scripts?.start && 'npm start';
+        if (!command) {
+          console.log("\n  " + tui.C.yellow(L('Kullanım: /run <komut>', 'Usage: /run <command>')));
+          return true;
+        }
+        recordShellResult(command, runShell(command, 'run'));
+        return true;
+      }
+      case 'test': {
+        const command = detectTestCommand(projectCtx);
+        if (!command) {
+          console.log("\n  " + tui.C.yellow(L('Test komutu tespit edilemedi. /run <komut> kullanın.', 'Could not detect a test command. Use /run <command>.')));
+          return true;
+        }
+        recordShellResult(command, runShell(command, 'test'));
+        return true;
+      }
+      case 'git': {
+        const status = runShell('git status --short', null);
+        runShell('git log --oneline -5', null);
+        if (!status.ok) {
+          console.log("  " + tui.C.yellow(L('Bu dizin bir git deposu değil.', 'This directory is not a git repository.')));
+        }
+        return true;
+      }
+      case 'commit': {
+        let diff;
+        try {
+          diff = execSync('git diff --staged', { cwd, stdio: 'pipe' }).toString();
+        } catch {
+          console.log("\n  " + tui.C.red(L('Git hatası veya depo değil.', 'Git error, or not a repository.')));
+          return true;
+        }
+        if (!diff.trim()) {
+          console.log("\n  " + tui.C.yellow(L('Staged değişiklik yok. Önce: git add .', 'No staged changes. First: git add .')));
+          return true;
+        }
+        const message = await generateCommitMessage(diff.slice(0, 4000), config);
+        console.log("\n  " + tui.C.muted(L('Önerilen: ', 'Suggested: ')) + tui.C.text(message));
+        const ok = await confirm(L('Commit edilsin mi?', 'Commit?') + ' (y/N) ');
+        if (!ok) {
+          console.log("  " + tui.C.muted(L('İptal edildi.', 'Cancelled.')));
+          return true;
+        }
+        try {
+          execFileSync('git', ['commit', '-m', message], { cwd, stdio: 'pipe' });
+          console.log("  " + tui.C.green(L('✓ Commit yapıldı.', '✓ Committed.')));
+        } catch (error) {
+          console.log("  " + tui.C.red(`${L('Commit başarısız', 'Commit failed')}: ${error.message}`));
+        }
+        return true;
+      }
+      case 'index': {
+        projectCtx = indexProject(cwd);
+        messages[0] = { role: 'system', content: messages[0].content.replace(/Project information:[\s\S]*?(?=\n\n|$)/, buildIndexPrompt(projectCtx)) };
+        console.log("\n  " + tui.C.green(`✓ ${projectCtx.files.length} ${L('dosya indekslendi', 'files indexed')} (${projectCtx.type})`));
+        return true;
+      }
+      case 'memory': {
+        const memory = loadProjectMemory(cwd);
+        if (!memory) {
+          console.log("\n  " + tui.C.muted(L('Henüz proje hafızası yok. /done ile kaydedilir.', 'No project memory yet. It is saved on /done.')));
+          return true;
+        }
+        console.log("\n  " + tui.styled(L('Proje hafızası', 'Project memory'), { color: tui.PALETTE.primary, bold: true }));
+        console.log(tui.C.muted("  " + memory.slice(-2000).split('\n').join('\n  ')));
+        return true;
+      }
+      case 'summary':
+        printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
+        return true;
+      case 'done':
+        printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
+        return 'exit';
+      case 'plan': {
         const pm = getPlanMode();
         if (arg === "on" || arg === "enter") {
           if (pm.enter()) console.log(tui.C.cyan(L('\n  📋 Plan modu aktif.\n', '\n  📋 Plan mode active.\n')));
@@ -732,11 +1043,42 @@ async function codeV5(targetPath) {
         } else {
           console.log(tui.C.yellow(L('  Kullanım: /plan on|approve|reject|show', '  Usage: /plan on|approve|reject|show')));
         }
-        writePlainPrompt("\n  ");
-        return ask();
+        return true;
       }
+      default:
+        console.log("\n  " + tui.C.red(L('Bilinmeyen komut: ', 'Unknown command: ') + '/' + word) +
+          tui.C.muted(L('  (/help ile liste)', '  (/help for the list)')));
+        return true;
+    }
+  };
 
-      // Workflow step — run before every request
+  const ask = async () => {
+    for (;;) {
+      let input;
+      try {
+        input = await inputSession.read();
+      } catch (error) {
+        if (error?.code === 'SIGINT') return;
+        throw error;
+      }
+      input = input.trim();
+      if (!input) { writePlainPrompt("  "); continue; }
+      if (input === "exit" || input === "quit") {
+        printSummary(filesChanged, commandsRun, messages.length - 1, startTime);
+        return;
+      }
+      if (input.startsWith("/")) {
+        const outcome = await handleSlash(input);
+        if (outcome === 'exit') return;
+        if (outcome === 'send' && lastUserMessage) {
+          input = lastUserMessage;
+        } else {
+          writePlainPrompt("\n  ");
+          continue;
+        }
+      }
+      lastUserMessage = input;
+
       const turnState = await runInterruptibleTurn({
         rl,
         presentationOptions: {
@@ -745,29 +1087,45 @@ async function codeV5(targetPath) {
           outputTokens: totalOut,
         },
         body: async (turnSignal, activeTools, presentation) => {
-      activeTools.add('workflow');
-      const workflowSpinner = presentation.startSpinner(L('İş akışı çalışıyor', 'Running workflow'));
-      let wfResult;
-      try {
-        wfResult = await executeTool('workflow', {
-        action: 'run',
-        task: input,
-        conversationHistory: prepareConversationHistory(messages, {
-          maxMessages: tokenBudget.load().conversationInContext,
-          maxTokens: tokenBudget.load().workflowHistoryMaxTokens,
-        }),
-        }, toolDefs, { signal: turnSignal });
-        turnSignal.throwIfAborted();
-      } finally {
-        workflowSpinner.stop();
-        activeTools.delete('workflow');
-      }
-      const wf = wfResult?.result || {};
-      if (wf.success !== false) {
-        const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
-        presentation.writeCommitted(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
-      } else {
-        presentation.writeCommitted(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
+      // Loop-detection counters are per user turn, matching the chat/repl path.
+      // Without this the singleton kept counting across the whole session.
+      agentCore.startRequest();
+      compactIfNeeded(messages, { presentation });
+
+      // The workflow pre-step used to run before EVERY message: one model call
+      // to classify the request as simple/complex, then either a second chat
+      // call or an up-front JSON plan whose steps execute without the model in
+      // the loop. Measured on a plain greeting that is 8.1s versus 2.5s for the
+      // agent loop alone — and a pre-baked plan cannot adapt to what a tool
+      // actually returns. The agent loop now drives by default; the pre-step
+      // stays available for weaker models via `--workflow` or
+      // `natureco config set codeWorkflow true`.
+      let wf = {};
+      if (useWorkflow) {
+        activeTools.add('workflow');
+        const workflowSpinner = presentation.startSpinner(L('İş akışı çalışıyor', 'Running workflow'));
+        let wfResult;
+        try {
+          wfResult = await executeTool('workflow', {
+            action: 'run',
+            task: input,
+            conversationHistory: prepareConversationHistory(messages, {
+              maxMessages: tokenBudget.load().conversationInContext,
+              maxTokens: tokenBudget.load().workflowHistoryMaxTokens,
+            }),
+          }, toolDefs, { signal: turnSignal });
+          turnSignal.throwIfAborted();
+        } finally {
+          workflowSpinner.stop();
+          activeTools.delete('workflow');
+        }
+        wf = wfResult?.result || {};
+        if (wf.success !== false) {
+          const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
+          presentation.writeCommitted(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
+        } else {
+          presentation.writeCommitted(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
+        }
       }
 
       messages.push({ role: "user", content: input });
@@ -811,7 +1169,7 @@ async function codeV5(targetPath) {
           wfReply = await runTransactionalRound(messages, async signal => {
             const streamed = await streamAssistantReply(
               config.providerUrl, config.providerApiKey, config.providerModel,
-              messages, toolDefs, { signal, presentation, estimatedOutputTokens: totalOut }
+              messages, toolDefs, { signal, presentation, estimatedOutputTokens: totalOut, stream: streaming, exposedTools: exposedTools() }
             );
             const roundReply = streamed.reply;
             if (roundReply.content && !(roundReply.tool_calls && roundReply.tool_calls.length > 0)) {
@@ -841,13 +1199,15 @@ async function codeV5(targetPath) {
         // Workflow failed or returned unexpected format — fallback to multi-turn LLM
         presentation.writeCommitted("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
         let iter = 0;
+        let hitIterationCap = false;
         while (iter < MAX_ITERATIONS) {
           iter++;
+          compactIfNeeded(messages, { presentation });
           try {
             const reply = await runTransactionalRound(messages, async signal => {
               const streamed = await streamAssistantReply(
                 config.providerUrl, config.providerApiKey, config.providerModel,
-                messages, toolDefs, { signal, presentation, estimatedOutputTokens: totalOut }
+                messages, toolDefs, { signal, presentation, estimatedOutputTokens: totalOut, stream: streaming, exposedTools: exposedTools() }
               );
               const roundReply = streamed.reply;
               if (roundReply.content && !(roundReply.tool_calls && roundReply.tool_calls.length > 0)) {
@@ -865,6 +1225,7 @@ async function codeV5(targetPath) {
             }, { signal: turnSignal });
 
             if (reply.tool_calls && reply.tool_calls.length > 0) {
+              if (iter >= MAX_ITERATIONS) { hitIterationCap = true; break; }
               presentation.writeCommitted("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
               continue;
             }
@@ -875,6 +1236,22 @@ async function codeV5(targetPath) {
             break;
           }
         }
+        // Reaching the cap used to end the turn silently: the last thing on
+        // screen was a tool card and the user had no way to tell the agent had
+        // stopped mid-task rather than finished. Say so, and tell the model too
+        // so a follow-up message resumes with that context.
+        if (hitIterationCap) {
+          presentation.writeCommitted(
+            "\n  " + tui.C.yellow(L(
+              `⚠ ${MAX_ITERATIONS} araç turu sınırına ulaşıldı, görev yarım kalmış olabilir. Devam etmek için tekrar yazın.`,
+              `⚠ Reached the ${MAX_ITERATIONS}-tool-round limit; the task may be unfinished. Send another message to continue.`,
+            )) + "\n",
+          );
+          messages.push({
+            role: 'system',
+            content: `[The agent loop stopped after ${MAX_ITERATIONS} tool rounds without a final answer. Summarize progress so far and what remains before continuing.]`,
+          });
+        }
         totalIn += Math.ceil(input.length / 4);
       }
 
@@ -883,104 +1260,144 @@ async function codeV5(targetPath) {
       if (turnState.exited) return;
 
       writePlainPrompt("\n\n  ");
-      return ask();
+    }
   };
   try {
     await ask();
   } finally {
     inputSession.close();
+    // MCP servers are child processes; leaving them running would outlive the
+    // session and hold the terminal open.
+    if (mcp.servers.length > 0) {
+      try { stopMcpServers(); } catch { /* best effort on shutdown */ }
+    }
+    persistSession();
+  }
+
+  /**
+   * Persist the transcript so `--continue` / `--resume <id>` can pick it up,
+   * and append a one-line note to project memory when work actually happened.
+   */
+  function persistSession({ quiet = false } = {}) {
+    const hasWork = messages.some(m => m.role === 'user');
+    if (!hasWork) return;
+    try {
+      saveSession('code', messages, {
+        cwd,
+        projectType: projectCtx?.type,
+        filesChanged,
+        commandsRun,
+        changedFiles,
+        durationMs: Date.now() - startTime,
+      });
+    } catch (error) {
+      const warning = `  ${L('Oturum kaydedilemedi', 'Could not save session')}: ${error.message}\n`;
+      if (quiet) process.stderr.write(warning);
+      else console.log(tui.C.yellow(warning));
+      return;
+    }
+    if (filesChanged === 0 && commandsRun === 0) return;
+    try {
+      const lines = [
+        `- ${filesChanged} ${L('dosya değişti', 'files changed')}, ${commandsRun} ${L('komut çalıştı', 'commands run')}`,
+        changedFiles.length ? `- ${changedFiles.slice(0, 10).join(', ')}` : '',
+      ].filter(Boolean).join('\n');
+      appendProjectMemory(cwd, lines);
+    } catch { /* project memory is a convenience, never fail the exit on it */ }
   }
 }
 
 const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
 
+/**
+ * Tools whose effects are real writes. `--dry-run` refuses these instead of
+ * letting them through: the flag used to be accepted and then ignored, so a
+ * "preview" run happily rewrote the working tree.
+ */
+
 async function processToolCalls(reply, config, toolDefs, messages, onToolResult, options = {}) {
   agentCore.startIteration();
-  const coreBlocked = new Map();
-  for (const tc of reply.tool_calls) {
-    let args = {};
-    try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
-    const guard = agentCore.assess({ name: tc.function.name, input: args });
-    if (guard.blocked) {
-      coreBlocked.set(tc.id, guard.reason || "blocked_by_guardrails");
-      continue;
-    }
-    const risk = assessRisk(tc.function.name, args);
 
-    // Built-in risk assessment
-    if (risk.requiresApproval) {
-      process.stdout.write("\n");
-      const approved = await confirm(
-        `⚠ ${tc.function.name}: ${risk.reason}\n  ${L('Devam edilsin mi', 'Continue')}? (Y/n) `
-      );
-      if (!approved) {
-        console.log("\n  " + tui.C.yellow(L("⚠ Kullanıcı onayı iptal etti, tool çalıştırılmadı.", "⚠ User declined approval, tool not run.")));
-        return;
-      }
-    }
-
-    // Plan mode check
-    const pm = getPlanMode();
-    const planCheck = pm.checkTool(tc.function.name, args);
-    if (!planCheck.allowed) {
-      console.log("\n  " + tui.C.red(L("⛔ Plan modunda engellendi: ", "⛔ Blocked in plan mode: ") + planCheck.reason));
-      return;
-    }
-    pm.recordTool(tc.function.name, args);
-
-    // Permission check
-    const perm = checkPermission(tc.function.name, args);
-    if (perm.action === 'deny') {
-      console.log("\n  " + tui.C.red(L("⛔ İzin engelledi: ", "⛔ Permission denied: ") + perm.reason));
-      return;
-    }
-    if (perm.action === 'ask') {
-      const permKey = `${perm.rule.raw}:${JSON.stringify(args)}`;
-      if (!isApproved(permKey)) {
-        process.stdout.write("\n");
-        const ok = await confirm(`${L('İzin gerekli', 'Permission required')}: ${formatPermissionPrompt(tc.function.name, args, perm.reason)}\n  ${L('İzin ver', 'Grant')}? [y=once, Y=session, p=persistent, n=no] `);
-        if (ok === 'persistent') markApproved(permKey, true);
-        else if (ok === 'session' || ok === true) markApproved(permKey, false);
-        else {
-          console.log("\n  " + tui.C.yellow(L("⛔ İzin reddedildi", "⛔ Permission rejected")));
-          return;
-        }
-      }
-    }
-
-    // Pre-hook check
-    const hook = checkPreHooks(tc.function.name, args);
-    if (hook.action === 'deny') {
-      console.log("\n  " + tui.C.red(L("⛔ Hook engelledi: ", "⛔ Hook blocked: ") + hook.rule.raw));
-      return;
-    }
-    if (hook.action === 'ask') {
-      const ok = await confirm(`${L('Hook onayı', 'Hook approval')}: ${permissionSummary(hook.rule, tc.function.name, args)}\n  ${L('İzin verilsin mi', 'Grant permission')}? (y/N) `);
-      if (!ok) {
-        console.log("\n  " + tui.C.yellow(L("⛔ Hook reddetti: ", "⛔ Hook rejected: ") + hook.rule.raw));
-        return;
-      }
-    }
-  }
-
-  messages.push({ role: "assistant", content: reply.content || null, tool_calls: reply.tool_calls });
-
-  for (const [id, reason] of coreBlocked) {
-    messages.push({ role: "tool", tool_call_id: id, content: "ERROR: " + reason });
-  }
-
-  const parsed = reply.tool_calls.filter(tc => !coreBlocked.has(tc.id)).map(tc => {
-    let args = {};
-    try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
-    return { name: tc.function.name, args, id: tc.id };
+  // Same policy everywhere. Interactively a human can be asked; with `-p`
+  // there is nobody at the terminal, so the gate refuses instead of hanging on
+  // a prompt that would never be answered.
+  const interactive = options.interactive !== false;
+  const screenToolCall = createToolGate({
+    agentCore,
+    dryRun: options.dryRun,
+    ...(interactive ? { confirm, askPermission } : {}),
+    log: message => {
+      const line = "\n  " + (String(message).startsWith('⛔') ? tui.C.red(message) : tui.C.yellow(message)) + "\n";
+      if (options.quiet) process.stderr.write(line);
+      else process.stdout.write(line);
+    },
   });
 
-  const parallelSafe = parsed.filter(p => PARALLEL_SAFE_TOOLS.has(p.name));
-  const sequential = parsed.filter(p => !PARALLEL_SAFE_TOOLS.has(p.name));
+  const refusals = new Map();
+  const runnable = [];
+  for (const tc of reply.tool_calls) {
+    let args;
+    try {
+      args = JSON.parse(tc.function.arguments || "{}");
+    } catch (error) {
+      refusals.set(tc.id, `${L('Araç argümanları geçerli JSON değil', 'Tool arguments are not valid JSON')}: ${error.message}`);
+      continue;
+    }
+    const refusal = await screenToolCall(tc.function.name, args);
+    if (refusal) refusals.set(tc.id, refusal);
+    else runnable.push({ name: tc.function.name, args, id: tc.id });
+  }
 
-  // Run parallel-safe tools concurrently
-  if (parallelSafe.length > 0) {
-    const settled = await Promise.allSettled(parallelSafe.map(async (p) => {
+  // The assistant turn is recorded before anything runs, and every announced
+  // call gets exactly one answer below — including refused ones. Dropping a
+  // refused call instead left the transcript identical to the one that
+  // produced it, so the model re-issued the same call and the user was
+  // re-prompted every iteration until the loop cap.
+  messages.push({ role: "assistant", content: reply.content || null, tool_calls: reply.tool_calls });
+
+  const answers = new Map();
+  for (const [id, reason] of refusals) answers.set(id, "ERROR: " + reason);
+
+  const recordOutcome = (p, result, snapshots) => {
+    agentCore.record({ name: p.name, input: p.args }, result);
+    if (onToolResult) onToolResult(p.name, p.args, result, snapshots);
+    const out = result.error
+      ? "ERROR: " + result.error
+      : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
+    answers.set(p.id, (out || "(empty)").slice(0, 8000));
+  };
+
+  const parallelSafe = runnable.filter(p => PARALLEL_SAFE_TOOLS.has(p.name));
+  const sequential = runnable.filter(p => !PARALLEL_SAFE_TOOLS.has(p.name));
+
+  try {
+    // Run parallel-safe tools concurrently
+    if (parallelSafe.length > 0) {
+      const settled = await Promise.allSettled(parallelSafe.map(async (p) => {
+        options.activeTools?.add(p.name);
+        const spinner = options.presentation?.startSpinner(
+          `${L('Çalışıyor', 'Running')} ${p.name}`
+        );
+        try {
+          const executed = await executeTool(p.name, p.args, toolDefs, { signal: options.signal });
+          options.signal?.throwIfAborted();
+          const result = runPostHooks(p.name, p.args, executed);
+          spinner?.stop();
+          writeToolCard(p.name, p.args, result, {}, options.presentation, { quiet: options.quiet });
+          recordOutcome(p, result);
+        } finally {
+          spinner?.stop();
+          options.activeTools?.delete(p.name);
+        }
+      }));
+      const rejected = settled.find(item => item.status === 'rejected');
+      if (rejected) throw rejected.reason;
+    }
+
+    // Run sequential tools one at a time
+    for (const p of sequential) {
+      const tracksFile = p.name === 'write_file' || p.name === 'edit_file';
+      const before = tracksFile ? captureFileSnapshot(p.args, { allowMissing: true }) : undefined;
       options.activeTools?.add(p.name);
       const spinner = options.presentation?.startSpinner(
         `${L('Çalışıyor', 'Running')} ${p.name}`
@@ -989,49 +1406,27 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult,
         const executed = await executeTool(p.name, p.args, toolDefs, { signal: options.signal });
         options.signal?.throwIfAborted();
         const result = runPostHooks(p.name, p.args, executed);
+        const after = tracksFile ? captureFileSnapshot(p.args) : undefined;
         spinner?.stop();
-        writeToolCard(p.name, p.args, result, {}, options.presentation);
-        if (onToolResult) onToolResult(p.name, p.args, result);
-        const out = result.error
-          ? "ERROR: " + result.error
-          : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
-        return { id: p.id, content: (out || "(empty)").slice(0, 8000) };
+        writeToolCard(p.name, p.args, result, { before, after }, options.presentation, { quiet: options.quiet });
+        recordOutcome(p, result, { before, after });
       } finally {
         spinner?.stop();
         options.activeTools?.delete(p.name);
       }
-    }));
-    const rejected = settled.find(item => item.status === 'rejected');
-    if (rejected) throw rejected.reason;
-    const results = settled.map(item => item.value);
-    for (const r of results) {
-      messages.push({ role: "tool", tool_call_id: r.id, content: r.content });
     }
-  }
-
-  // Run sequential tools one at a time
-  for (const p of sequential) {
-    const tracksFile = p.name === 'write_file' || p.name === 'edit_file';
-    const before = tracksFile ? captureFileSnapshot(p.args, { allowMissing: true }) : undefined;
-    options.activeTools?.add(p.name);
-    const spinner = options.presentation?.startSpinner(
-      `${L('Çalışıyor', 'Running')} ${p.name}`
-    );
-    try {
-      const executed = await executeTool(p.name, p.args, toolDefs, { signal: options.signal });
-      options.signal?.throwIfAborted();
-      const result = runPostHooks(p.name, p.args, executed);
-      const after = tracksFile ? captureFileSnapshot(p.args) : undefined;
-      spinner?.stop();
-      writeToolCard(p.name, p.args, result, { before, after }, options.presentation);
-      if (onToolResult) onToolResult(p.name, p.args, result);
-      const out = result.error
-        ? "ERROR: " + result.error
-        : (typeof result.result === "string" ? result.result : JSON.stringify(result.result));
-      messages.push({ role: "tool", tool_call_id: p.id, content: (out || "(empty)").slice(0, 8000) });
-    } finally {
-      spinner?.stop();
-      options.activeTools?.delete(p.name);
+  } finally {
+    // Answer in the order the model announced the calls. Providers reject a
+    // transcript where a tool_call has no matching result, so anything that
+    // never ran (interrupt, crash) is still answered before we unwind.
+    for (const tc of reply.tool_calls) {
+      messages.push({
+        role: "tool",
+        tool_call_id: tc.id,
+        content: answers.has(tc.id)
+          ? answers.get(tc.id)
+          : "ERROR: " + L('Araç çalıştırılmadı (tur kesildi).', 'Tool did not run (turn was interrupted).'),
+      });
     }
   }
 }
@@ -1059,4 +1454,6 @@ module.exports._presentation = {
   runInterruptibleTurn,
   isAbortError,
   createCodeInputSession,
+  assessRisk,
+  compactIfNeeded,
 };

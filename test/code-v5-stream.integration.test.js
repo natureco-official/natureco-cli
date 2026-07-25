@@ -16,7 +16,9 @@ afterEach(() => {
 describe('code_v5 live provider branches', () => {
   it('(g) both real provider-call sites use the writer and change output before completion', async () => {
     const source = fs.readFileSync(path.resolve('src/commands/code_v5.js'), 'utf8');
-    expect(source.match(/await streamAssistantReply\(/g)).toHaveLength(2);
+    // Three call sites: the two interactive branches exercised below, plus the
+    // headless `-p` loop, which deliberately runs with the live writer off.
+    expect(source.match(/await streamAssistantReply\(/g)).toHaveLength(3);
 
     for (const branch of ['workflow-summary', 'normal-agent']) {
       let release;

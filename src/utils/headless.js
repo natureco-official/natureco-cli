@@ -1,65 +1,29 @@
 /**
- * headless.js — Code agent'ı terminal olmadan çalıştır
- * WhatsApp, API ve diğer entegrasyonlardan çağrılabilir
+ * headless.js — run the code agent without a terminal.
+ * Called from the gateway (WhatsApp `!code`), the API and other integrations.
+ *
+ * SECURITY: this path used to call executeTool directly, so it ran the same
+ * model with the same tools but none of the brakes the interactive agent
+ * applies — no risk assessment, no plan mode, no permission rules, no hooks.
+ * It now screens every call through the shared gate (src/utils/tool-gate.js).
+ * There is nobody to answer a prompt here, so anything that would have asked
+ * is refused and the refusal is handed back to the model as a tool result.
  */
 
-const fs = require('fs');
-const path = require('path');
 const { getProviderConfig } = require('./config');
 const TB = require('./token-budget');
 const { getToolDefinitions, executeTool } = require('./tool-runner');
+const { indexProject, buildIndexPrompt } = require('./project-index');
+const { createToolGate } = require('./tool-gate');
+const { AgentCore } = require('./agent-core');
+const { getLang } = require('./i18n');
 
-// ── Proje indexing (code.js'den paylaşılan) ───────────────────────────────────
-const IGNORE_DIRS = new Set([
-  'node_modules', '.git', 'dist', 'build', '.next',
-  '__pycache__', '.venv', 'venv', 'target', '.wrangler',
-]);
+const L = (tr, en) => (getLang() === 'en' ? en : tr);
 
-function scanDir(dir, maxDepth, depth = 0) {
-  const results = [];
-  if (depth > maxDepth) return results;
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return results; }
-  for (const entry of entries) {
-    if (entry.name.startsWith('.') && depth > 0) continue;
-    if (IGNORE_DIRS.has(entry.name)) continue;
-    if (entry.isDirectory()) {
-      const sub = scanDir(path.join(dir, entry.name), maxDepth, depth + 1);
-      results.push(...sub.map(f => entry.name + '/' + f));
-    } else {
-      results.push(entry.name);
-    }
-  }
-  return results;
-}
+const MAX_ITERATIONS = 12;
 
-async function indexProject(projectDir) {
-  const files = scanDir(projectDir, 2);
-  const fileSet = new Set(files);
-  let type = 'unknown';
-  let packageInfo = null;
-
-  if (fileSet.has('package.json')) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'));
-      const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-      packageInfo = { name: pkg.name, version: pkg.version, scripts: pkg.scripts || {} };
-      if (deps.react) type = 'react';
-      else if (deps.next) type = 'nextjs';
-      else if (deps.express || deps.fastify) type = 'node-server';
-      else type = 'node';
-    } catch {}
-  } else if (files.some(f => f.endsWith('.py'))) {
-    type = 'python';
-  } else if (fileSet.has('Cargo.toml')) {
-    type = 'rust';
-  }
-
-  return { dir: projectDir, files, type, packageInfo };
-}
-
-// ── Provider API çağrısı (non-streaming) ─────────────────────────────────────
-async function callProvider(providerConfig, messages, tools = []) {
+// ── Provider call (non-streaming) ───────────────────────────────────────────
+async function callProvider(providerConfig, messages, tools = [], signal) {
   const body = {
     model: providerConfig.model,
     messages,
@@ -79,6 +43,7 @@ async function callProvider(providerConfig, messages, tools = []) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!res.ok) {
@@ -98,17 +63,34 @@ async function callProvider(providerConfig, messages, tools = []) {
   };
 }
 
-// ── Headless code agent ───────────────────────────────────────────────────────
-async function runCodeAgent(task, projectDir = process.cwd(), onProgress = null) {
+// ── Headless code agent ─────────────────────────────────────────────────────
+/**
+ * @param {string} task            what to do
+ * @param {string} [projectDir]    working directory
+ * @param {function} [onProgress]  progress callback (tool names, refusals)
+ * @param {object}  [options]
+ * @param {boolean} [options.dryRun]  refuse mutating tools outright
+ */
+async function runCodeAgent(task, projectDir = process.cwd(), onProgress = null, options = {}) {
   const providerConfig = getProviderConfig();
-  if (!providerConfig) throw new Error('Provider yapılandırılmamış.');
+  if (!providerConfig) throw new Error(L('Provider yapılandırılmamış.', 'Provider is not configured.'));
 
-  const projectIndex = await indexProject(projectDir);
+  const projectIndex = indexProject(projectDir);
+  const report = message => { if (onProgress) onProgress(message); };
 
-  const systemPrompt = `Sen bir code agent'sın. Görevi sessizce tamamla ve kısa özet ver.
-Proje tipi: ${projectIndex.type}
-Proje dizini: ${projectDir}
-Dosyalar: ${projectIndex.files.slice(0, 25).join(', ')}`;
+  const systemPrompt = [
+    L(
+      'Sen bir code agent\'sın. Görevi sessizce tamamla ve kısa bir özet ver.',
+      'You are a code agent. Complete the task quietly and give a short summary.',
+    ),
+    '',
+    buildIndexPrompt(projectIndex),
+    '',
+    L(
+      'NOT: Bu oturum gözetimsiz çalışıyor. Onay gerektiren işlemler (silme, yetki yükseltme, sistem dosyaları, hassas dosyalar) otomatik olarak reddedilir — reddedilirse alternatif bir yol dene ya da neden yapılamadığını açıkla.',
+      'NOTE: This session is unattended. Operations that need approval (deletion, privilege escalation, system files, sensitive files) are refused automatically — if refused, try another route or explain why it cannot be done.',
+    ),
+  ].join('\n');
 
   const localTools = getToolDefinitions();
   const tools = localTools.map(t => ({
@@ -125,18 +107,34 @@ Dosyalar: ${projectIndex.files.slice(0, 25).join(', ')}`;
     { role: 'user', content: task },
   ];
 
+  const agentCore = new AgentCore({ maxIterations: MAX_ITERATIONS });
+  agentCore.startRequest();
+  // No `confirm` / `askPermission`: the gate refuses instead of prompting.
+  const screenToolCall = createToolGate({
+    agentCore,
+    dryRun: Boolean(options.dryRun),
+    log: message => report(String(message)),
+  });
+
   const filesChanged = [];
+  const refusals = [];
   let iteration = 0;
 
-  while (iteration < 10) {
+  while (iteration < MAX_ITERATIONS) {
     iteration++;
+    agentCore.startIteration();
 
-    const response = await callProvider(providerConfig, messages, tools);
+    if (TB.needsCompaction(messages)) {
+      const trimmed = TB.smartTrim(messages);
+      messages.splice(0, messages.length, ...trimmed);
+    }
 
-    const assistantMsg = { role: 'assistant', content: response.content };
+    const response = await callProvider(providerConfig, messages, tools, options.signal);
+
+    const assistantMsg = { role: 'assistant', content: response.content || null };
     if (response.tool_calls?.length) {
-      assistantMsg.tool_calls = response.tool_calls.map(tc => ({
-        id: tc.id || `call_${Date.now()}`,
+      assistantMsg.tool_calls = response.tool_calls.map((tc, index) => ({
+        id: tc.id || `call_${iteration}_${index}`,
         type: 'function',
         function: { name: tc.name, arguments: JSON.stringify(tc.input) },
       }));
@@ -144,38 +142,62 @@ Dosyalar: ${projectIndex.files.slice(0, 25).join(', ')}`;
     messages.push(assistantMsg);
 
     if (!response.tool_calls?.length) {
-      // Final cevap
       return {
-        reply: response.content || 'Görev tamamlandı.',
+        reply: response.content || L('Görev tamamlandı.', 'Task completed.'),
         filesChanged,
+        refusals,
         iterations: iteration,
       };
     }
 
-    // Tool'ları çalıştır
-    for (const toolCall of response.tool_calls) {
-      if (onProgress) onProgress(`🔧 ${toolCall.name}`);
+    for (let index = 0; index < response.tool_calls.length; index++) {
+      const toolCall = response.tool_calls[index];
+      const callId = assistantMsg.tool_calls[index].id;
 
-      const result = await executeTool(toolCall.name, toolCall.input);
+      const refusal = await screenToolCall(toolCall.name, toolCall.input);
+      if (refusal) {
+        refusals.push({ tool: toolCall.name, reason: refusal });
+        report(`⛔ ${toolCall.name}`);
+        messages.push({ role: 'tool', tool_call_id: callId, name: toolCall.name, content: `ERROR: ${refusal}` });
+        continue;
+      }
 
-      if (toolCall.name === 'write_file' && result.success !== false) {
-        filesChanged.push(toolCall.input.path || '?');
+      report(`🔧 ${toolCall.name}`);
+
+      let result;
+      try {
+        result = await executeTool(toolCall.name, toolCall.input);
+      } catch (error) {
+        result = { success: false, error: error.message };
+      }
+      agentCore.record({ name: toolCall.name, input: toolCall.input }, result);
+
+      if ((toolCall.name === 'write_file' || toolCall.name === 'edit_file') && result.success !== false) {
+        filesChanged.push(toolCall.input.path || toolCall.input.filePath || '?');
       }
 
       const resultStr = result.success !== false
         ? (result.output || JSON.stringify(result))
-        : `Hata: ${result.error}`;
+        : `${L('Hata', 'Error')}: ${result.error}`;
 
       messages.push({
         role: 'tool',
-        tool_call_id: assistantMsg.tool_calls?.find(tc => tc.function.name === toolCall.name)?.id || toolCall.id,
+        tool_call_id: callId,
         name: toolCall.name,
-        content: resultStr.slice(0, TB.load().toolMaxChars),
+        content: String(resultStr).slice(0, TB.load().toolMaxChars),
       });
     }
   }
 
-  return { reply: 'Görev tamamlandı (max iterasyon).', filesChanged, iterations: iteration };
+  return {
+    reply: L(
+      `Görev ${MAX_ITERATIONS} turda tamamlanamadı.`,
+      `The task did not finish within ${MAX_ITERATIONS} rounds.`,
+    ),
+    filesChanged,
+    refusals,
+    iterations: iteration,
+  };
 }
 
-module.exports = { runCodeAgent, indexProject };
+module.exports = { runCodeAgent, indexProject, MAX_ITERATIONS };

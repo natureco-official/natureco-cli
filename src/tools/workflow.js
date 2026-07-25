@@ -205,16 +205,12 @@ async function workflow(params) {
   }
 
   // Non-tool-calling model tespiti
+  // Tek kaynak: utils/provider-detect.js. Onceden burada satir-ici bir liste
+  // vardi ve MiniMax'i tumden disliyordu; M2.5 native tool_calls uretiyor, bu
+  // yuzden kontrol artik model-farkindadir (bkz. supportsNativeToolCalls).
   function supportsToolCalls() {
-    const url = (providerUrl || '').toLowerCase();
-    // Bu saglayicilar OpenAI-tarzi tool_calls JSON'unu guvenilir uretmiyor (ya native
-    // XML uretiyor ya da dusuk max_tokens'ta bos donuyor) → robust agentic-runner yolu.
-    if (url.includes('minimax')) return false;
-    if (url.includes('generativelanguage') || url.includes('gemini')) return false; // Gemini 2.5 "thinking" — plan yolundaki dusuk max_tokens'ta bos doner
-    if (url.includes('ollama')) return false;
-    if (url.includes('localhost')) return false;
-    if (url.includes('groq')) return false;
-    return true; // OpenAI, Anthropic, vs.
+    const { supportsNativeToolCalls } = require('../utils/provider-detect');
+    return supportsNativeToolCalls(providerUrl, model, cfg);
   }
 
   // ── RUN: Execute a complete workflow ──────────────────────────────────

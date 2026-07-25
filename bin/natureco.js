@@ -258,18 +258,31 @@ program
 
 program
   .command('code [file]')
-  .description('Agentic coding modu v5 — Claude Code alternative (91 tools, TUI, auto tool selection)')
+  // Keep the tool count in this string — test/security/audit-findings-3-low.js
+  // (L-03) asserts it matches the real manifest, so it cannot silently drift.
+  .description('Agentic coding modu — 91 tools + MCP, streaming, Esc-interrupt, resumable sessions')
   .option('--dir <path>', 'çalışma dizini', process.cwd())
+  .option('-p, --print <task>', 'tek seferlik görev çalıştır, sadece cevabı bas (CI/script)')
   .option('--no-stream', 'streaming devre dışı')
   .option('--dry-run', 'değişiklikleri göster ama uygulama')
-  .option('--legacy', 'v2.23 eski code agent kullan')
+  .option('--workflow', 'her mesajdan önce workflow planlayıcıyı çalıştır (zayıf modeller için)')
+  .option('--all-tools', 'tüm araç şemalarını her istekte gönder (token pahalı)')
+  .option('-c, --continue', 'son oturumu devam ettir')
+  .option('--resume [session-id]', 'belirli bir oturumu devam ettir')
+  .option('--list', 'kayıtlı oturumları listele')
+  .option('--legacy', 'v2.23 eski code agent (KULLANIMDAN KALDIRILDI)')
   .action((file, options) => {
     if (options.legacy) {
+      console.warn(
+        '⚠ --legacy is deprecated and will be removed. Its project indexing, ' +
+        'project memory and /run /test /git /commit /retry /index /memory commands ' +
+        'are now in the default agent, which also has MCP, streaming and Esc-interrupt.',
+      );
       const codeCmd = require('../src/commands/code');
       codeCmd(file, options);
     } else {
       const codeV5 = require('../src/commands/code_v5');
-      codeV5(options.dir || (file ? path.dirname(path.resolve(file)) : null));
+      codeV5(options.dir || (file ? path.dirname(path.resolve(file)) : null), options);
     }
   });
 
@@ -457,6 +470,23 @@ program
     const mattermostCmd = require('../src/commands/mattermost');
     mattermostCmd(action);
   });
+
+// Matrix / Teams / Google Chat / Zalo share one connect/status/probe
+// implementation (src/utils/channel-setup.js) driven by a per-channel
+// descriptor, instead of a fourth copy of the same 150 lines.
+for (const [name, label] of [
+  ['matrix', 'Matrix'],
+  ['teams', 'Microsoft Teams'],
+  ['googlechat', 'Google Chat'],
+  ['zalo', 'Zalo'],
+]) {
+  program
+    .command(`${name} [action]`)
+    .description(`${label} integration (connect|disconnect|status|probe)`)
+    .action((action) => {
+      require(`../src/commands/${name}`)(action);
+    });
+}
 
 program
   .command('imessage <action> [recipient] [message]')
@@ -998,8 +1028,10 @@ program
   .command('acp [file]')
   .description('Alias for code command')
   .action((file) => {
-    const codeCmd = require('../src/commands/code');
-    codeCmd(file, { dir: process.cwd() });
+    // Was pinned to the legacy agent, so this alias silently gave a different
+    // (older, un-merged) agent than `natureco code`.
+    const codeV5 = require('../src/commands/code_v5');
+    codeV5(file ? path.dirname(path.resolve(file)) : process.cwd(), {});
   });
 
 program

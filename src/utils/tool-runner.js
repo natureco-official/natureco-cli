@@ -6,6 +6,10 @@ const { executeThroughGateway } = require('./tool-execution-gateway');
 const { checkPermission } = require('./permissions');
 const { checkPreHooks, runPostHooks } = require('./tool-hooks');
 const { loadToolManifest } = require('./tool-manifest');
+const { assessRisk } = require('./tool-gate');
+const { getLang } = require('./i18n');
+
+const L = (tr, en) => (getLang() === 'en' ? en : tr);
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
 const SPINNER_FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
@@ -101,7 +105,16 @@ async function executeTool(toolName, params, opts = {}) {
   const safeParams = params ?? {};
   const tools = loadTools();
   const tool = tools[toolName];
-  const agentMode = opts.agentMode || false;
+  // `agentMode` means "a human is present and can be prompted". No caller in
+  // the repo ever set it, so the confirmation block below was unreachable and
+  // `natureco chat` wrote files and ran destructive commands with no prompt at
+  // all. Default it to "there is a terminal"; a non-TTY origin (channel, API,
+  // cron) keeps the fail-closed path instead of a prompt nobody can answer.
+  const agentMode = opts.agentMode ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
+  // Explicit opt-out: run without prompting. NATURECO_FORCE is the existing
+  // convention for this (see utils/dangerous.js). Unlike a non-TTY origin this
+  // means "approved in advance", so it allows rather than refuses.
+  const preApproved = opts.approvalMode === 'preapproved' || process.env.NATURECO_FORCE === '1';
   if (!tool) {
     return { success: false, error: `Tool '${toolName}' not found` };
   }
@@ -122,10 +135,37 @@ async function executeTool(toolName, params, opts = {}) {
     };
   }
 
+  // Risk assessment. Permission rules and hooks both default to "allow" when
+  // the user has configured nothing, so without this layer a destructive
+  // command reached the shell unchallenged on every non-`code` surface.
+  const risk = assessRisk(toolName, safeParams);
+  if (risk.requiresApproval && !preApproved) {
+    if (!agentMode) {
+      return {
+        success: false,
+        error: L(
+          `Onay gerektiren riskli işlem etkileşimsiz çağrıda reddedildi: ${risk.reason}`,
+          `Risky operation requiring approval was refused in a non-interactive call: ${risk.reason}`,
+        ),
+      };
+    }
+    console.log(chalk.yellow(`\n  ⚠ ${risk.level === 'high' ? '🔴' : '🟡'} ${risk.reason}`));
+    const { approved } = await inquirer.prompt([{
+      type: 'confirm',
+      name: 'approved',
+      message: chalk.yellow(`  ${L('Bu işlemi çalıştırmak istiyor musun?', 'Do you want to run this operation?')}`),
+      default: false,
+    }]);
+    if (!approved) {
+      console.log(chalk.gray(L('  İptal edildi.\n', '  Cancelled.\n')));
+      return { success: false, error: L('Kullanıcı onaylamadı.', 'The user did not approve.') };
+    }
+  }
+
   const label = `${toolName}${safeParams.path ? ' — ' + safeParams.path : safeParams.command ? ' — ' + safeParams.command : ''}`;
 
   // ── Onay mekanizması (dosya değiştiren araçlar ve tehlikeli bash) ──────────
-  if (agentMode) {
+  if (agentMode && !preApproved) {
     if (policyAsk || needsConfirmation(toolName, safeParams)) {
       if (toolName === 'write_file') {
         // Diff göster

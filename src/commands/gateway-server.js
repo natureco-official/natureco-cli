@@ -10,6 +10,7 @@ const { ensurePendingPairing, isPaired } = require('../utils/pairing-store');
 const { ChannelAdapter, ChannelDeliveryManager } = require('../utils/channel-sdk');
 const { DeliveryStore } = require('../utils/delivery-store');
 const { foldTr } = require('../utils/tr-text');
+const channelRuntime = require('../utils/channel-runtime');
 
 const PID_FILE = path.join(os.homedir(), '.natureco', 'gateway.pid');
 const LOG_FILE = path.join(os.homedir(), '.natureco', 'gateway.log');
@@ -17,7 +18,7 @@ const gatewayStartedAt = Date.now();
 const gatewayDeliveryManager = new ChannelDeliveryManager({ store: new DeliveryStore() });
 
 async function buildGatewayHealth(config = {}, manager = gatewayDeliveryManager) {
-  const configuredChannels = ['whatsapp', 'telegram', 'signal', 'discord', 'slack', 'irc', 'mattermost', 'imessage', 'sms']
+  const configuredChannels = ['whatsapp', 'telegram', 'signal', 'discord', 'slack', 'irc', 'mattermost', 'imessage', 'sms', 'matrix', 'teams', 'googlechat', 'zalo']
     .filter(name => Object.keys(config).some(key => key.toLowerCase().startsWith(name) && !!config[key]));
   const adapterHealth = await manager.health();
   const channelStates = Object.fromEntries(configuredChannels.map(name => {
@@ -56,6 +57,11 @@ function registerGatewayDeliveryAdapters(config, manager = gatewayDeliveryManage
     return sendIrcMessage(global.ircClient, item.target, item.payload.message);
   }, async () => ({ ok: !!global.ircClient?.isReady() }));
   register('mattermost', item => sendMattermostMessage(config, item.target, item.payload.message), async () => ({ ok: !!global.mattermostProvider }));
+  // Matrix / Teams / Google Chat / Zalo — transport lives in utils/channel-runtime.js
+  register('matrix', item => channelRuntime.sendMatrixMessage(config, item.target, item.payload.message), async () => ({ ok: !!global.matrixProvider }));
+  register('teams', item => channelRuntime.sendTeamsMessage(config, item.target, item.payload.message), async () => ({ ok: !!(config.teamsAppId && config.teamsAppPassword) }));
+  register('googlechat', item => channelRuntime.sendGoogleChatMessage(config, item.target, item.payload.message), async () => ({ ok: !!(config.googlechatKeyFile || config.googlechatWebhookUrl) }));
+  register('zalo', item => channelRuntime.sendZaloMessage(config, item.target, item.payload.message), async () => ({ ok: !!config.zaloAccessToken }));
   register('imessage', async item => {
     if (!global.imessageProvider) throw new Error('iMessage not connected');
     return sendImessage(global.imessageProvider.imsgPath, item.target, item.payload.message);
@@ -123,6 +129,13 @@ function getBaileysLogger() {
 }
 
 // Log helper - only writes to console in worker, file writing handled by stdio redirect
+// Hand the new channels the gateway's own logger and sender-verification gate,
+// so they behave exactly like the ten that were already here.
+channelRuntime.configure({
+  log: (module, message, color) => log(module, message, color),
+  channelGate: (config, channel, senderId) => channelGate(config, channel, senderId),
+});
+
 function log(module, message, color = 'white') {
   const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
   const logLine = `[${timestamp}] [${module}] ${message}`;
@@ -297,6 +310,33 @@ async function runGatewayWorker() {
   } else {
     log('mattermost', 'not configured, skipping', 'gray');
   }
+  // Start Matrix if configured. Long-polls /sync, so unlike the three below it
+  // needs no public address.
+  if (config.matrixBotId && config.matrixHomeserver && config.matrixToken) {
+    log('matrix', `connecting to ${config.matrixHomeserver}`, 'cyan');
+    channelRuntime.startMatrixProvider(config);
+  } else if (config.matrixBotId) {
+    log('matrix', 'not configured (missing homeserver or token), skipping', 'gray');
+  } else {
+    log('matrix', 'not configured, skipping', 'gray');
+  }
+
+  // Teams / Google Chat / Zalo are webhook-driven: nothing to start here, but
+  // say so explicitly rather than leaving the user wondering.
+  for (const [channel, ready, path] of [
+    ['teams', !!(config.teamsAppId && config.teamsAppPassword), '/webhooks/teams'],
+    ['googlechat', !!(config.googlechatKeyFile || config.googlechatWebhookUrl), '/webhooks/googlechat'],
+    ['zalo', !!config.zaloAccessToken, '/webhooks/zalo'],
+  ]) {
+    if (config[`${channel}BotId`] && ready) {
+      log(channel, `webhook ready at POST ${path} (needs a public HTTPS address)`, 'cyan');
+    } else if (config[`${channel}BotId`]) {
+      log(channel, 'not configured (missing credentials), skipping', 'gray');
+    } else {
+      log(channel, 'not configured, skipping', 'gray');
+    }
+  }
+
   // Start iMessage if configured
   if (config.imessageBotId) {
     if (process.platform === 'darwin') {
@@ -1926,6 +1966,54 @@ function startHttpServer() {
         const result = await handleSmsWebhook(cfg, formBody, mockReq);
         res.writeHead(result.status, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result.body));
+      });
+      return;
+    }
+
+    // Webhook inbound for the channels that cannot poll. Each handler answers
+    // with the status/body its platform expects (Google Chat, for instance,
+    // takes the reply text in the HTTP response).
+    const WEBHOOK_ROUTES = {
+      '/webhooks/teams': channelRuntime.handleTeamsWebhook,
+      '/webhooks/googlechat': channelRuntime.handleGoogleChatWebhook,
+      '/webhooks/zalo': channelRuntime.handleZaloWebhook,
+    };
+    if (req.method === 'POST' && WEBHOOK_ROUTES[req.url]) {
+      const handler = WEBHOOK_ROUTES[req.url];
+      const channel = req.url.split('/').pop();
+      let body = '';
+      let tooLarge = false;
+      req.on('data', chunk => {
+        body += chunk.toString();
+        // Cap the body so an unauthenticated POST cannot exhaust memory.
+        if (body.length > 1024 * 1024) { tooLarge = true; req.destroy(); }
+      });
+      req.on('end', async () => {
+        if (tooLarge) return;
+        let payload;
+        try {
+          payload = JSON.parse(body || '{}');
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'invalid JSON' }));
+          return;
+        }
+        const cfg = require('../utils/config').getConfig();
+        if (!cfg[`${channel}BotId`]) {
+          log(channel, 'webhook hit but channel is not connected', 'yellow');
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `${channel} not connected` }));
+          return;
+        }
+        let result;
+        try {
+          result = await handler(cfg, payload);
+        } catch (error) {
+          log(channel, `webhook error: ${error.message}`, 'red');
+          result = { status: 500, body: { error: error.message } };
+        }
+        res.writeHead(result.status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result.body || {}));
       });
       return;
     }

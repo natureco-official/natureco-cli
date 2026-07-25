@@ -21,7 +21,7 @@ function sandbox(args) {
   if (action === 'destroy') return destroySandbox(params[0]);
   if (action === 'exec') return execSandbox(params[0], params.slice(1).join(' '));
 
-  console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
+  console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${action}\n`));
   console.log(chalk.gray(L('  Kullanım: natureco sandbox [list|create|destroy|exec]\n', '  Usage: natureco sandbox [list|create|destroy|exec]\n')));
   process.exit(1);
 }

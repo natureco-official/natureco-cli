@@ -131,6 +131,10 @@ describe('AUDIT_FINDINGS_3 medium-severity regressions', () => {
       noBotResult.error
     );
 
+    // `acp` now resolves to the merged agent (it used to be pinned to the
+    // legacy one, so the alias silently ran a different agent than `code`).
+    // The contract M-08 actually asserts is unchanged: an unconfigured install
+    // gets a clean, actionable error and a non-zero exit, not a crash.
     const home = tempHome('natureco-m08-');
     const acp = cli(['acp'], home);
     expect(acp.error).toBeUndefined();

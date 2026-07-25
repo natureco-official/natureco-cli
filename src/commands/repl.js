@@ -331,13 +331,16 @@ function apiRequest(providerUrl, providerApiKey, body, stream = false, retries =
         res.on('data', c => data += c);
         res.on('end', () => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
-            try { resolve(JSON.parse(data)); } catch (e) { reject(new Error('Parse hatası')); }
+            try { resolve(JSON.parse(data)); } catch { reject(new Error(L('Yanıt çözümlenemedi', 'Could not parse the response'))); }
           } else if (res.statusCode === 429 && attempt < retries) {
             const delay = Math.pow(2, attempt) * 1000;
             setTimeout(() => doRequest(attempt + 1), delay);
           } else {
             const msg = res.statusCode === 429
-              ? 'HTTP 429: API rate limit aşıldı. Lütfen bekleyin veya planınızı yükseltin.'
+              ? L(
+                'HTTP 429: API hız sınırı aşıldı. Lütfen bekleyin veya planınızı yükseltin.',
+                'HTTP 429: API rate limit exceeded. Please wait or upgrade your plan.',
+              )
               : `HTTP ${res.statusCode}: ${data.slice(0, 200)}`;
             reject(new Error(msg));
           }
@@ -582,7 +585,23 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
   ];
   toolDefs.push(...toolVirtualTools);
 
-  const toolParam = toOpenAIFormat(toolDefs);
+  // Token economy: advertise a core set and catalogue the rest by name instead
+  // of serializing every schema into every request (~14.7k tokens per call on a
+  // 16k budget). Execution still resolves against the full `toolDefs`, and
+  // `enable_tools` loads any schema the model asks for.
+  toolDefs.push(createEnableToolsTool(replEnabledTools, () => toolDefs.map(t => t.name)));
+  const toolProfile = getConfig().toolProfile === 'all' ? 'all' : 'core';
+  // Recomputed each iteration: `enable_tools` widens the set mid-turn and the
+  // model must see the new schemas on its very next step.
+  const currentToolParam = () => {
+    const advertised = selectTools(toolDefs, { profile: toolProfile, enabled: replEnabledTools });
+    const catalog = buildCatalog(advertised.hidden);
+    if (catalog && messages[0] && messages[0].role === 'system') {
+      const stripped = String(messages[0].content || '').split(/\n\nAdditional tools \(|\n\nEk araçlar \(/)[0];
+      messages[0] = { ...messages[0], content: `${stripped}\n\n${catalog}` };
+    }
+    return toOpenAIFormat(advertised.exposed);
+  };
   guardrails.reset();
 
   let currentMessages = messages;
@@ -664,7 +683,8 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
     // Structured output support
     const respFmt = getResponseFormat(cfg);
     if (respFmt) body.response_format = respFmt;
-    if (toolParam) body.tools = toolParam;
+    const toolParam = currentToolParam();
+    if (toolParam && toolParam.length) body.tools = toolParam;
     if (isMM || isGM) body.tool_choice = 'auto'; // MiniMax + Gemini için explicit
 
     if (!shouldStream) {
@@ -819,6 +839,16 @@ const UNTRUSTED_TOOLS = new Set(['browser', 'web_search', 'duckduckgo_search', '
 const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 'web_search', 'web_readability', 'duckduckgo_search', 'exa_search', 'searxng_search', 'firecrawl', 'memory_search', 'memory']);
 const { checkPreHooks, runPostHooks, permissionSummary } = require('../utils/tool-hooks');
 const { checkPermission, isApproved, markApproved, formatPermissionPrompt } = require('../utils/permissions');
+const { assessRisk } = require('../utils/tool-gate');
+const { selectTools, buildCatalog, createEnableToolsTool } = require('../utils/tool-profile');
+
+// Tools the model pulled in via `enable_tools`; scoped to this REPL process.
+const replEnabledTools = new Set();
+
+// Providers that do not emit OpenAI-style tool_calls reliably need the XML
+// agentic runner inside the workflow tool — for them the pre-step IS the tool
+// loop, not an extra hop. See utils/provider-detect.js.
+const { supportsNativeToolCalls } = require('../utils/provider-detect');
 const { getPlanMode } = require('../utils/plan-mode');
 const { getWorktree } = require('../utils/worktree');
 const { getLevel: getEffortLevel, getConfig: getEffortConfig } = require('../utils/effort-levels');
@@ -900,6 +930,24 @@ async function processToolCalls(toolCalls, onToolCall, onAsk) {
     }
     pm.recordTool(p.name, p.args);
 
+    // 0.5. Risk assessment. Permission rules and hooks both default to "allow"
+    // with no user config, so before this the agent could run `rm -rf` or a
+    // PowerShell recursive delete here without ever asking.
+    const risk = assessRisk(p.name, p.args);
+    if (risk.requiresApproval) {
+      const approved = await askPermissionPrompt(
+        `${risk.level === 'high' ? '🔴' : '🟡'} ${risk.reason}`,
+        `${L('Bu işleme izin ver', 'Allow this operation')}? [y=${L('bir kez', 'once')}, n=${L('hayır', 'no')}] `,
+        onAsk,
+      );
+      if (!approved) {
+        const reason = L('Riskli işlem onaylanmadı: ', 'Risky operation not approved: ') + risk.reason;
+        const denied = { ...p, result: { error: reason }, _risk_blocked: true };
+        if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: reason } });
+        return denied;
+      }
+    }
+
     // 1. Permission check (config-based granular rules)
     const perm = checkPermission(p.name, p.args);
     if (perm.action === 'deny') {
@@ -912,14 +960,18 @@ async function processToolCalls(toolCalls, onToolCall, onAsk) {
       if (!isApproved(permKey)) {
         const ok = await askPermissionPrompt(
           `${formatPermissionPrompt(p.name, p.args, perm.reason)}\n  ${perm.reason}`,
-          `Bu işleme izin ver? [y=once, Y=session, p=persistent, n=no] `,
+          L(
+            'Bu işleme izin ver? [y=bir kez, Y=oturum, p=kalıcı, n=hayır] ',
+            'Allow this operation? [y=once, Y=session, p=persistent, n=no] ',
+          ),
           onAsk
         );
         if (ok === 'persistent') markApproved(permKey, true);
         else if (ok === 'session') markApproved(permKey, false);
         else if (!ok) {
-          const denied = { ...p, result: { error: `İzin reddedildi: ${perm.rule.raw}` }, _perm_blocked: true };
-          if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: `İzin reddedildi: ${perm.rule.raw}` } });
+          const reason = L('İzin reddedildi: ', 'Permission rejected: ') + perm.rule.raw;
+          const denied = { ...p, result: { error: reason }, _perm_blocked: true };
+          if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: reason } });
           return denied;
         }
       }
@@ -935,12 +987,13 @@ async function processToolCalls(toolCalls, onToolCall, onAsk) {
     if (hook.action === 'ask') {
       const ok = await askPermissionPrompt(
         permissionSummary(hook.rule, p.name, p.args),
-        `Hook onayı [y=once, Y=session, n=no]: `,
+        L('Hook onayı [y=bir kez, Y=oturum, n=hayır]: ', 'Hook approval [y=once, Y=session, n=no]: '),
         onAsk
       );
       if (!ok) {
-        const denied = { ...p, result: { error: `Hook reddetti: ${hook.rule.raw}` }, _hook_blocked: true };
-        if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: `Hook reddetti: ${hook.rule.raw}` } });
+        const reason = L('Hook reddetti: ', 'Hook rejected: ') + hook.rule.raw;
+        const denied = { ...p, result: { error: reason }, _hook_blocked: true };
+        if (onToolCall) onToolCall({ name: p.name, args: p.args, status: 'done', result: { error: reason } });
         return denied;
       }
     }
@@ -1590,20 +1643,29 @@ async function startRepl(args) {
       systemPrompt = rebuildSystemPrompt(promptOpts);
       messages[0] = { role: 'system', content: systemPrompt, _internal: true };
 
-      // v5.13.0: Run workflow FIRST for every request
-      // v5.26: TTY'de canli streaming — spinner yerine yanit akarak gelir (workflow stdout'a akitir)
+      // The workflow orchestrator used to run before EVERY message: an extra
+      // model call to classify the request, then a second call to answer it or
+      // to emit an up-front JSON plan. That is one wasted request per turn on
+      // an agent that already has its own tool loop below. It is now opt-in
+      // (`natureco config set chatWorkflow true`) for models that need the
+      // scaffolding; on non-tool-calling providers it still engages
+      // automatically, since there the XML agentic runner IS the tool loop.
       const wantStream = !!(process.stdout && process.stdout.isTTY);
-      if (!wantStream) process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
-      const wfToolDefs = getToolDefs();
-      const recentHistory = messages.length > 1 ? messages.slice(-10) : [];
-      const wfResult = await executeTool('workflow', { action: 'run', task: line, conversationHistory: recentHistory, stream: wantStream }, wfToolDefs);
-      const wf = wfResult?.result || {};
-      if (!wf.streamed) {
-        if (wf.success !== false) {
-          const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
-          process.stdout.write(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
-        } else {
-          process.stdout.write(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
+      const useWorkflow = cfg.chatWorkflow === true || !supportsNativeToolCalls(providerUrl, model, cfg);
+      let wf = {};
+      if (useWorkflow) {
+        if (!wantStream) process.stdout.write(tui.styled('\r  🔧 workflow...  ', { color: tui.PALETTE.muted }));
+        const wfToolDefs = getToolDefs();
+        const recentHistory = messages.length > 1 ? messages.slice(-10) : [];
+        const wfResult = await executeTool('workflow', { action: 'run', task: line, conversationHistory: recentHistory, stream: wantStream }, wfToolDefs);
+        wf = wfResult?.result || {};
+        if (!wf.streamed) {
+          if (wf.success !== false) {
+            const loaded = wf.skillsLoaded && wf.skillsLoaded.length > 0 ? ` [skill: ${wf.skillsLoaded.join(', ')}]` : '';
+            process.stdout.write(tui.styled(`  ✓ workflow${loaded}\n`, { color: tui.PALETTE.success }));
+          } else {
+            process.stdout.write(tui.styled('  ✗ workflow\n', { color: tui.PALETTE.danger }));
+          }
         }
       }
 
@@ -1630,29 +1692,37 @@ async function startRepl(args) {
         messages.push({ role: 'assistant', content: fixedReply });
         totalInputTokens += Math.ceil(line.length / 4);
         totalOutputTokens += Math.ceil(fullReply.length / 4);
-      } else if (wf.status === 'completed' || (wf.results && wf.results.length > 0)) {
-        // Complex task — inject workflow report as context, then LLM crafts final reply
-        const workflowSteps = wf.results || [];
-        const report = workflowSteps.map(r => {
-          const t = r.tool || r.name || '?';
-          const s = r.status === 'done' ? '✓' : '✗';
-          let summary = '';
-          if (r.result) {
-            try { summary = typeof r.result === 'string' ? r.result.slice(0, 400) : JSON.stringify(r.result).slice(0, 400); } catch {}
-          }
-          return `  ${s} ${t}: ${summary}`;
-        }).join('\n');
-        const skillInfo = wf.skillsLoaded && wf.skillsLoaded.length > 0
-          ? `\n\n${L('Kullanılan beceriler', 'Skills used')}: ${wf.skillsLoaded.join(', ')}`
-          : '';
+      } else if (!useWorkflow || wf.status === 'completed' || (wf.results && wf.results.length > 0)) {
+        // Two ways in:
+        //  - workflow off (the default): the agent loop below IS the turn, so
+        //    nothing is injected and sendStreaming drives tools itself;
+        //  - workflow ran: its report is injected as context and the model
+        //    turns those results into the user-facing answer.
         const preWfLen = messages.length;
-        messages.push({
-          role: 'system',
-          content: L(
-            `=== İŞ AKIŞI SONUÇLARI ===\nŞu araçlar çalıştı:\n${report}${skillInfo}\n\nBu sonuçları kullanıcı için anlamlı biçimde özetle.\n=== SONUÇ BİTTİ ===`,
-            `=== WORKFLOW RESULTS ===\nThe following tools ran:\n${report}${skillInfo}\n\nSummarize these results clearly for the user.\n=== END RESULTS ===`,
-          ),
-        });
+        let injectedChars = 0;
+        if (useWorkflow) {
+          const workflowSteps = wf.results || [];
+          const report = workflowSteps.map(r => {
+            const t = r.tool || r.name || '?';
+            const s = r.status === 'done' ? '✓' : '✗';
+            let summary = '';
+            if (r.result) {
+              try { summary = typeof r.result === 'string' ? r.result.slice(0, 400) : JSON.stringify(r.result).slice(0, 400); } catch {}
+            }
+            return `  ${s} ${t}: ${summary}`;
+          }).join('\n');
+          const skillInfo = wf.skillsLoaded && wf.skillsLoaded.length > 0
+            ? `\n\n${L('Kullanılan beceriler', 'Skills used')}: ${wf.skillsLoaded.join(', ')}`
+            : '';
+          messages.push({
+            role: 'system',
+            content: L(
+              `=== İŞ AKIŞI SONUÇLARI ===\nŞu araçlar çalıştı:\n${report}${skillInfo}\n\nBu sonuçları kullanıcı için anlamlı biçimde özetle.\n=== SONUÇ BİTTİ ===`,
+              `=== WORKFLOW RESULTS ===\nThe following tools ran:\n${report}${skillInfo}\n\nSummarize these results clearly for the user.\n=== END RESULTS ===`,
+            ),
+          });
+          injectedChars = (messages[preWfLen].content || '').length;
+        }
         const reply = await sendStreaming(
         providerUrl,
         providerApiKey,
@@ -1675,7 +1745,7 @@ async function startRepl(args) {
         })
       );
         // Remove workflow results message (already served its purpose)
-        messages.splice(preWfLen, 1);
+        if (useWorkflow) messages.splice(preWfLen, 1);
         // v5.6.12: Tam metin 'reply' olarak zaten geldi (non-stream mode)
         const fullReply = String(reply || '');
         // Bot adini al
@@ -1696,7 +1766,7 @@ async function startRepl(args) {
         fixedReply = fixedReply.replace(/\*\*(?:MiniMax|Claude|GPT|M2\.5|M2)[^\*]*\*\*/gi, '**' + displayBotName + '**');
         process.stdout.write('\n' + fixedReply + '\n');
         messages.push({ role: 'assistant', content: fixedReply });
-        totalInputTokens += Math.ceil(((fullReply || '') + report + skillInfo).length / 4);
+        totalInputTokens += Math.ceil(((fullReply || '').length + line.length + injectedChars) / 4);
         totalOutputTokens += Math.ceil((fullReply || '').length / 4);
       } else {
         // Workflow failed or returned unexpected format

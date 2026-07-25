@@ -35,7 +35,7 @@ function directory(args) {
   if (action === 'groups' && params[0] === 'members') return groupsMembers(params[1]);
   if (action === 'groups') return groupsList();
 
-  console.log(chalk.red(`\n  ❌ Bilinmeyen komut: ${action}\n`));
+  console.log(chalk.red(`\n  ❌ ${L('Bilinmeyen komut', 'Unknown command')}: ${action}\n`));
   console.log(chalk.gray(L('  Kullanım: natureco directory [self|peers|search|register|remove|groups]\n', '  Usage: natureco directory [self|peers|search|register|remove|groups]\n')));
   process.exit(1);
 }

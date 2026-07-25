@@ -4,6 +4,9 @@ const F = require('../utils/format');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { getLang: _gl } = require('../utils/i18n');
+
+const L = (tr, en) => (_gl() === 'en' ? en : tr);
 
 const CHECKS = {
   config: { label: 'Configuration', desc: 'Check if config file exists and is valid' },
@@ -47,19 +50,22 @@ function cmdRun() {
   }));
 
   console.log('\n' + tui.table(rows, [
-    { key: 'label', label: 'Check', minWidth: 18, render: r => tui.C.text(r.label) },
+    { key: 'label', label: L('Kontrol', 'Check'), minWidth: 18, render: r => tui.C.text(r.label) },
     {
-      key: 'status', label: 'Durum', minWidth: 10,
+      key: 'status', label: L('Durum', 'Status'), minWidth: 10,
       render: r => r.status === 'pass'
         ? tui.styled('  ✓ PASS ', { bg: tui.PALETTE.success, color: '#000', bold: true })
         : r.status === 'fail'
         ? tui.styled('  ✗ FAIL ', { bg: tui.PALETTE.danger, color: '#000', bold: true })
         : tui.styled('  ⚠ WARN ', { bg: tui.PALETTE.warning, color: '#000', bold: true })
     },
-    { key: 'message', label: 'Detay', minWidth: 30, render: r => tui.C.muted(r.message) },
+    { key: 'message', label: L('Detay', 'Detail'), minWidth: 30, render: r => tui.C.muted(r.message) },
   ], { borderStyle: 'round', zebra: true }));
 
-  const summary = `${passed} geçti, ${warnings} uyarı, ${failed} hata`;
+  const summary = L(
+    `${passed} geçti, ${warnings} uyarı, ${failed} hata`,
+    `${passed} passed, ${warnings} warnings, ${failed} failed`,
+  );
   if (failed > 0) {
     console.log('\n' + tui.styled('  ✗ ' + summary, { color: tui.PALETTE.danger, bold: true }));
   } else {
@@ -69,7 +75,7 @@ function cmdRun() {
 }
 
 function cmdList() {
-  console.log('\n' + tui.styled('  🩺 Health Check Listesi', { color: tui.PALETTE.primary, bold: true }));
+  console.log('\n' + tui.styled(L('  🩺 Sağlık Kontrolü Listesi', '  🩺 Health Check List'), { color: tui.PALETTE.primary, bold: true }));
   console.log(tui.styled('  ' + '─'.repeat(56), { color: tui.PALETTE.border }));
 
   const rows = Object.entries(CHECKS).map(([key, check]) => ({

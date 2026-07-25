@@ -18,6 +18,12 @@ const { addToHistory } = require('../utils/history');
 const { getToolDefinitions, executeTool } = require('../utils/tool-runner');
 const { AgentCore } = require('../utils/agent-core');
 const { CodingSession } = require('../utils/coding-session');
+const {
+  indexProject,
+  buildIndexPrompt,
+  getProjectMemoryPath,
+  loadProjectMemory,
+} = require('../utils/project-index');
 
 const agentCore = new AgentCore({ maxIterations: 10 });
 
@@ -59,120 +65,6 @@ function stopSpinner(timer, label, success = true) {
 }
 
 // ── Proje indexing ────────────────────────────────────────────────────────────
-const IGNORE_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next', '__pycache__', '.venv', 'venv', 'target', '.wrangler']);
-
-function scanDir(dir, maxDepth, depth = 0) {
-  const results = [];
-  if (depth > maxDepth) return results;
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return results; }
-  for (const entry of entries) {
-    if (entry.name.startsWith('.') && depth > 0) continue;
-    if (IGNORE_DIRS.has(entry.name)) continue;
-    const rel = depth === 0 ? entry.name : path.join(path.relative(dir.split(path.sep).slice(0, -depth).join(path.sep) || dir, dir), entry.name).replace(/\\/g, '/');
-    if (entry.isDirectory()) {
-      const sub = scanDir(path.join(dir, entry.name), maxDepth, depth + 1);
-      results.push(...sub.map(f => entry.name + '/' + f));
-    } else {
-      results.push(entry.name);
-    }
-  }
-  return results;
-}
-
-async function indexProject(projectDir) {
-  const index = {
-    dir: projectDir,
-    files: [],
-    type: 'unknown',
-    mainFiles: [],
-    packageJson: null,
-    gitBranch: null,
-    gitStatus: null,
-  };
-
-  // Dosyaları tara (max 2 seviye, ignore listesi hariç)
-  index.files = scanDir(projectDir, 2);
-
-  // Proje tipini tespit et
-  const fileSet = new Set(index.files);
-  if (fileSet.has('package.json')) {
-    try {
-      const pkg = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8'));
-      const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-      index.packageJson = {
-        name: pkg.name || path.basename(projectDir),
-        version: pkg.version || '0.0.0',
-        scripts: pkg.scripts || {},
-        dependencies: Object.keys(pkg.dependencies || {}).slice(0, 15),
-      };
-      if (deps.react || deps['react-dom']) index.type = 'react';
-      else if (deps.next) index.type = 'nextjs';
-      else if (deps.vue) index.type = 'vue';
-      else if (deps.express || deps.fastify || deps.koa) index.type = 'node-server';
-      else index.type = 'node';
-    } catch {}
-  } else if (fileSet.has('requirements.txt') || index.files.some(f => f.endsWith('.py'))) {
-    index.type = 'python';
-  } else if (fileSet.has('Cargo.toml')) {
-    index.type = 'rust';
-  } else if (fileSet.has('go.mod')) {
-    index.type = 'go';
-  } else if (index.files.some(f => f.endsWith('.ts') || f.endsWith('.tsx'))) {
-    index.type = 'typescript';
-  }
-
-  // Ana dosyaları bul
-  const mainCandidates = [
-    'index.js', 'index.ts', 'main.js', 'main.ts', 'app.js', 'app.ts',
-    'server.js', 'server.ts', 'src/index.js', 'src/index.ts',
-    'src/main.ts', 'src/App.tsx', 'src/app.tsx',
-  ];
-  index.mainFiles = mainCandidates.filter(f => fileSet.has(f));
-
-  // Git bilgisi
-  try {
-    index.gitBranch = execSync('git branch --show-current', { cwd: projectDir, stdio: 'pipe' }).toString().trim();
-    const statusRaw = execSync('git status --short', { cwd: projectDir, stdio: 'pipe' }).toString().trim();
-    index.gitStatus = statusRaw ? statusRaw.split('\n').slice(0, 5) : [];
-  } catch {}
-
-  return index;
-}
-
-function buildIndexPrompt(index) {
-  const lines = [
-    `Proje Bilgisi:`,
-    `- Tip: ${index.type.toUpperCase()}`,
-    `- Dizin: ${index.dir}`,
-    `- Dosyalar (${index.files.length} toplam): ${index.files.slice(0, 40).join(', ')}`,
-    `- Ana dosyalar: ${index.mainFiles.join(', ') || 'bulunamadı'}`,
-  ];
-  if (index.packageJson) {
-    lines.push(`- Paket: ${index.packageJson.name} v${index.packageJson.version}`);
-    const scripts = Object.keys(index.packageJson.scripts);
-    if (scripts.length) lines.push(`- Scripts: ${scripts.join(', ')}`);
-    if (index.packageJson.dependencies.length) lines.push(`- Bağımlılıklar: ${index.packageJson.dependencies.join(', ')}`);
-  }
-  if (index.gitBranch) {
-    lines.push(`- Git branch: ${index.gitBranch}`);
-    lines.push(`- Değişiklikler: ${index.gitStatus?.length ? index.gitStatus.join(', ') : 'temiz'}`);
-  }
-  return lines.join('\n');
-}
-
-// ── Proje hafızası ────────────────────────────────────────────────────────────
-function getProjectMemoryPath(workDir) {
-  return path.join(workDir, '.natureco', 'project.md');
-}
-
-function loadProjectMemory(workDir) {
-  try {
-    const p = getProjectMemoryPath(workDir);
-    if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8');
-  } catch {}
-  return null;
-}
 
 async function generateSummary(messages, providerConfig) {
   const recent = messages.filter(m => m.role !== 'system').slice(-12);
@@ -210,7 +102,6 @@ async function generateCommitMessage(diff, providerConfig) {
     return 'chore: update files';
   }
 }
-
 
 async function streamMessage(providerConfig, messages, tools) {
   const result = await streamProviderCompletion(providerConfig, messages, tools);
@@ -569,7 +460,9 @@ ${indexPrompt}`);
           return;
         }
         case 'memory': {
-          const mem = loadProjectMemory();
+          // Called with no argument this threw inside loadProjectMemory's own
+          // try/catch and always reported "no project memory yet".
+          const mem = loadProjectMemory(workDir);
           if (mem) {
             console.log(chalk.yellow(L('\n  📋 Proje Hafızası:', '\n  📋 Project Memory:')));
             console.log(chalk.gray('  ' + mem.slice(0, 1500).split('\n').join('\n  ')));
