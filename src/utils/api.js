@@ -11,7 +11,7 @@ const { MCPClient } = require('./mcp-client');
 const TB = require('./token-budget');
 const { accumulateToolCallDeltas, finalizeToolCalls } = require('./streaming-tools');
 const { AgentCore } = require('./agent-core');
-const { selectTools, buildCatalog, createEnableToolsTool } = require('./tool-profile');
+const { selectTools, buildCatalog, buildCatalogNames, createEnableToolsTool } = require('./tool-profile');
 
 /**
  * v5.5.0: Provider-specific format detection
@@ -604,7 +604,11 @@ function allKnownTools() {
   }
   // `enable_tools` is a session-scoped meta-tool handled inside this loop, not
   // a manifest entry. Tools here are described with `inputSchema`.
-  const enableTool = createEnableToolsTool(chatEnabledTools, () => allTools.map(t => t.name));
+  const enableTool = createEnableToolsTool(
+    chatEnabledTools,
+    () => allTools.map(t => t.name),
+    () => buildCatalogNames(selectTools(allTools, { profile: config.toolProfile === 'all' ? 'all' : 'core', enabled: chatEnabledTools }).hidden),
+  );
   allTools.push({ ...enableTool, inputSchema: enableTool.parameters });
   return allTools;
 }

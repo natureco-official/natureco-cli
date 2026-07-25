@@ -54,7 +54,7 @@ const {
   appendProjectMemory,
 } = require("../utils/project-index");
 const { saveSession, loadLastSession, listSessions, loadCommandSession } = require("../utils/sessions");
-const { selectTools, buildCatalog, createEnableToolsTool } = require("../utils/tool-profile");
+const { selectTools, buildCatalog, buildCatalogNames, createEnableToolsTool } = require("../utils/tool-profile");
 const { AgentCore } = require("../utils/agent-core");
 const { prepareConversationHistory } = require("../utils/conversation-context");
 const tokenBudget = require("../utils/token-budget");
@@ -670,7 +670,11 @@ async function codeV5(targetPath, cliOptions = {}) {
   // against `toolDefs`, so an enabled tool works the moment it is enabled.
   const sessionEnabledTools = new Set();
   const toolProfile = cliOptions.allTools === true || getConfig().toolProfile === 'all' ? 'all' : 'core';
-  toolDefs.push(createEnableToolsTool(sessionEnabledTools, () => toolDefs.map(t => t.name)));
+  toolDefs.push(createEnableToolsTool(
+    sessionEnabledTools,
+    () => toolDefs.map(t => t.name),
+    () => buildCatalogNames(selectTools(toolDefs, { profile: toolProfile, enabled: sessionEnabledTools }).hidden),
+  ));
   const exposedTools = () => selectTools(toolDefs, { profile: toolProfile, enabled: sessionEnabledTools }).exposed;
   const toolCatalog = () => buildCatalog(selectTools(toolDefs, { profile: toolProfile, enabled: sessionEnabledTools }).hidden);
 

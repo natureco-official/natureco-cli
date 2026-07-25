@@ -87,41 +87,48 @@ function selectTools(toolDefs, options = {}) {
 }
 
 /**
- * One-line-per-tool catalogue of what is available but not currently loaded.
- * Costs roughly three tokens per tool instead of ~166 for a full schema.
+ * Names of the tools that exist but are not currently loaded.
+ *
+ * Names only, deliberately. The first version appended a 60-character summary
+ * per tool, which came to 955 tokens against a 681-token system prompt — the
+ * persona was outweighed 58/42 by a list of tool names, and the assistant
+ * started answering like a terse tool dispatcher instead of itself. A bare name
+ * is enough for the model to ask for the schema.
+ */
+function buildCatalogNames(hidden) {
+  return hidden.map(tool => tool.name).sort();
+}
+
+/**
+ * The one line that goes in the system prompt. Everything else about the
+ * catalogue lives on the `enable_tools` description, so persona text is not
+ * competing with an inventory.
  */
 function buildCatalog(hidden) {
   if (!hidden.length) return '';
-  const entries = hidden
-    .map(tool => {
-      const summary = String(tool.description || '')
-        .split(/[.\n]/)[0]
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 60);
-      return summary ? `${tool.name} (${summary})` : tool.name;
-    })
-    .sort();
-  return [
-    L(
-      `Ek araçlar (şemaları yüklü DEĞİL — kullanmak için önce enable_tools ile aç):`,
-      `Additional tools (schemas NOT loaded — call enable_tools first to use one):`,
-    ),
-    entries.join(', '),
-  ].join('\n');
+  return L(
+    `Yüklü olmayan ${hidden.length} araç daha var; gerekirse enable_tools ile şemasını yükle.`,
+    `${hidden.length} more tools exist but are not loaded; call enable_tools to load a schema when you need one.`,
+  );
 }
 
 /**
  * The virtual tool that lets the model pull hidden schemas in for the rest of
  * the session.
  */
-function createEnableToolsTool(enabled, resolveNames) {
+function createEnableToolsTool(enabled, resolveNames, resolveCatalogNames) {
+  // The inventory lives here rather than in the system prompt: it is reference
+  // data for this one tool, and keeping it out of the prompt leaves the persona
+  // and behaviour instructions dominant.
+  const catalogue = typeof resolveCatalogNames === 'function' ? resolveCatalogNames() : [];
+  const available = catalogue.length ? ` Available: ${catalogue.join(', ')}.` : '';
   return {
     name: 'enable_tools',
     _alwaysExpose: true,
     description:
-      'Load the full schemas for additional tools listed in the tool catalogue so they can be called. ' +
-      'Call this once with every tool you expect to need, then call those tools normally on the next step.',
+      'Load the full schemas for additional tools so they can be called. ' +
+      'Call this once with every tool you expect to need, then call those tools normally on the next step.' +
+      available,
     parameters: {
       type: 'object',
       properties: {
@@ -162,5 +169,6 @@ module.exports = {
   isPlatformDead,
   selectTools,
   buildCatalog,
+  buildCatalogNames,
   createEnableToolsTool,
 };

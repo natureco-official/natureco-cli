@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRequire } from 'module';
 
 const requireCjs = createRequire(import.meta.url);
-const { selectTools, buildCatalog, createEnableToolsTool, isPlatformDead, CORE_TOOLS } =
+const { selectTools, buildCatalog, buildCatalogNames, createEnableToolsTool, isPlatformDead, CORE_TOOLS } =
   requireCjs('../src/utils/tool-profile.js');
 const { loadToolDefinitions, toOpenAIFormat } = requireCjs('../src/utils/tools.js');
 const { supportsNativeToolCalls } = requireCjs('../src/utils/provider-detect.js');
@@ -53,19 +53,56 @@ describe('tool profiles cut the per-request payload', () => {
 });
 
 describe('catalogue + enable_tools keep every tool reachable', () => {
-  it('names every hidden tool so the model knows it exists', () => {
+  /**
+   * The inventory belongs on the enable_tools description, not in the system
+   * prompt. The first version appended a summary per hidden tool: 955 tokens
+   * against a 681-token system prompt, so a list of tool names outweighed the
+   * persona 58/42 and the assistant started answering like a tool dispatcher.
+   */
+  it('adds only a single short line to the system prompt', () => {
     const defs = loadToolDefinitions();
     const { hidden } = selectTools(defs, { profile: 'core' });
     const catalog = buildCatalog(hidden);
+    expect(catalog.split('\n')).toHaveLength(1);
+    expect(Math.ceil(catalog.length / 4)).toBeLessThan(60);
+    expect(catalog).toContain(String(hidden.length));
+  });
+
+  it('never lets the catalogue outweigh the persona in the system prompt', () => {
+    const { buildTiers, assemble } = requireCjs('../src/utils/system-prompt.js');
+    const tiers = buildTiers({
+      botName: 'naruto', userName: 'patron', soulSummary: 'persona text',
+      isSmallModel: false, memorySnapshotBlock: '', skillsIndexBlock: '',
+      projectRules: '', crossSessionContext: '', userHome: '/home/u',
+      platform: 'linux', hasHistory: true, memoryFacts: [],
+    });
+    const systemPrompt = assemble(tiers.stable, tiers.context, tiers.volatile);
+    const defs = loadToolDefinitions();
+    const catalog = buildCatalog(selectTools(defs, { profile: 'core' }).hidden);
+    // The catalogue must stay a rounding error next to the persona.
+    expect(catalog.length).toBeLessThan(systemPrompt.length * 0.1);
+  });
+
+  it('puts the tool names on enable_tools so the model can still find them', () => {
+    const defs = loadToolDefinitions();
+    const enabled = new Set();
+    const hidden = selectTools(defs, { profile: 'core', enabled }).hidden;
+    const enableTool = createEnableToolsTool(
+      enabled,
+      () => defs.map(t => t.name),
+      () => buildCatalogNames(hidden),
+    );
     for (const tool of hidden.slice(0, 10)) {
-      expect(catalog).toContain(tool.name);
+      expect(enableTool.description).toContain(tool.name);
     }
   });
 
-  it('costs a fraction of a schema per tool', () => {
+  it('costs a fraction of a schema per catalogued tool', () => {
     const defs = loadToolDefinitions();
-    const { hidden } = selectTools(defs, { profile: 'core' });
-    const perTool = Math.ceil(buildCatalog(hidden).length / 4) / hidden.length;
+    const hidden = selectTools(defs, { profile: 'core' }).hidden;
+    const names = buildCatalogNames(hidden);
+    expect(names).toHaveLength(hidden.length);
+    const perTool = Math.ceil(names.join(', ').length / 4) / hidden.length;
     expect(perTool).toBeLessThan(20);
   });
 

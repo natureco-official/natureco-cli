@@ -589,8 +589,12 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
   // of serializing every schema into every request (~14.7k tokens per call on a
   // 16k budget). Execution still resolves against the full `toolDefs`, and
   // `enable_tools` loads any schema the model asks for.
-  toolDefs.push(createEnableToolsTool(replEnabledTools, () => toolDefs.map(t => t.name)));
   const toolProfile = getConfig().toolProfile === 'all' ? 'all' : 'core';
+  toolDefs.push(createEnableToolsTool(
+    replEnabledTools,
+    () => toolDefs.map(t => t.name),
+    () => buildCatalogNames(selectTools(toolDefs, { profile: toolProfile, enabled: replEnabledTools }).hidden),
+  ));
   // Recomputed each iteration: `enable_tools` widens the set mid-turn and the
   // model must see the new schemas on its very next step.
   const currentToolParam = () => {
@@ -840,7 +844,7 @@ const PARALLEL_SAFE_TOOLS = new Set(['read_file', 'file_search', 'grep_search', 
 const { checkPreHooks, runPostHooks, permissionSummary } = require('../utils/tool-hooks');
 const { checkPermission, isApproved, markApproved, formatPermissionPrompt } = require('../utils/permissions');
 const { assessRisk } = require('../utils/tool-gate');
-const { selectTools, buildCatalog, createEnableToolsTool } = require('../utils/tool-profile');
+const { selectTools, buildCatalog, buildCatalogNames, createEnableToolsTool } = require('../utils/tool-profile');
 
 // Tools the model pulled in via `enable_tools`; scoped to this REPL process.
 const replEnabledTools = new Set();

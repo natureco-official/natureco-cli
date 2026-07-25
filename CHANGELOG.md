@@ -2,6 +2,23 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.1] - 2026-07-25 — Fix: the tool catalogue was drowning the assistant's persona
+
+### Fixed
+- **The assistant lost its personality in 5.71.0.** The on-demand tool catalogue introduced in
+  5.71.0 was appended to the system prompt with a one-line summary per hidden tool — 955 tokens
+  against a 681-token system prompt. A list of tool names outweighed the persona 58/42, and the
+  assistant started answering like a terse tool dispatcher instead of itself: `Selam! Ben Hinata.`
+  where it used to say `Selam aşkım! 🌸 Nasılsın bugün?`.
+
+  The inventory now lives on the `enable_tools` description, where it belongs — it is reference
+  data for that one tool, not context for the conversation. The system prompt gets a single
+  24-token line stating how many more tools exist. The persona's share of the system prompt goes
+  from 42% back to 97%, and the per-request total drops further (~4.5k → ~4.46k) rather than
+  regressing. Verified live: the persona is back.
+
+  A regression test now asserts the catalogue can never exceed 10% of the system prompt.
+
 ## [5.71.0] - 2026-07-25 — Token economy, one agent, and gates that actually fire
 
 An end-to-end audit of the agent surface. The headline is cost: tool schemas were being serialized
