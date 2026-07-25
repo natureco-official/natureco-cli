@@ -76,7 +76,7 @@
     "@inquirer/prompts": "^8.5.2",
     "@slack/web-api": "^7.17.0",
     "@whiskeysockets/baileys": "^7.0.0-rc10",
-    "chalk": "^4.1.2",
+    "chalk": "^5.6.2",
     "commander": "^11.1.0",
     "diff": "^5.2.2",
     "discord.js": "^14.26.5",
