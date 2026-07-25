@@ -101,7 +101,9 @@ function rebuildSystemPrompt(opts) {
     _cachedTierOpts.soulSummary !== opts.soulSummary ||
     _cachedTierOpts.skillsIndexBlock !== opts.skillsIndexBlock ||
     _cachedTierOpts.crossSessionContext !== opts.crossSessionContext ||
-    _cachedTierOpts.projectRules !== opts.projectRules;
+    _cachedTierOpts.projectRules !== opts.projectRules ||
+    _cachedTierOpts.memoryTreeDigest !== opts.memoryTreeDigest ||
+    _cachedTierOpts.memoryTreeIndex !== opts.memoryTreeIndex;
   
   if (needsFullRebuild || !_cachedStable) {
     const tiers = buildTiers(opts);
@@ -113,6 +115,8 @@ function rebuildSystemPrompt(opts) {
       skillsIndexBlock: opts.skillsIndexBlock,
       crossSessionContext: opts.crossSessionContext,
       projectRules: opts.projectRules,
+      memoryTreeDigest: opts.memoryTreeDigest,
+      memoryTreeIndex: opts.memoryTreeIndex,
     };
   }
   // Volatile always rebuilt fresh
@@ -124,6 +128,8 @@ function rebuildSystemPrompt(opts) {
     skillsIndexBlock: '',
     crossSessionContext: '',
     projectRules: '',
+    memoryTreeDigest: '',
+    memoryTreeIndex: '',
   });
   return assemble(_cachedStable, _cachedContext, volatileOnly.volatile);
 }
@@ -1214,9 +1220,21 @@ async function startRepl(args) {
   }
 
   // Build system prompt with tier caching (stable+context cached, volatile fresh)
+  // Persistent memory, pre-loaded. This used to reach the model only through
+  // the workflow tool's agentic path; with the pre-step opt-in the direct loop
+  // has to carry it, or the assistant starts every session knowing nothing.
+  let memoryTreeDigest = '';
+  let memoryTreeIndex = '';
+  try {
+    const tree = require('../tools/memory_tree')._internal;
+    memoryTreeDigest = tree.buildDigest(cfg.userName) || '';
+    memoryTreeIndex = tree.buildIndex(cfg.userName) || '';
+  } catch { /* no tree yet — the agent still has memory_tree/memory_search */ }
+
   const promptOpts = {
     botName, userName, soulSummary, isSmallModel,
     memorySnapshotBlock, skillsIndexBlock, projectRules,
+    memoryTreeDigest, memoryTreeIndex,
     crossSessionContext: crossSessionContext || '',
     userHome: cfg.userHome || '',
     platform: process.platform,

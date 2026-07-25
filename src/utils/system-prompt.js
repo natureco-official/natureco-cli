@@ -32,6 +32,8 @@ function buildTiers(opts) {
     hasHistory = false,
     memoryFacts = [],
     projectRules = '',
+    memoryTreeDigest = '',
+    memoryTreeIndex = '',
   } = opts;
   const displayBot = botName || 'Asistan';
   const displayBoss = bossName || userName || 'kullanıcı';
@@ -85,6 +87,17 @@ function buildTiers(opts) {
     !isSmallModel && soulSummary ? `=== KISISELIK DOSYALARI ===\n${soulSummary}` : '',
     projectRules ? `=== PROJE KURALLARI (CLAUDE.md) ===\n${projectRules}\n=== PROJE KURALLARI BITTI ===` : '',
     crossSessionContext ? `=== GECMIS KONUSMALAR ===\n${crossSessionContext}` : '',
+    // Persistent memory, loaded up front rather than discovered by tool call.
+    // The workflow tool's agentic path always did this; the direct agent loop
+    // did not, so when the pre-step became opt-in the assistant lost everything
+    // it "already knew" about the user and fell back to memory_search — which
+    // is both slower and much worse at recall.
+    memoryTreeDigest
+      ? `=== BILDIGIN KALICI HAFIZA ===\n(bu kullaniciya ait, onceki oturumlardan hatirladiklarin; kullaniciya ozel bir sey sorulursa ONCE BUNU KULLAN — arama yapma, uydurma)\n${memoryTreeDigest}`
+      : '',
+    memoryTreeIndex
+      ? `=== HAFIZA AGACI YAPISI ===\n(yukarida olmayan detay icin memory_tree(action:read/search) ile ilgili kok/dali oku)\n${memoryTreeIndex}`
+      : '',
   ].filter(Boolean).join('\n');
 
   // ── VOLATILE TIER (built every turn) ─────────────────────────────────

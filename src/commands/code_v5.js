@@ -731,11 +731,23 @@ async function codeV5(targetPath, cliOptions = {}) {
   const skillsIndexBlock = buildSkillIndex();
   const cfg = getConfig();
   const projectRules = discoverProjectRules(cwd);
+  // Same reasoning as the REPL: the workflow pre-step used to pre-load
+  // persistent memory, and it is now opt-in.
+  let memoryTreeDigest = '';
+  let memoryTreeIndex = '';
+  try {
+    const tree = require('../tools/memory_tree')._internal;
+    memoryTreeDigest = tree.buildDigest(cfg.userName) || '';
+    memoryTreeIndex = tree.buildIndex(cfg.userName) || '';
+  } catch { /* no tree yet — memory_tree/memory_search still available */ }
+
   const promptOpts = {
     botName: 'Code Agent',
     userName: cfg.userName || L('kullanıcı', 'user'),
     skillsIndexBlock,
     projectRules,
+    memoryTreeDigest,
+    memoryTreeIndex,
     hasHistory: false,
     userHome: os.homedir(),
   };

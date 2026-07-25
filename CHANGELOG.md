@@ -2,6 +2,28 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.2] - 2026-07-25 — Fix: the assistant started every session knowing nothing
+
+### Fixed
+- **Persistent memory was no longer pre-loaded into the system prompt.** This is the real cause of
+  the personality regression 5.71.1 only partly addressed.
+
+  The workflow tool's agentic path always injected two blocks up front: the memory tree *digest*
+  (what the assistant already knows about this user, from previous sessions) and the memory tree
+  *index* (its structure, for reading deeper on demand). The direct agent loop never did — it did
+  not need to, because until 5.71.0 every message went through the workflow pre-step first.
+
+  Making that pre-step opt-in in 5.71.0 therefore silently removed the assistant's accumulated
+  memory from every turn. It fell back to calling `memory_search`, which is slower and much worse
+  at recall: asked what it remembered, it returned a list of stray words instead of the user's
+  actual history, and answered in a generic, characterless voice because none of the context that
+  shapes how it talks to that particular person was present.
+
+  `code` and `chat` now both pre-load the digest and index, exactly as the agentic path did. The
+  tier cache tracks them, so a memory write is reflected on the next turn rather than being pinned
+  to a stale snapshot. Cost: ~100 tokens for a typical tree — a rounding error against the ~8.3k
+  per request this release already saves.
+
 ## [5.71.1] - 2026-07-25 — Fix: the tool catalogue was drowning the assistant's persona
 
 ### Fixed
