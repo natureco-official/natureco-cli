@@ -12,7 +12,7 @@
 
 Most AI coding CLIs lock you into one vendor's model and stop at your editor. **NatureCo doesn't.** One agent, **12 providers** to choose from, that writes and ships your code, remembers what matters across sessions, and — uniquely — runs your **Telegram, Discord, Slack, WhatsApp, and iMessage bots** from the same install. Swap providers without losing memory. Automate without duct tape. Never send another risky `rm -rf` without a confirmation prompt.
 
-**A Claude Code & OpenClaw alternative, built to not box you in:** Multi-agent orchestration · Cross-session memory backed by a real git-native memory engine ([Urðr](https://github.com/natureco-official/urdr)) · Token-budgeted context · Dangerous-command approval on every shell path · 12 providers, 133 models · 91 tools · 14 channels.
+**A Claude Code & OpenClaw alternative, built to not box you in:** Multi-agent orchestration · Cross-session memory backed by a real git-native memory engine ([Urðr](https://github.com/natureco-official/urdr)) · Token-budgeted context · Dangerous-command approval on every shell path · 12 providers, 133 models · 91 tools · 103 commands · 14 channels (9 stable messaging + 4 experimental + webhooks).
 
 **Why teams pick it over the alternatives:**
 - 🔓 **No vendor lock-in** — switch between OpenAI, Anthropic, Gemini, MiniMax, or 8 more providers with one command; your memory and workflows carry over.
@@ -156,7 +156,7 @@ natureco config set guiVisionModel gpt-4.1-mini
 
 NatureCo reports GUI success only after a state-changing action, a changed screen, and a separate visual verification with explicit evidence. Purchasing, booking, sending, or other consequential actions should still be reviewed at the final confirmation step.
 
-### 📡 14 Channels
+### 📡 14 Channels — 9 stable · 4 experimental · webhooks
 
 | Platform | Connect | Notes |
 |----------|---------|-------|
@@ -200,7 +200,7 @@ NatureCo reports GUI success only after a state-changing action, a changed scree
 
 ---
 
-## 📋 Commands (A–Z, 120+ commands)
+## 📋 Commands (A–Z, 103 commands)
 
 ### 🤖 AI & Chat
 
@@ -249,7 +249,7 @@ natureco update        # Update the CLI
 natureco completion bash|powershell
 ```
 
-### 📡 Channels (14)
+### 📡 Channels (14: 9 stable, 4 experimental, webhooks)
 
 ```bash
 # All channels
@@ -432,7 +432,7 @@ natureco models list --provider anthropic
 | Model catalogue | ✅ 133 | ❌ | ✅ | ❌ |
 | Multi-agent orchestration | ✅ | ✅ | ⚠️ | ⚠️ |
 | Dangerous-command approval | ✅ | ✅ | ✅ | ⚠️ |
-| Multi-channel | ✅ 14 | ❌ | ✅ (Python) | ❌ |
+| Multi-channel | ✅ 14 (9 stable) | ❌ | ✅ (Python) | ❌ |
 | Persistent memory | ✅ Git-native (Urðr) | ✅ | ✅ | ❌ |
 | Tool-output path anonymization | ✅ | ❌ | ❌ | ❌ |
 | XP / gamification | ✅ | ❌ | ❌ | ❌ |
