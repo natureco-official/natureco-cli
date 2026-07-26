@@ -12,7 +12,7 @@
 
 Most AI coding CLIs lock you into one vendor's model and stop at your editor. **NatureCo doesn't.** One agent, **12 providers** to choose from, that writes and ships your code, remembers what matters across sessions, and — uniquely — runs your **Telegram, Discord, Slack, WhatsApp, and iMessage bots** from the same install. Swap providers without losing memory. Automate without duct tape. Never send another risky `rm -rf` without a confirmation prompt.
 
-**A Claude Code & OpenClaw alternative, built to not box you in:** Multi-agent orchestration · Cross-session memory backed by a real git-native memory engine ([Urðr](https://github.com/natureco-official/urdr)) · Token-budgeted context · Dangerous-command approval on every shell path · 12 providers, 200+ models · 91 tools · 8 messaging channels.
+**A Claude Code & OpenClaw alternative, built to not box you in:** Multi-agent orchestration · Cross-session memory backed by a real git-native memory engine ([Urðr](https://github.com/natureco-official/urdr)) · Token-budgeted context · Dangerous-command approval on every shell path · 12 providers, 133 models · 91 tools · 8 messaging channels.
 
 **Why teams pick it over the alternatives:**
 - 🔓 **No vendor lock-in** — switch between OpenAI, Anthropic, Gemini, MiniMax, or 8 more providers with one command; your memory and workflows carry over.
@@ -389,7 +389,7 @@ natureco admin-rpc start       # Local admin RPC (127.0.0.1, bearer-token auth)
 
 ---
 
-## 🌐 Provider Support (12 providers, 200+ models)
+## 🌐 Provider Support (12 providers, 133 models)
 
 | Provider | Models | API Key |
 |----------|--------|---------|
@@ -425,7 +425,7 @@ natureco models list --provider anthropic
 | Feature | NatureCo | Claude Code | Hermes | OpenClaw |
 |---------|----------|-------------|--------|----------|
 | Multi-provider | ✅ 12 | ❌ Anthropic | ✅ 8 | ❌ |
-| 200+ models | ✅ | ❌ | ✅ | ❌ |
+| Model catalogue | ✅ 133 | ❌ | ✅ | ❌ |
 | Multi-agent orchestration | ✅ | ✅ | ⚠️ | ⚠️ |
 | Dangerous-command approval | ✅ | ✅ | ✅ | ⚠️ |
 | Multi-channel (8 platforms) | ✅ | ❌ | ✅ (Python) | ❌ |
