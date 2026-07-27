@@ -14,6 +14,10 @@ updates:
       # Revisit if/when the project migrates to ESM.
       - dependency-name: "commander"
         versions: [">=15"]
+      # chalk 5+ is ESM-only; this project uses require('chalk') throughout.
+      # Bumping it fails the whole suite (90 tests). Revisit with the ESM migration.
+      - dependency-name: "chalk"
+        versions: [">=5"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
