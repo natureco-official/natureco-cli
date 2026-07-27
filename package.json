@@ -74,7 +74,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
     "@inquirer/prompts": "^8.5.2",
-    "@slack/web-api": "^7.17.0",
+    "@slack/web-api": "^8.0.0",
     "@whiskeysockets/baileys": "^7.0.0-rc10",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
