@@ -99,7 +99,7 @@
     "@eslint/js": "^10.0.1",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^10.6.0",
-    "globals": "^15.15.0",
+    "globals": "^17.8.0",
     "vitest": "^4.1.9"
   },
   "overrides": {
