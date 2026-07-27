@@ -9,6 +9,17 @@ updates:
     labels:
       - "dependencies"
       - "automated"
+    # Her paket için ayrı PR açmak yerine haftada tek PR: her PR iki iş akışı
+    # (Tests + CodeQL) tetiklediği için ayrı ayrı açılan güncellemeler bakım
+    # gürültüsünü katlıyordu. Büyük sürümler grup dışında kalır — onlar
+    # kırılma ihtimali taşıdığı için tek tek incelenmeli.
+    groups:
+      gelistirme-bagimliliklari:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      uretim-bagimliliklari:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
     ignore:
       # commander 15+ is ESM-only; this project is CommonJS.
       # Revisit if/when the project migrates to ESM.
@@ -25,3 +36,6 @@ updates:
     labels:
       - "ci"
       - "automated"
+    groups:
+      is-akislari:
+        patterns: ["*"]
