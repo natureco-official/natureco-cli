@@ -1563,8 +1563,16 @@ async function startRepl(args) {
           console.log(chalk.green(L('  ✓ System prompt güncellendi', '  ✓ System prompt updated')));
           break;
         case 'model':
-          if (!arg) { console.log(chalk.yellow(L('  Kullanım: /model <name>', '  Usage: /model <name>'))); break; }
+          if (!arg) {
+            const known = require('../utils/model-catalog').getProviderModels(providerUrl);
+            console.log(chalk.cyan(L('\n  Kullanılabilir modeller:\n', '\n  Available models:\n')));
+            known.forEach((entry, index) => console.log(`  ${index + 1}. ${entry.id}${entry.id === model ? L(' ← aktif', ' ← active') : ''}`));
+            console.log(chalk.gray(L('\n  Değiştir: /model <model-id>\n', '\n  Switch: /model <model-id>\n')));
+            break;
+          }
           model = arg;
+          cfg.providerModel = model;
+          require('../utils/config').saveConfig(cfg);
           console.log(chalk.green('  ✓ Model: ') + chalk.cyan(model));
           break;
         case 'identity':

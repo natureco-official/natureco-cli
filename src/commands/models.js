@@ -3,6 +3,7 @@ const { getLang: _gl } = require('../utils/i18n');
 const L = (tr, en) => (_gl() === 'en' ? en : tr);
 const { getConfig, saveConfig } = require('../utils/config');
 const { NatureCoError, handleError } = require('../utils/errors');
+const { PROVIDERS, getProviderModels, providerKeyFromUrl } = require('../utils/model-catalog');
 
 const PROVIDER_MODELS = {
   'api.groq.com': [
@@ -84,9 +85,12 @@ const PROVIDER_MODELS = {
 
 const PROVIDER_API_PATTERNS = [
   { match: 'openai.com', modelsEndpoint: 'https://api.openai.com/v1/models', type: 'openai' },
-  { match: 'groq.com', modelsEndpoint: null, type: 'groq' },
-  { match: 'anthropic.com', modelsEndpoint: null, type: 'anthropic' },
-  { match: 'together.xyz', modelsEndpoint: null, type: 'openai' },
+  { match: 'groq.com', modelsEndpoint: 'https://api.groq.com/openai/v1/models', type: 'groq' },
+  { match: 'anthropic.com', modelsEndpoint: 'https://api.anthropic.com/v1/models', type: 'anthropic' },
+  { match: 'generativelanguage.googleapis.com', modelsEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models', type: 'gemini' },
+  { match: 'together.xyz', modelsEndpoint: 'https://api.together.xyz/v1/models', type: 'openai' },
+  { match: 'minimax.io', modelsEndpoint: 'https://api.minimax.io/v1/models', type: 'openai' },
+  { match: 'minimaxi.com', modelsEndpoint: 'https://api.minimaxi.com/v1/models', type: 'openai' },
   { match: 'deepseek.com', modelsEndpoint: 'https://api.deepseek.com/v1/models', type: 'openai' },
   { match: 'mistral.ai', modelsEndpoint: 'https://api.mistral.ai/v1/models', type: 'openai' },
   { match: 'perplexity.ai', modelsEndpoint: 'https://api.perplexity.ai/v1/models', type: 'openai' },
@@ -94,6 +98,11 @@ const PROVIDER_API_PATTERNS = [
   { match: 'deepinfra.com', modelsEndpoint: 'https://api.deepinfra.com/v1/models', type: 'openai' },
   { match: 'fireworks.ai', modelsEndpoint: 'https://api.fireworks.ai/v1/models', type: 'openai' },
   { match: 'openrouter.ai', modelsEndpoint: 'https://openrouter.ai/api/v1/models', type: 'openrouter' },
+  { match: 'cohere.ai', modelsEndpoint: 'https://api.cohere.ai/v1/models', type: 'cohere' },
+  { match: 'localhost:11434', modelsEndpoint: 'http://localhost:11434/api/tags', type: 'ollama' },
+  { match: 'api.moonshot.ai', modelsEndpoint: 'https://api.moonshot.ai/v1/models', type: 'openai' },
+  { match: 'api.moonshot.cn', modelsEndpoint: 'https://api.moonshot.cn/v1/models', type: 'openai' },
+  { match: 'api.z.ai', modelsEndpoint: 'https://api.z.ai/api/paas/v4/models', type: 'openai' },
   { match: 'natureco.me', modelsEndpoint: null, type: 'natureco' },
 ];
 
@@ -144,8 +153,12 @@ function extractFlag(params, name) {
 
 async function listModels(opts) {
   const config = getConfig();
-  const providerUrl = config.providerUrl || '';
-  const currentModel = config.providerModel || '';
+  const requestedKey = opts.provider ? String(opts.provider).toLowerCase() : null;
+  const requestedProvider = requestedKey ? PROVIDERS[requestedKey] : null;
+  const providerUrl = requestedProvider?.url || config.providerUrl || '';
+  const currentModel = !requestedKey || requestedKey === providerKeyFromUrl(config.providerUrl || '')
+    ? config.providerModel || ''
+    : '';
   const fallbackModel = config.fallbackModel || '';
   const count = opts.refresh ? 50 : 0;
 
@@ -523,12 +536,14 @@ function resolveModel(input) {
 }
 
 function getKnownModels(providerUrl) {
+  const current = getProviderModels(providerUrl);
+  if (current.length > 0) return current;
   for (const [domain, list] of Object.entries(PROVIDER_MODELS)) {
     if (providerUrl.includes(domain)) {
       return list;
     }
   }
-  if (providerUrl.includes('openai') || providerUrl.includes('v1')) {
+  if (providerUrl.includes('openai')) {
     return PROVIDER_MODELS['api.openai.com'];
   }
   return [];
@@ -538,22 +553,29 @@ function findModelsEndpoint(providerUrl) {
   if (!providerUrl) return null;
   for (const pattern of PROVIDER_API_PATTERNS) {
     if (providerUrl.includes(pattern.match)) {
-      return pattern.modelsEndpoint || (providerUrl.replace(/\/v1\/.*$|\/$/, '') + '/v1/models');
+      return pattern.modelsEndpoint || (providerUrl.replace(/\/+$/, '').replace(/\/v1$/, '') + '/v1/models');
     }
   }
   if (providerUrl.includes('/v1')) {
-    return providerUrl.replace(/\/v1\/.*$/, '/v1/models');
+    return providerUrl.replace(/\/v1(?:\/.*)?$/, '/v1/models');
   }
   return null;
 }
 
 async function fetchLiveModels(endpoint, apiKey, opts) {
   const headers = { 'Content-Type': 'application/json' };
-  if (apiKey) {
+  let requestEndpoint = endpoint;
+  if (endpoint.includes('generativelanguage.googleapis.com') && apiKey) {
+    const separator = endpoint.includes('?') ? '&' : '?';
+    requestEndpoint += `${separator}key=${encodeURIComponent(apiKey)}`;
+  } else if (endpoint.includes('anthropic.com') && apiKey) {
+    headers['x-api-key'] = apiKey;
+    headers['anthropic-version'] = '2023-06-01';
+  } else if (apiKey) {
     headers['Authorization'] = `Bearer ${apiKey}`;
   }
 
-  const res = await fetch(endpoint, {
+  const res = await fetch(requestEndpoint, {
     headers,
     signal: AbortSignal.timeout(opts.timeout || 10000),
   });
@@ -571,12 +593,51 @@ async function fetchLiveModels(endpoint, apiKey, opts) {
   const data = await res.json();
   const rawModels = data.data || data.models || [];
 
-  return rawModels.map(m => ({
-    id: m.id || m.name || String(m),
+  return rawModels
+    .filter(m => !Array.isArray(m.supportedGenerationMethods) || m.supportedGenerationMethods.includes('generateContent'))
+    .map(m => ({
+    id: String(m.id || m.name || m).replace(/^models\//, ''),
     label: m.name || m.id || String(m),
     context: m.context_length || m.max_tokens || m.context_window || null,
     features: [],
   }));
+}
+
+function isTextModel(model) {
+  const id = String(model?.id || '').toLowerCase();
+  return id && !/(embedding|moderation|whisper|transcri|speech|tts|audio|image|dall-e|video|music|guard)/.test(id);
+}
+
+async function discoverProviderModels(config = {}, opts = {}) {
+  const known = getKnownModels(config.providerUrl || '');
+  let live = [];
+  let warning = null;
+  const endpoint = findModelsEndpoint(config.providerUrl || '');
+  if (endpoint) {
+    try {
+      live = await fetchLiveModels(endpoint, config.providerApiKey, { timeout: opts.timeout || 5000 });
+    } catch (err) {
+      warning = err.message;
+    }
+  }
+  const merged = [];
+  const seen = new Set();
+  const add = (model) => {
+    if (!model?.id || seen.has(model.id) || !isTextModel(model)) return;
+    seen.add(model.id);
+    merged.push(model);
+  };
+  if (config.providerModel) add({ id: config.providerModel, label: config.providerModel, features: [] });
+  live.forEach(add);
+  known.forEach(add);
+  return { models: merged, source: live.length ? 'live' : 'static', warning };
+}
+
+function resolveModelSelection(input, availableModels) {
+  const value = String(input || '').trim();
+  if (!value) return null;
+  if (/^\d+$/.test(value)) return availableModels[Number(value) - 1] || null;
+  return availableModels.find(model => model.id === value) || { id: value, label: value, features: [] };
 }
 
 async function probeProvider(providerUrl, apiKey, modelId, opts) {
@@ -622,3 +683,8 @@ async function probeProvider(providerUrl, apiKey, modelId, opts) {
 }
 
 module.exports = models;
+module.exports.getKnownModels = getKnownModels;
+module.exports.findModelsEndpoint = findModelsEndpoint;
+module.exports.fetchLiveModels = fetchLiveModels;
+module.exports.discoverProviderModels = discoverProviderModels;
+module.exports.resolveModelSelection = resolveModelSelection;

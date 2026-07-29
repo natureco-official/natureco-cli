@@ -3,6 +3,7 @@ const { getConfig } = require('../utils/config');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { getProviderModels } = require('../utils/model-catalog');
 
 const STATE_FILE = path.join(os.homedir(), '.natureco', 'infer-state.json');
 
@@ -620,24 +621,7 @@ async function inferCapabilities() {
 }
 
 function getKnownModels(providerUrl) {
-  const providerModels = {
-    'api.groq.com': ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'llama-3.2-90b-vision-preview', 'llama-3.1-70b-versatile', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'llama-3.2-1b-preview', 'llama-3.2-3b-preview', 'distil-whisper-large-v3-en'],
-    'api.openai.com': ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo', 'o1-preview', 'o1-mini', 'dall-e-3', 'tts-1', 'whisper-1', 'text-embedding-3-large'],
-    'api.anthropic.com': ['claude-opus-4-7', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307'],
-    'api.together.xyz': ['meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo', 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo', 'meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo', 'mistralai/Mixtral-8x7B-Instruct-v0.1', 'deepseek-ai/deepseek-coder-33b-instruct'],
-    'api.deepseek.com': ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'],
-    'api.mistral.ai': ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest', 'codestral-latest'],
-    'api.perplexity.ai': ['sonar-pro', 'sonar', 'sonar-reasoning-pro'],
-    'api.x.ai': ['grok-beta', 'grok-vision-beta'],
-    'api.deepinfra.com': ['meta-llama/Meta-Llama-3.1-70B-Instruct', 'meta-llama/Meta-Llama-3.1-8B-Instruct', 'mistralai/Mixtral-8x22B-Instruct-v0.1'],
-  };
-  for (const [domain, models] of Object.entries(providerModels)) {
-    if (providerUrl.includes(domain)) return models;
-  }
-  if (providerUrl.includes('openai') || providerUrl.includes('v1')) {
-    return providerModels['api.openai.com'];
-  }
-  return [];
+  return getProviderModels(providerUrl).map(model => model.id);
 }
 
 async function inferModelRun(prompt, modelOverride) {

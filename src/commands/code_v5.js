@@ -34,7 +34,8 @@ const {
   stopMcpServers,
 } = require("../utils/api");
 const { loadMcpToolDefinitions } = require("../utils/mcp-tools");
-const { getConfig } = require("../utils/config");
+const { getConfig, saveConfig } = require("../utils/config");
+const { discoverProviderModels, resolveModelSelection } = require("./models");
 const { loadToolDefinitions, executeTool, toOpenAIFormat } = require("../utils/tools");
 const { runPostHooks } = require("../utils/tool-hooks");
 const { createToolGate, assessRisk } = require("../utils/tool-gate");
@@ -914,7 +915,7 @@ async function codeV5(targetPath, cliOptions = {}) {
     ['/compact', L('Konuşma bağlamını şimdi sıkıştır', 'Compact the conversation context now')],
     ['/context', L('Bağlam kullanımını göster', 'Show context usage')],
     ['/tools', L('Yüklü araçları listele', 'List loaded tools')],
-    ['/model', L('Aktif modeli göster', 'Show the active model')],
+    ['/model [model|no]', L('Modelleri listele veya aktif modeli değiştir', 'List models or switch the active model')],
     ['/undo [dosya]', L('Son dosya değişikliğini geri al', 'Undo the last file change')],
     ['/retry', L('Son isteği tekrar çalıştır', 'Re-run the last request')],
     ['/run <komut>', L('Komutu çalıştır, çıktısını bağlama ekle', 'Run a command and add its output to context')],
@@ -1003,11 +1004,37 @@ async function codeV5(targetPath, cliOptions = {}) {
         console.log("  " + tui.C.text(names.join(', ')));
         return true;
       }
-      case 'model':
-        console.log("\n  " + tui.C.muted(L('Model', 'Model') + ': ') + tui.C.text(config.providerModel || '—'));
-        console.log("  " + tui.C.muted(L('Sağlayıcı', 'Provider') + ': ') + tui.C.text(config.providerUrl || '—'));
-        console.log("  " + tui.C.muted(L('Değiştirmek için: natureco models', 'To change it: natureco models')));
+      case 'model': {
+        let selected;
+        if (arg && !/^\d+$/.test(arg)) {
+          selected = resolveModelSelection(arg, []);
+        } else {
+          console.log("\n  " + tui.C.muted(L('Sağlayıcı modelleri taranıyor...', 'Scanning provider models...')));
+          const discovery = await discoverProviderModels(config, { timeout: 5000 });
+          const available = discovery.models;
+          if (!available.length) {
+            console.log("  " + tui.C.yellow(L('Bu sağlayıcı için model bulunamadı. `/model <model-id>` kullanabilirsiniz.', 'No models found for this provider. You can use `/model <model-id>`.')));
+            return true;
+          }
+          console.log("\n  " + tui.styled(L('Kullanılabilir modeller', 'Available models'), { color: tui.PALETTE.primary, bold: true }));
+          available.forEach((model, index) => {
+            const active = model.id === config.providerModel ? tui.C.green(L(' ← aktif', ' ← active')) : '';
+            const label = model.label && model.label !== model.id ? tui.C.muted(` — ${model.label}`) : '';
+            console.log(`    ${tui.C.amber(String(index + 1).padStart(3) + '.')} ${tui.C.text(model.id)}${label}${active}`);
+          });
+          if (discovery.warning) {
+            console.log("\n  " + tui.C.muted(L('Canlı liste alınamadı; güncel yerleşik katalog gösterildi.', 'Live list unavailable; showing the current built-in catalog.')));
+          }
+          const choice = arg || await askLine("\n  " + L('Model numarası veya ID (iptal için boş): ', 'Model number or ID (blank to cancel): '));
+          selected = resolveModelSelection(choice, available);
+        }
+        if (!selected) return true;
+        config.providerModel = selected.id;
+        saveConfig(config);
+        messages.push({ role: 'system', content: `[Active model changed to ${selected.id}]` });
+        console.log("\n  " + tui.C.green(`✓ ${L('Model değiştirildi', 'Model switched')}: ${selected.id}`));
         return true;
+      }
       case 'undo': {
         const target = arg || lastChangedFile;
         if (!target) {

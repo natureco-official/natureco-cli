@@ -8,7 +8,7 @@ class AnthropicProvider extends ModelProvider {
 
   getEndpoint() {
     const base = (this.config.providerUrl || '').replace(/\/+$/, '');
-    return `${base}/v1/messages`;
+    return `${base.replace(/\/v1$/, '')}/v1/messages`;
   }
 
   extractSystem(messages) {
@@ -23,7 +23,7 @@ class AnthropicProvider extends ModelProvider {
   buildRequest(messages, options = {}) {
     const userMsgs = messages.filter(m => m.role !== 'system');
     return {
-      model: this.config.providerModel || 'claude-3-5-haiku-20241022',
+      model: this.config.providerModel || 'claude-fable-5',
       messages: userMsgs.map(m => ({ role: m.role, content: m.content })),
       system: this.extractSystem(messages),
       max_tokens: options.max_tokens || 4096,

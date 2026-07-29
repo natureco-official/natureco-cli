@@ -2,6 +2,24 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.6] - 2026-07-29 — Interactive model switching and current provider catalogs
+
+### Added
+- **`/model` now switches models without leaving Natureco Code.** Run `/model` to scan the active
+  provider, choose a numbered model, and persist it immediately; `/model <model-id>` switches
+  directly. The REPL switch is persistent as well.
+- **Provider-aware live discovery.** Natureco queries OpenAI-compatible, Anthropic, Gemini, Ollama,
+  MiniMax and other provider model endpoints with their correct authentication conventions, then
+  falls back to the bundled catalog if an endpoint is unavailable.
+
+### Changed
+- **One shared current model catalog now powers setup and every model-listing surface.** OpenAI,
+  Anthropic, Gemini, Groq, DeepSeek, Ollama, MiniMax, OpenRouter, Mistral, Cohere, xAI, Together,
+  Perplexity, DeepInfra, Fireworks, NatureCo, Moonshot/Kimi and Z.ai/GLM choices no longer drift
+  between commands.
+- Updated setup defaults and provider adapter fallbacks to the current flagship families, including
+  GPT-5.6, Claude 5, Gemini 3.x, MiniMax M2.7 and Grok 4.5.
+
 ## [5.71.5] - 2026-07-29 — Complete edit diffs and direct card clicks
 
 ### Fixed

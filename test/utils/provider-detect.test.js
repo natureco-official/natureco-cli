@@ -1,7 +1,7 @@
 /**
  * provider-detect — locks down the URL→provider mapping that previously
  * lived inline in api.js + setup.js. These tests double as a regression
- * guard for the URL fragments that 12 providers depend on.
+ * guard for the URL fragments that provider routing depends on.
  */
 import { describe, it, expect } from 'vitest';
 

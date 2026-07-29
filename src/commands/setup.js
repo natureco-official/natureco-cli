@@ -10,13 +10,15 @@ const readline = require('readline');
 const inquirer = require('../utils/inquirer-wrapper');
 const brand = require('../utils/branding');
 const { COLORS, FULL_LOGO } = brand;
+const { applySetupCatalog } = require('../utils/model-catalog');
+const { findModelsEndpoint, fetchLiveModels } = require('./models');
 
 const BASE_DIR = path.join(os.homedir(), '.natureco');
 const CONFIG_FILE = path.join(BASE_DIR, 'config.json');
 
 const DIRS = ['sources', 'concepts', 'cache', 'skills', 'memory', 'sessions', 'backups'];
 
-// v5.6.4: TAM MODEL KATALOGU - 12 provider, 200+ model
+// Legacy literal catalog. Runtime choices are replaced by model-catalog.js.
 // Her provider: { name, url, models: [...], default }
 // models: [ { id, label, tier, desc, cost } ] - tier ile gorsel siralama
 const PROVIDER_PRESETS = {
@@ -263,6 +265,11 @@ const PROVIDER_PRESETS = {
     default: 'custom',
   },
 };
+
+// The shared catalog powers setup, `natureco models`, and `/model` so their
+// choices cannot drift apart. The literal above is retained for compatibility
+// with older tooling that inspects this file, but is replaced at runtime.
+applySetupCatalog(PROVIDER_PRESETS, L);
 
 
 function rlQuestion(query) {
@@ -632,6 +639,17 @@ module.exports = setup;
  * Boylece kullanici yanlis key ile devam etmez
  */
 async function validateApiKey(providerUrl, apiKey) {
+  const modelsEndpoint = findModelsEndpoint(providerUrl);
+  if (modelsEndpoint) {
+    try {
+      await fetchLiveModels(modelsEndpoint, apiKey, { timeout: 8000 });
+      return true;
+    } catch (err) {
+      if (/key|unauthorized|yetkisiz|401|403/i.test(err.message)) return false;
+      // Some compatible providers do not implement model listing. Fall back to
+      // the minimal completion probe below instead of rejecting a valid key.
+    }
+  }
   return new Promise((resolve) => {
     const https = require('https');
     const { isMiniMax, isGroq, isAnthropic } = require('../utils/provider-detect');
@@ -641,12 +659,12 @@ async function validateApiKey(providerUrl, apiKey) {
       : providerUrl.replace(/\/+$/, '') + '/chat/completions';
 
     // Her provider icin test modeli
-    let testModel = 'gpt-3.5-turbo';
-    if (isGroq(providerUrl)) testModel = 'llama-3.1-8b-instant';
-    else if (isAnthropic(providerUrl)) testModel = 'claude-3-haiku-20240307';
-    else if (isMM) testModel = 'MiniMax-M2.5';
-    else if (providerUrl.includes('gemini')) testModel = 'gemini-1.5-flash';
-    else if (providerUrl.includes('mistral.ai')) testModel = 'mistral-tiny';
+    let testModel = 'gpt-5.6-luna';
+    if (isGroq(providerUrl)) testModel = 'openai/gpt-oss-20b';
+    else if (isAnthropic(providerUrl)) testModel = 'claude-haiku-4-5';
+    else if (isMM) testModel = 'MiniMax-M2.7';
+    else if (providerUrl.includes('gemini')) testModel = 'gemini-3.6-flash';
+    else if (providerUrl.includes('mistral.ai')) testModel = 'mistral-small-latest';
     else if (providerUrl.includes('openrouter.ai')) testModel = 'meta-llama/llama-3.1-8b-instruct:free';
     else if (providerUrl.includes('deepseek.com')) testModel = 'deepseek-chat';
 

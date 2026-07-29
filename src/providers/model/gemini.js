@@ -13,7 +13,7 @@ class GeminiProvider extends ModelProvider {
 
   buildRequest(messages, options = {}) {
     return {
-      model: this.config.providerModel || 'gemini-2.0-flash',
+      model: this.config.providerModel || 'gemini-3.5-flash',
       messages,
       max_tokens: options.max_tokens || 4096,
       temperature: options.temperature ?? 0.7,

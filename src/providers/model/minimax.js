@@ -8,12 +8,12 @@ class MiniMaxProvider extends ModelProvider {
 
   getEndpoint() {
     const base = (this.config.providerUrl || '').replace(/\/+$/, '');
-    return `${base}/v1/text/chatcompletion_v2`;
+    return `${base.replace(/\/v1$/, '')}/v1/text/chatcompletion_v2`;
   }
 
   buildRequest(messages, options = {}) {
     return {
-      model: this.config.providerModel || 'minimax-m2.5',
+      model: this.config.providerModel || 'MiniMax-M2.7',
       messages,
       max_tokens: options.max_tokens || 4096,
       temperature: options.temperature ?? 0.7,

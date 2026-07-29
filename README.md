@@ -10,9 +10,9 @@
 > **The power of AI, now at your fingertips.**
 > *Discover the speed of the terminal with NatureCo.*
 
-Most AI coding CLIs lock you into one vendor's model and stop at your editor. **NatureCo doesn't.** One agent, **12 providers** to choose from, that writes and ships your code, remembers what matters across sessions, and — uniquely — runs your **Telegram, Discord, Slack, WhatsApp, and iMessage bots** from the same install. Swap providers without losing memory. Automate without duct tape. Never send another risky `rm -rf` without a confirmation prompt.
+Most AI coding CLIs lock you into one vendor's model and stop at your editor. **NatureCo doesn't.** One agent, **18 providers** to choose from, that writes and ships your code, remembers what matters across sessions, and — uniquely — runs your **Telegram, Discord, Slack, WhatsApp, and iMessage bots** from the same install. Swap providers without losing memory. Automate without duct tape. Never send another risky `rm -rf` without a confirmation prompt.
 
-**A Claude Code & OpenClaw alternative, built to not box you in:** Multi-agent orchestration · Cross-session memory backed by a real git-native memory engine ([Urðr](https://github.com/natureco-official/urdr)) · Token-budgeted context · Dangerous-command approval on every shell path · 12 providers, 133 models · 91 tools · 103 commands · 14 channels (9 stable messaging + 4 experimental + webhooks).
+**A Claude Code & OpenClaw alternative, built to not box you in:** Multi-agent orchestration · Cross-session memory backed by a real git-native memory engine ([Urðr](https://github.com/natureco-official/urdr)) · Token-budgeted context · Dangerous-command approval on every shell path · 18 providers with live model discovery · 91 tools · 103 commands · 14 channels (9 stable messaging + 4 experimental + webhooks).
 
 **Why teams pick it over the alternatives:**
 - 🔓 **No vendor lock-in** — switch between OpenAI, Anthropic, Gemini, MiniMax, or 8 more providers with one command; your memory and workflows carry over.
@@ -58,6 +58,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.71.6** | **Switch models inside Code with `/model`.** Natureco scans the active provider's live model catalog, offers numbered selection, persists the choice, and falls back to one shared current catalog also used by setup, `models`, `infer`, and `capability`. Provider presets now include current GPT-5.6, Claude 5, Gemini 3.x, MiniMax M2.7, Grok 4.5 and other current families. |
 | **v5.71.5** | **Complete edit diffs and direct card clicks.** File-edit cards now show the complete bounded red/green patch in normal output instead of hiding the actual change behind `(+N lines)`. While the prompt is waiting, clicking a tool card or its `(+N lines)` footer opens the full transcript directly; compact non-edit cards explicitly advertise `Ctrl+O`. |
 | **v5.71.4** | **Long-running Code goals and interactive tool details.** Code turns now allow 10,000 tool rounds by default (`codeMaxToolRounds: 0` for unlimited); compact tool cards open in a `Ctrl+O` transcript viewer and can be expanded/collapsed by clicking; edits through `~/...` paths and oversized files show red/green diffs instead of “snapshot unavailable.” |
 | **v5.71.3** | **Long coding sessions no longer freeze on half-open provider streams.** `[DONE]` now ends the SSE turn even when the provider keeps the socket alive; connection and idle timeouts prevent infinite waits; completed turns are checkpointed immediately for reliable `code -c` recovery. |
@@ -396,22 +397,28 @@ natureco admin-rpc start       # Local admin RPC (127.0.0.1, bearer-token auth)
 
 ---
 
-## 🌐 Provider Support (12 providers, 133 models)
+## 🌐 Provider Support (18 providers, live model discovery)
 
 | Provider | Models | API Key |
 |----------|--------|---------|
-| **OpenAI** | GPT-5, GPT-4.1, o3, GPT-4o | OpenAI |
-| **Anthropic** | Claude Opus 4, Sonnet 4, Haiku | Anthropic |
-| **Gemini** | 2.5 Pro, 2.0 Flash, Gemma | Google |
-| **Groq** | Llama 3.3, Mixtral | Groq |
-| **DeepSeek** | R1, Chat V3 | DeepSeek |
-| **Ollama** | Llama, Qwen (local) | — |
-| **MiniMax** | M2.5, M2 | MiniMax |
-| **OpenRouter** | 15+ models (multi-provider) | OpenRouter |
-| **Mistral** | Large, Small, Codestral | Mistral |
-| **Cohere** | Command R+, Embed | Cohere |
-| **xAI** | Grok 2, Grok Beta | xAI |
-| **Together** | Llama, Mixtral, Qwen | Together |
+| **OpenAI** | GPT-5.6 Sol, Terra, Luna | OpenAI |
+| **Anthropic** | Claude Fable 5, Opus 5, Sonnet 5, Haiku 4.5 | Anthropic |
+| **Gemini** | Gemini 3.6 Flash, 3.5 Flash/Lite, 3.1 | Google |
+| **Groq** | GPT-OSS, Qwen 3.6, Compound | Groq |
+| **DeepSeek** | Chat, Reasoner | DeepSeek |
+| **Ollama** | Installed local models (live) | — |
+| **MiniMax** | M2.7, M2.5, M2.1, M2 | MiniMax |
+| **OpenRouter** | 400+ models (live) | OpenRouter |
+| **Mistral** | Medium 3.5, Small 4, Codestral | Mistral |
+| **Cohere** | Command A, Command R | Cohere |
+| **xAI** | Grok 4.5 | xAI |
+| **Together** | MiniMax M3, Qwen 3.7, Kimi K3, DeepSeek V4 | Together |
+| **Perplexity** | Sonar, Reasoning, Deep Research | Perplexity |
+| **DeepInfra** | Qwen Coder, GPT-OSS, DeepSeek, GLM | DeepInfra |
+| **Fireworks** | GPT-OSS serverless models | Fireworks |
+| **NatureCo** | Default, Fast, Reasoner routing | NatureCo |
+| **Moonshot/Kimi** | Kimi K3, K2.5, K2 Thinking + live catalog | Moonshot AI |
+| **Z.ai/GLM** | GLM 5.1, 5 Turbo, 4.7 + live catalog | Z.ai |
 
 ```bash
 # Provider selection lives in the wizard
@@ -421,6 +428,10 @@ natureco setup
 # List models
 natureco models list --provider openai
 natureco models list --provider anthropic
+
+# Inside `natureco code`: list/select or switch directly
+/model
+/model MiniMax-M2.7
 ```
 
 > The agent adapts to each provider's native tool-calling style automatically (OpenAI-style `tool_calls` JSON or agentic-text XML), so the same tools and memory work everywhere.
@@ -431,8 +442,8 @@ natureco models list --provider anthropic
 
 | Feature | NatureCo | Claude Code | Hermes | OpenClaw |
 |---------|----------|-------------|--------|----------|
-| Multi-provider | ✅ 12 | ❌ Anthropic | ✅ 8 | ❌ |
-| Model catalogue | ✅ 133 | ❌ | ✅ | ❌ |
+| Multi-provider | ✅ 18 | ❌ Anthropic | ✅ 8 | ❌ |
+| Model catalogue | ✅ live + fallback | ❌ | ✅ | ❌ |
 | Multi-agent orchestration | ✅ | ✅ | ⚠️ | ⚠️ |
 | Dangerous-command approval | ✅ | ✅ | ✅ | ⚠️ |
 | Multi-channel | ✅ 14 (9 stable) | ❌ | ✅ (Python) | ❌ |

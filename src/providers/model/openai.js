@@ -13,7 +13,7 @@ class OpenAIProvider extends ModelProvider {
 
   buildRequest(messages, options = {}) {
     return {
-      model: this.config.providerModel || 'gpt-4o-mini',
+      model: this.config.providerModel || 'gpt-5.6-sol',
       messages,
       max_tokens: options.max_tokens || 4096,
       temperature: options.temperature ?? 0.7,
