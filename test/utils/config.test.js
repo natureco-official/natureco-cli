@@ -96,6 +96,12 @@ describe('config utilities', () => {
       expect(() => mod.saveConfig({ providerModel: [] }, { skipBackup: true })).toThrow('providerModel must be a string');
     });
 
+    it('validates the long-running Code round limit and allows zero for unlimited', () => {
+      expect(() => mod.saveConfig({ codeMaxToolRounds: 0 }, { skipBackup: true })).not.toThrow();
+      expect(() => mod.saveConfig({ codeMaxToolRounds: -1 }, { skipBackup: true })).toThrow('non-negative integer');
+      expect(() => mod.saveConfig({ codeMaxToolRounds: '10000' }, { skipBackup: true })).toThrow('non-negative integer');
+    });
+
     it('should allow skipValidation', () => {
       expect(() => mod.saveConfig(null, { skipBackup: true, skipValidation: true })).not.toThrow();
     });

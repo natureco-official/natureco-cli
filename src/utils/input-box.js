@@ -312,6 +312,7 @@ function promptInput({
   history = [],
   placeholder = '',
   color = env?.NO_COLOR === undefined,
+  getTranscript,
 } = {}) {
   const transport = bootstrapKeypressTransport(stdin);
   const model = createTextModel();
@@ -326,10 +327,17 @@ function promptInput({
   let pasteMode = false;
   let historyIndex = history.length;
   let draft = '';
+  let transcriptOpen = false;
+  let transcriptExpanded = false;
+  let transcriptOffset = Infinity;
   const priorRaw = Boolean(stdin.isRaw);
 
   return new Promise((resolve, reject) => {
     const redraw = () => {
+      if (transcriptOpen) {
+        renderTranscript();
+        return;
+      }
       const next = renderFrame({ model, columns: stdout.columns, placeholder, color });
       stdout.write(`${CSI}?25l`);
       eraseRendered(stdout, rendered);
@@ -338,15 +346,78 @@ function promptInput({
       rendered = next;
     };
 
+    const transcriptLines = () => {
+      const value = typeof getTranscript === 'function'
+        ? getTranscript({ expanded: transcriptExpanded })
+        : '';
+      return String(value || 'No tool transcript yet.').split('\n');
+    };
+
+    const renderTranscript = () => {
+      const rows = Math.max(6, Number(stdout.rows) || 24);
+      const height = rows - 2;
+      const lines = transcriptLines();
+      const maximum = Math.max(0, lines.length - height);
+      if (!Number.isFinite(transcriptOffset)) transcriptOffset = maximum;
+      transcriptOffset = Math.max(0, Math.min(maximum, transcriptOffset));
+      const page = lines.slice(transcriptOffset, transcriptOffset + height).join('\n');
+      const mode = transcriptExpanded ? 'expanded' : 'compact';
+      stdout.write(`${CSI}H${CSI}2J${page}`);
+      stdout.write(`${CSI}${rows};1H${CSI}2K` +
+        `Transcript (${mode}) · click a card: expand/collapse · ↑/↓/PgUp/PgDn · Ctrl+O/Esc: close`);
+    };
+
+    const openTranscript = () => {
+      if (typeof getTranscript !== 'function') return;
+      transcriptOpen = true;
+      transcriptExpanded = false;
+      transcriptOffset = Infinity;
+      stdout.write(`${CSI}?1049h${CSI}?1000h${CSI}?1006h${CSI}?25l`);
+      renderTranscript();
+    };
+
+    const closeTranscript = () => {
+      if (!transcriptOpen) return;
+      transcriptOpen = false;
+      stdout.write(`${CSI}?1006l${CSI}?1000l${CSI}?1049l${CSI}?25h`);
+    };
+
+    const handleTranscriptMouse = sequence => {
+      const mouse = String(sequence).match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
+      if (!transcriptOpen || !mouse) return false;
+      const button = Number(mouse[1]);
+      if (button === 0 && mouse[4] === 'M') {
+        const clickedLine = transcriptOffset + Math.max(0, Number(mouse[3]) - 1);
+        getTranscript?.({ expanded: transcriptExpanded, toggleLine: clickedLine });
+        renderTranscript();
+      } else if (button === 64) {
+        transcriptOffset -= 3;
+        renderTranscript();
+      } else if (button === 65) {
+        transcriptOffset += 3;
+        renderTranscript();
+      }
+      return true;
+    };
+
+    // readline's keypress decoder intentionally ignores terminal mouse packets
+    // in several Node/terminal combinations. Observe only SGR mouse data here;
+    // normal text remains exclusively owned by the keypress transport.
+    const onRawMouse = chunk => {
+      handleTranscriptMouse(Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk));
+    };
+
     const cleanup = () => {
       let cleanupError;
       try {
+        closeTranscript();
         stdout.write(`${CSI}?25l`);
         eraseRendered(stdout, rendered);
       } catch (error) {
         cleanupError = error;
       }
       try { stdout.removeListener?.('resize', onResize); } catch (error) { cleanupError ||= error; }
+      try { stdin.removeListener?.('data', onRawMouse); } catch (error) { cleanupError ||= error; }
       try { releaseOwner?.(); } catch (error) { cleanupError ||= error; }
       try {
         if (typeof stdin.setRawMode === 'function') stdin.setRawMode(priorRaw);
@@ -412,6 +483,30 @@ function promptInput({
 
     const onKeypress = failSafe((text, key = {}) => {
       const sequence = String(key.sequence ?? text ?? '');
+      const togglesTranscript = (key.ctrl && key.name === 'o') || sequence === '\x0f';
+      if (transcriptOpen) {
+        if (togglesTranscript || key.name === 'escape' || sequence === 'q') {
+          closeTranscript();
+          return;
+        }
+        // Mouse packets are handled from raw data below. Some Node versions
+        // also emit a keypress for them; consume it here to avoid toggling twice.
+        if (/^\x1b\[<\d+;\d+;\d+[Mm]$/.test(sequence)) return;
+        const pageSize = Math.max(1, (Number(stdout.rows) || 24) - 4);
+        if (key.name === 'up') transcriptOffset -= 1;
+        else if (key.name === 'down') transcriptOffset += 1;
+        else if (key.name === 'pageup') transcriptOffset -= pageSize;
+        else if (key.name === 'pagedown') transcriptOffset += pageSize;
+        else if (key.name === 'home') transcriptOffset = 0;
+        else if (key.name === 'end') transcriptOffset = Infinity;
+        else return;
+        renderTranscript();
+        return;
+      }
+      if (togglesTranscript) {
+        openTranscript();
+        return;
+      }
       if (key.ctrl && key.name === 'c') {
         const error = new Error('SIGINT');
         error.code = 'SIGINT';
@@ -495,6 +590,7 @@ function promptInput({
       if (typeof stdin.setRawMode === 'function') stdin.setRawMode(true);
       stdout.write(`${CSI}?2004h`);
       stdout.on?.('resize', onResize);
+      stdin.on?.('data', onRawMouse);
       releaseOwner = transport.acquire(onKeypress);
       redraw();
     } catch (error) {

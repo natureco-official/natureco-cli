@@ -112,6 +112,26 @@ describe('Rock C unified tool-card renderer', () => {
     expect(output.split('\n').every(line => tui.stringWidth(line) <= width)).toBe(true);
   });
 
+  it('renders the exact edit patch when full-file snapshots are unavailable', () => {
+    const output = renderToolCall(
+      'edit_file',
+      { path: '~/large.js', old_string: 'const oldValue = 1;', new_string: 'const newValue = 2;' },
+      { success: true, replacements: 1 },
+      {
+        before: { available: false, reason: 'over-budget' },
+        after: { available: false, reason: 'over-budget' },
+        lang: 'en',
+        maxLines: 30,
+      },
+    );
+
+    expect(plain(output)).toContain('-const oldValue = 1;');
+    expect(plain(output)).toContain('+const newValue = 2;');
+    expect(plain(output)).not.toContain('diff snapshot unavailable');
+    expect(output).toContain(tui.fg(tui.PALETTE.danger));
+    expect(output).toContain(tui.fg(tui.PALETTE.success));
+  });
+
   it('(d) caps long output with a localized +N footer and terminal-width lines', () => {
     const output = renderToolCall(
       'read_file',

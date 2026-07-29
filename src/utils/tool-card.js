@@ -223,6 +223,23 @@ function bodyLines(name, args, model, opts, innerWidth) {
         },
       );
       lines.push(...diff.split('\n'));
+    } else if (
+      name === 'edit_file' &&
+      model.success &&
+      typeof args?.old_string === 'string' &&
+      typeof args?.new_string === 'string'
+    ) {
+      const diff = renderDiff(
+        redactText(args.old_string, opts),
+        redactText(args.new_string, opts),
+        {
+          path: redactText(filePath, opts),
+          compact: true,
+          maxColumns: innerWidth,
+          maxBytes: opts.maxDiffBytes || 64 * 1024,
+        },
+      );
+      lines.push(...diff.split('\n'));
     } else {
       lines.push(styled(
         L('Dosya değişti — diff anlık görüntüsü kullanılamıyor.', 'File changed — diff snapshot unavailable.', opts),

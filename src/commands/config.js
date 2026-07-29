@@ -159,6 +159,7 @@ function config(args) {
       systemPrompt: { type: 'string', description: 'Custom system prompt', required: false },
       proxy: { type: 'object', description: 'Proxy configuration', required: false, properties: { host: { type: 'string' }, port: { type: 'number' } } },
       timeout: { type: 'number', description: 'Request timeout in milliseconds', required: false, default: 30000 },
+      codeMaxToolRounds: { type: 'number', description: 'Maximum tool rounds per Natureco Code turn; 0 means unlimited', required: false, default: 10000 },
       organization: { type: 'string', description: 'Organization ID for multi-tenant setups', required: false },
     };
     const rows = Object.entries(schema).map(([k, v]) => [

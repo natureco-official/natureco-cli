@@ -112,6 +112,7 @@ function terminal(columns = 40) {
   const output = new EventEmitter();
   output.isTTY = true;
   output.columns = columns;
+  output.rows = 24;
   output.value = '';
   output.emulator = new MiniTerminal();
   output.write = vi.fn(chunk => {
@@ -127,6 +128,30 @@ function type(input, value) {
 }
 
 describe('chat-style input box', () => {
+  it('opens the tool transcript with Ctrl+O and toggles detail with a mouse click', async () => {
+    const { input, output } = terminal(60);
+    let expanded = false;
+    const getTranscript = vi.fn(options => {
+      if (Number.isInteger(options.toggleLine)) expanded = !expanded;
+      return expanded ? 'Tool: edit_file\n-old\n+new' : 'Tool: edit_file\n… (+2 lines)';
+    });
+    const pending = promptInput({ stdin: input, stdout: output, color: false, getTranscript });
+
+    type(input, 'draft');
+    type(input, '\x0f');
+    expect(output.value).toContain('\x1b[?1049h');
+    expect(output.value).toContain('Transcript (compact)');
+
+    type(input, '\x1b[<0;5;1M');
+    expect(output.value).toContain('-old');
+    expect(getTranscript).toHaveBeenCalledWith({ expanded: false, toggleLine: 0 });
+
+    type(input, '\x0f');
+    expect(output.value).toContain('\x1b[?1049l');
+    type(input, '\r');
+    await expect(pending).resolves.toBe('draft');
+  });
+
   it('(a) renders Turkish/emoji input and cleans the box before transcript output', async () => {
     const { input, output, screen } = terminal(45);
     const pending = promptInput({ stdin: input, stdout: output, history: [], color: false });

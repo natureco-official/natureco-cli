@@ -2,6 +2,23 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.4] - 2026-07-29 — Long-running goals and interactive tool details
+
+### Changed
+- **Natureco Code no longer stops normal long-running work after 30 tool rounds.** The default is
+  now 10,000 rounds per user turn. `natureco config set codeMaxToolRounds 0` removes the numeric
+  ceiling entirely, while existing repetition and safety guardrails continue to stop broken loops.
+- **Tool cards are compact by default.** Press `Ctrl+O` to open the detailed transcript viewer;
+  click an individual card to expand or collapse it, scroll with the mouse wheel or navigation
+  keys, and press `Ctrl+O`/`Esc` to return without losing the current prompt draft.
+
+### Fixed
+- **Edits made through `~/...` paths now show their real red/green unified diff.** Snapshot path
+  resolution now matches the mutation tools on macOS, Linux, and Windows.
+- **Large-file edits retain a targeted diff.** When a complete file snapshot exceeds the safety
+  budget, Natureco renders the exact `old_string`/`new_string` replacement rather than reporting
+  “diff snapshot unavailable.”
+
 ## [5.71.3] - 2026-07-29 — Fix: long coding sessions could wait forever
 
 ### Fixed

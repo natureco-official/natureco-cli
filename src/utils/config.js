@@ -100,6 +100,10 @@ function validateConfig(data) {
   if (data.apiKey !== undefined && typeof data.apiKey !== 'string') throw new ConfigValidationError('apiKey must be a string', { field: 'apiKey' });
   if (data.providerUrl !== undefined && typeof data.providerUrl !== 'string') throw new ConfigValidationError('providerUrl must be a string', { field: 'providerUrl' });
   if (data.providerModel !== undefined && typeof data.providerModel !== 'string') throw new ConfigValidationError('providerModel must be a string', { field: 'providerModel' });
+  if (data.codeMaxToolRounds !== undefined &&
+      (!Number.isInteger(data.codeMaxToolRounds) || data.codeMaxToolRounds < 0)) {
+    throw new ConfigValidationError('codeMaxToolRounds must be a non-negative integer (0 means unlimited)', { field: 'codeMaxToolRounds' });
+  }
   return true;
 }
 

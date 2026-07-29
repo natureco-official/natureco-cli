@@ -59,9 +59,23 @@ const { AgentCore } = require("../utils/agent-core");
 const { prepareConversationHistory } = require("../utils/conversation-context");
 const tokenBudget = require("../utils/token-budget");
 
-const agentCore = new AgentCore({ maxIterations: 30 });
+const DEFAULT_MAX_TOOL_ROUNDS = 10_000;
+const MAX_TRANSCRIPT_CARDS = 200;
+const MAX_TRANSCRIPT_BYTES = 4 * 1024 * 1024;
 
-const MAX_ITERATIONS = 30;
+function resolveMaxToolRounds(config = {}, env = process.env) {
+  const raw = env.NATURECO_CODE_MAX_TOOL_ROUNDS
+    ?? config.codeMaxToolRounds
+    ?? config.code?.maxToolRounds;
+  if (raw === undefined || raw === null || raw === '') return DEFAULT_MAX_TOOL_ROUNDS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_MAX_TOOL_ROUNDS;
+  // Zero deliberately means unlimited. Repetition guardrails remain active.
+  if (parsed === 0) return Infinity;
+  return Math.max(1, Math.floor(parsed));
+}
+
+const agentCore = new AgentCore({ maxIterations: DEFAULT_MAX_TOOL_ROUNDS });
 
 /**
  * Keep the transcript under the provider's context ceiling.
@@ -110,6 +124,7 @@ function createCodeInputSession({
   env = process.env,
   readlineModule = readline,
   prompt = promptInput,
+  getTranscript,
 } = {}) {
   const boxed = canUseInputBox({ stdin, stdout, env });
   const history = [];
@@ -130,6 +145,7 @@ function createCodeInputSession({
         env,
         history,
         placeholder: L('Bir mesaj yazın…', 'Type a message…'),
+        getTranscript,
       });
       stdout.write("  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }) + value + "\n");
       return value;
@@ -236,10 +252,12 @@ async function askPermission(prompt) {
 
 const FILE_SNAPSHOT_MAX_BYTES = 256 * 1024;
 
-function captureFileSnapshot(args, { allowMissing = false } = {}) {
+function captureFileSnapshot(args, { allowMissing = false, home = os.homedir() } = {}) {
   const filePath = args?.filePath || args?.path;
   if (!filePath) return { available: false, reason: 'no-path' };
-  const resolved = path.resolve(filePath);
+  const resolved = filePath === '~' || filePath.startsWith('~/') || filePath.startsWith('~\\')
+    ? path.join(home, filePath.slice(1))
+    : path.resolve(filePath);
   try {
     const stat = fs.statSync(resolved);
     if (!stat.isFile()) return { available: false, reason: 'not-file' };
@@ -409,8 +427,19 @@ async function runInterruptibleTurn(options) {
   }
 }
 
-function writeToolCard(name, args, result, snapshots = {}, presentation, { quiet = false } = {}) {
-  const card = '\n' + renderToolCall(name, args, result, snapshots) + '\n';
+function writeToolCard(name, args, result, snapshots = {}, presentation, { quiet = false, transcript } = {}) {
+  const compact = renderToolCall(name, args, result, { ...snapshots, maxLines: 5 });
+  const expanded = renderToolCall(name, args, result, { ...snapshots, maxLines: 500 });
+  transcript?.push({ compact, expanded });
+  if (transcript) {
+    let bytes = transcript.reduce((total, card) => total + Buffer.byteLength(card.expanded), 0);
+    while (transcript.length > 1 &&
+           (transcript.length > MAX_TRANSCRIPT_CARDS || bytes > MAX_TRANSCRIPT_BYTES)) {
+      const removed = transcript.shift();
+      bytes -= Buffer.byteLength(removed.expanded);
+    }
+  }
+  const card = '\n' + compact + '\n';
   if (presentation) presentation.writeCommitted(card);
   // Headless: progress belongs on stderr so `-p` output stays pipeable.
   else if (quiet) process.stderr.write(card);
@@ -496,6 +525,7 @@ async function codeV5(targetPath, cliOptions = {}) {
   if (cliOptions.list) { printSessionList(); return; }
 
   const config = getConfig();
+  const maxToolRounds = resolveMaxToolRounds(config);
   if (!config.providerUrl || !config.providerApiKey) {
     // Exit non-zero: a script or CI job that pipes `natureco code -p …` must be
     // able to tell "not configured" from "ran successfully".
@@ -546,6 +576,7 @@ async function codeV5(targetPath, cliOptions = {}) {
   const taskMgr = getTaskManager();
 
   // File tracking for summary + snapshots
+  const toolTranscript = [];
   function trackFileChanges(toolName, args, result, snapshots = {}) {
     if (toolName === 'write_file' || toolName === 'edit_file') {
       const fp = args.filePath || args.path;
@@ -567,7 +598,11 @@ async function codeV5(targetPath, cliOptions = {}) {
   }
 
   function processToolCallsWithTracking(reply, config, toolDefs, messages, options) {
-    return processToolCalls(reply, config, toolDefs, messages, trackFileChanges, { ...options, dryRun });
+    return processToolCalls(reply, config, toolDefs, messages, trackFileChanges, {
+      ...options,
+      dryRun,
+      transcript: toolTranscript,
+    });
   }
   const virtualTools = [
     {
@@ -794,7 +829,7 @@ async function codeV5(targetPath, cliOptions = {}) {
     let finalText = '';
     let unresolved = true;
     try {
-      for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+      for (let iter = 0; iter < maxToolRounds; iter++) {
         compactIfNeeded(messages, { quiet: true });
         const { reply } = await streamAssistantReply(
           config.providerUrl, config.providerApiKey, config.providerModel,
@@ -815,8 +850,8 @@ async function codeV5(targetPath, cliOptions = {}) {
       process.stdout.write((finalText || L('(yanıt yok)', '(no answer)')) + '\n');
       if (unresolved) {
         process.stderr.write(L(
-          `Uyarı: ${MAX_ITERATIONS} tur sonunda görev tamamlanmadı.\n`,
-          `Warning: the task did not finish within ${MAX_ITERATIONS} rounds.\n`,
+          `Uyarı: ${maxToolRounds} tur sonunda görev tamamlanmadı.\n`,
+          `Warning: the task did not finish within ${maxToolRounds} rounds.\n`,
         ));
       }
     } catch (error) {
@@ -834,7 +869,25 @@ async function codeV5(targetPath, cliOptions = {}) {
   }
 
   // Input loop
-  const inputSession = createCodeInputSession();
+  const inputSession = createCodeInputSession({
+    getTranscript: ({ expanded = false, toggleLine } = {}) => {
+      let cursor = 0;
+      if (Number.isInteger(toggleLine) && toggleLine >= 0) {
+        for (const card of toolTranscript) {
+          const isExpanded = card.viewerExpanded ?? expanded;
+          const lineCount = (isExpanded ? card.expanded : card.compact).split('\n').length;
+          if (toggleLine >= cursor && toggleLine < cursor + lineCount) {
+            card.viewerExpanded = !isExpanded;
+            break;
+          }
+          cursor += lineCount + 2;
+        }
+      }
+      return toolTranscript
+        .map(card => (card.viewerExpanded ?? expanded) ? card.expanded : card.compact)
+        .join('\n\n');
+    },
+  });
   const { rl } = inputSession;
   const writePlainPrompt = (prefix = '') => {
     if (!inputSession.boxed) {
@@ -861,6 +914,7 @@ async function codeV5(targetPath, cliOptions = {}) {
     ['/plan on|approve|reject|show', L('Plan modu', 'Plan mode')],
     ['/summary', L('Oturum özeti', 'Session summary')],
     ['/done', L('Özet + kaydet + çıkış', 'Summary + save + exit')],
+    ['Ctrl+O', L('Araç ayrıntılarını aç/kapat', 'Toggle detailed tool transcript')],
     ['Esc', L('Süren turu kes', 'Interrupt the running turn')],
     ['Ctrl+C', L('Çıkış', 'Exit')],
   ];
@@ -1216,7 +1270,7 @@ async function codeV5(targetPath, cliOptions = {}) {
         presentation.writeCommitted("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
         let iter = 0;
         let hitIterationCap = false;
-        while (iter < MAX_ITERATIONS) {
+        while (iter < maxToolRounds) {
           iter++;
           compactIfNeeded(messages, { presentation });
           try {
@@ -1241,7 +1295,7 @@ async function codeV5(targetPath, cliOptions = {}) {
             }, { signal: turnSignal });
 
             if (reply.tool_calls && reply.tool_calls.length > 0) {
-              if (iter >= MAX_ITERATIONS) { hitIterationCap = true; break; }
+              if (iter >= maxToolRounds) { hitIterationCap = true; break; }
               presentation.writeCommitted("\n  " + tui.styled("AI   ", { color: tui.PALETTE.secondary, bold: true }));
               continue;
             }
@@ -1259,13 +1313,13 @@ async function codeV5(targetPath, cliOptions = {}) {
         if (hitIterationCap) {
           presentation.writeCommitted(
             "\n  " + tui.C.yellow(L(
-              `⚠ ${MAX_ITERATIONS} araç turu sınırına ulaşıldı, görev yarım kalmış olabilir. Devam etmek için tekrar yazın.`,
-              `⚠ Reached the ${MAX_ITERATIONS}-tool-round limit; the task may be unfinished. Send another message to continue.`,
+              `⚠ ${maxToolRounds} araç turu sınırına ulaşıldı, görev yarım kalmış olabilir. Devam etmek için tekrar yazın.`,
+              `⚠ Reached the ${maxToolRounds}-tool-round limit; the task may be unfinished. Send another message to continue.`,
             )) + "\n",
           );
           messages.push({
             role: 'system',
-            content: `[The agent loop stopped after ${MAX_ITERATIONS} tool rounds without a final answer. Summarize progress so far and what remains before continuing.]`,
+            content: `[The agent loop stopped after ${maxToolRounds} tool rounds without a final answer. Summarize progress so far and what remains before continuing.]`,
           });
         }
         totalIn += Math.ceil(input.length / 4);
@@ -1405,7 +1459,10 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult,
           options.signal?.throwIfAborted();
           const result = runPostHooks(p.name, p.args, executed);
           spinner?.stop();
-          writeToolCard(p.name, p.args, result, {}, options.presentation, { quiet: options.quiet });
+          writeToolCard(p.name, p.args, result, {}, options.presentation, {
+            quiet: options.quiet,
+            transcript: options.transcript,
+          });
           recordOutcome(p, result);
         } finally {
           spinner?.stop();
@@ -1430,7 +1487,10 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult,
         const result = runPostHooks(p.name, p.args, executed);
         const after = tracksFile ? captureFileSnapshot(p.args) : undefined;
         spinner?.stop();
-        writeToolCard(p.name, p.args, result, { before, after }, options.presentation, { quiet: options.quiet });
+        writeToolCard(p.name, p.args, result, { before, after }, options.presentation, {
+          quiet: options.quiet,
+          transcript: options.transcript,
+        });
         recordOutcome(p, result, { before, after });
       } finally {
         spinner?.stop();
@@ -1478,4 +1538,5 @@ module.exports._presentation = {
   createCodeInputSession,
   assessRisk,
   compactIfNeeded,
+  resolveMaxToolRounds,
 };

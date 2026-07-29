@@ -11,7 +11,7 @@ const { renderToolCall } = requireCjs('../src/utils/tool-card.js');
 const writeFileTool = requireCjs('../src/tools/write_file.js');
 const editFileTool = requireCjs('../src/tools/edit_file.js');
 
-const { captureFileSnapshot, displayAssistantReply } = codeV5._presentation;
+const { captureFileSnapshot, displayAssistantReply, resolveMaxToolRounds } = codeV5._presentation;
 const plain = value => tui.stripAnsi(value);
 let saved;
 let tempDir;
@@ -101,5 +101,26 @@ describe('Rock C code_v5 rendering integration', () => {
     expect(plain(writeCard)).toContain('+after');
     expect(writeCard).toContain(tui.fg(tui.PALETTE.danger));
     expect(writeCard).toContain(tui.fg(tui.PALETTE.success));
+  });
+
+  it('resolves home-prefixed snapshot paths like the mutation tools do', () => {
+    const home = path.join(tempDir, 'home');
+    fs.mkdirSync(path.join(home, 'project'), { recursive: true });
+    fs.writeFileSync(path.join(home, 'project', 'edit.txt'), 'before\n', 'utf8');
+
+    expect(captureFileSnapshot({ path: '~/project/edit.txt' }, { home })).toEqual({
+      available: true,
+      content: 'before\n',
+    });
+  });
+
+  it('defaults long code turns to 10,000 rounds and supports an unlimited override', () => {
+    expect(resolveMaxToolRounds({}, {})).toBe(10_000);
+    expect(resolveMaxToolRounds({ codeMaxToolRounds: 25_000 }, {})).toBe(25_000);
+    expect(resolveMaxToolRounds({ code: { maxToolRounds: 50_000 } }, {})).toBe(50_000);
+    expect(resolveMaxToolRounds(
+      { codeMaxToolRounds: 50 },
+      { NATURECO_CODE_MAX_TOOL_ROUNDS: '0' },
+    )).toBe(Infinity);
   });
 });
