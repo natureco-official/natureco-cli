@@ -1275,6 +1275,12 @@ async function codeV5(targetPath, cliOptions = {}) {
       });
       if (turnState.exited) return;
 
+      // Checkpoint every completed or interrupted turn. A provider connection
+      // can disappear during a long coding session; saving only when the REPL
+      // exits made every earlier turn since startup unrecoverable after a hard
+      // terminal close. The transactional round already removes partial turns.
+      persistSession({ quiet: true });
+
       writePlainPrompt("\n\n  ");
     }
   };

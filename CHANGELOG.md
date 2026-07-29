@@ -2,6 +2,21 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.3] - 2026-07-29 — Fix: long coding sessions could wait forever
+
+### Fixed
+- **`natureco code` no longer hangs when an OpenAI-compatible provider sends `[DONE]` but keeps
+  the HTTP connection alive.** The SSE reader now treats the protocol terminator as terminal and
+  cancels the reader instead of waiting indefinitely for a socket-level EOF.
+- **Silent provider connections are bounded.** Streaming requests now fail with explicit,
+  fallback-compatible errors when response headers do not arrive within 60 seconds or an open SSE
+  stream produces no data for 120 seconds. Esc interruption remains linked to both phases.
+- **Long sessions checkpoint after every turn.** Completed and transactionally interrupted turns
+  are persisted immediately, so an unrelated terminal or network failure does not discard the
+  whole coding session since startup.
+- Added regressions for a `[DONE]` stream whose socket never closes, an idle SSE stream, and a
+  provider that never returns response headers.
+
 ## [5.71.2] - 2026-07-25 — Fix: the assistant started every session knowing nothing
 
 ### Fixed

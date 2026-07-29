@@ -25,6 +25,28 @@ function responseFromChunks(chunks) {
   };
 }
 
+function responseThatStaysOpen(chunks = []) {
+  let index = 0;
+  let cancelled = false;
+  return {
+    ok: true,
+    body: {
+      getReader() {
+        return {
+          async read() {
+            if (index < chunks.length) {
+              return { done: false, value: encoder.encode(chunks[index++]) };
+            }
+            return new Promise(() => {});
+          },
+          async cancel() { cancelled = true; },
+        };
+      },
+    },
+    wasCancelled: () => cancelled,
+  };
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -101,5 +123,52 @@ describe('provider streaming transport', () => {
       tool_calls: [{ id: 'tool_1', function: { name: 'read_file', arguments: '{"path":"a.txt"}' } }],
     });
     expect(stdout).not.toHaveBeenCalled();
+  });
+
+  it('finishes on [DONE] even when the provider keeps the socket open', async () => {
+    const response = responseThatStaysOpen([
+      'data: {"choices":[{"delta":{"content":"complete"}}]}\n',
+      'data: [DONE]\n',
+    ]);
+    vi.stubGlobal('fetch', vi.fn(async () => response));
+
+    const message = await Promise.race([
+      streamOpenAICompletion(
+        { url: 'https://api.minimax.io/v1', apiKey: 'key', model: 'MiniMax-M2.5' },
+        [{ role: 'user', content: 'go' }],
+        [],
+      ),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('stream remained open')), 250)),
+    ]);
+
+    expect(message.content).toBe('complete');
+    expect(response.wasCancelled()).toBe(true);
+  });
+
+  it('fails a silent SSE connection after the configured idle timeout', async () => {
+    const response = responseThatStaysOpen();
+    vi.stubGlobal('fetch', vi.fn(async () => response));
+
+    await expect(streamOpenAICompletion(
+      { url: 'https://api.minimax.io/v1', apiKey: 'key', model: 'MiniMax-M2.5' },
+      [{ role: 'user', content: 'go' }],
+      [],
+      { streamIdleTimeoutMs: 20 },
+    )).rejects.toMatchObject({ code: 'PROVIDER_STREAM_IDLE_TIMEOUT' });
+    expect(response.wasCancelled()).toBe(true);
+  });
+
+  it('fails when the provider never returns response headers', async () => {
+    vi.stubGlobal('fetch', vi.fn((_url, init) => new Promise((resolve, reject) => {
+      if (init.signal.aborted) reject(init.signal.reason);
+      else init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true });
+    })));
+
+    await expect(streamOpenAICompletion(
+      { url: 'https://api.minimax.io/v1', apiKey: 'key', model: 'MiniMax-M2.5' },
+      [{ role: 'user', content: 'go' }],
+      [],
+      { requestTimeoutMs: 20 },
+    )).rejects.toMatchObject({ code: 'PROVIDER_CONNECT_TIMEOUT' });
   });
 });

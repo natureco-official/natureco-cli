@@ -1352,10 +1352,69 @@ function emitStreamEvent(onEvent, event) {
   if (typeof onEvent === 'function') onEvent(event);
 }
 
-async function consumeSse(response, onData, signal) {
+const DEFAULT_PROVIDER_CONNECT_TIMEOUT_MS = 60000;
+const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 120000;
+
+function streamTimeoutError(kind, timeoutMs) {
+  const error = new Error(`Provider ${kind} timed out after ${timeoutMs}ms`);
+  error.name = 'TimeoutError';
+  error.code = kind === 'connection' ? 'PROVIDER_CONNECT_TIMEOUT' : 'PROVIDER_STREAM_IDLE_TIMEOUT';
+  return error;
+}
+
+async function fetchProviderStream(endpoint, init, options = {}) {
+  const timeoutMs = options.requestTimeoutMs ?? DEFAULT_PROVIDER_CONNECT_TIMEOUT_MS;
+  const parentSignal = options.signal;
+  const controller = new AbortController();
+  let timedOut = false;
+  const abortFromParent = () => controller.abort(parentSignal.reason);
+  if (parentSignal?.aborted) abortFromParent();
+  else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
+  const timer = timeoutMs > 0 ? setTimeout(() => {
+    timedOut = true;
+    controller.abort(streamTimeoutError('connection', timeoutMs));
+  }, timeoutMs) : null;
+
+  try {
+    return await fetch(endpoint, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut) throw streamTimeoutError('connection', timeoutMs);
+    throw error;
+  } finally {
+    if (timer) clearTimeout(timer);
+    parentSignal?.removeEventListener('abort', abortFromParent);
+  }
+}
+
+function readSseChunk(reader, idleTimeoutMs) {
+  if (!(idleTimeoutMs > 0)) return reader.read();
+  let timer;
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+    timer = setTimeout(() => {
+      const error = streamTimeoutError('stream idle', idleTimeoutMs);
+      try {
+        const cancelled = reader.cancel(error);
+        if (cancelled && typeof cancelled.catch === 'function') cancelled.catch(() => {});
+      } catch {}
+      finish(reject, error);
+    }, idleTimeoutMs);
+    reader.read().then(value => finish(resolve, value), error => finish(reject, error));
+  });
+}
+
+async function consumeSse(response, onData, signal, options = {}) {
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  const idleTimeoutMs = options.idleTimeoutMs ?? DEFAULT_STREAM_IDLE_TIMEOUT_MS;
+  let terminalEventSeen = false;
   const cancelReader = () => {
     try {
       const cancelled = reader.cancel(signal?.reason);
@@ -1367,7 +1426,7 @@ async function consumeSse(response, onData, signal) {
   try {
     signal?.throwIfAborted();
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readSseChunk(reader, idleTimeoutMs);
       signal?.throwIfAborted();
       buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
       const lines = buffer.split(/\r?\n/);
@@ -1375,18 +1434,29 @@ async function consumeSse(response, onData, signal) {
       for (const line of lines) {
         if (!line.startsWith('data:')) continue;
         const data = line.slice(5).trim();
-        if (!data || data === '[DONE]') continue;
-        try { onData(JSON.parse(data)); } catch {}
+        if (!data) continue;
+        if (data === '[DONE]') {
+          terminalEventSeen = true;
+          break;
+        }
+        try {
+          if (onData(JSON.parse(data)) === false) {
+            terminalEventSeen = true;
+            break;
+          }
+        } catch {}
       }
-      if (done) break;
+      if (terminalEventSeen || done) break;
     }
 
-    if (buffer.startsWith('data:')) {
+    if (!terminalEventSeen && buffer.startsWith('data:')) {
       const data = buffer.slice(5).trim();
-      if (data && data !== '[DONE]') {
-        try { onData(JSON.parse(data)); } catch {}
+      if (data === '[DONE]') terminalEventSeen = true;
+      else if (data) {
+        try { terminalEventSeen = onData(JSON.parse(data)) === false; } catch {}
       }
     }
+    if (terminalEventSeen) cancelReader();
   } finally {
     if (signal) signal.removeEventListener('abort', cancelReader);
   }
@@ -1408,12 +1478,11 @@ async function streamOpenAICompletion(providerConfig, messages, tools, options =
     responseFormat: options.responseFormat,
     model: options.model,
   });
-  const response = await fetch(request.endpoint, {
+  const response = await fetchProviderStream(request.endpoint, {
     method: 'POST',
     headers: request.headers,
     body: JSON.stringify(request.body),
-    signal: options.signal,
-  });
+  }, options);
   if (!response.ok) {
     throw new Error(`Provider API error: ${response.status} - ${await response.text()}`);
   }
@@ -1438,7 +1507,7 @@ async function streamOpenAICompletion(providerConfig, messages, tools, options =
       content += delta.content;
       emitStreamEvent(options.onEvent, { type: 'text_delta', text: delta.content });
     }
-  }, options.signal);
+  }, options.signal, { idleTimeoutMs: options.streamIdleTimeoutMs });
 
   recordUsageSafe(providerConfig, usage);
   emitStreamEvent(options.onEvent, { type: 'done' });
@@ -1458,12 +1527,11 @@ async function streamAnthropicCompletion(providerConfig, messages, tools, option
     maxTokens: options.maxTokens ?? 2000,
     model: options.model,
   });
-  const response = await fetch(request.endpoint, {
+  const response = await fetchProviderStream(request.endpoint, {
     method: 'POST',
     headers: request.headers,
     body: JSON.stringify(request.body),
-    signal: options.signal,
-  });
+  }, options);
   if (!response.ok) {
     throw new Error(`Anthropic API error: ${response.status} - ${await response.text()}`);
   }
@@ -1516,7 +1584,8 @@ async function streamAnthropicCompletion(providerConfig, messages, tools, option
         emitStreamEvent(options.onEvent, { type: 'text_delta', text });
       }
     }
-  }, options.signal);
+    if (parsed.type === 'message_stop') return false;
+  }, options.signal, { idleTimeoutMs: options.streamIdleTimeoutMs });
 
   recordUsageSafe(providerConfig, usage);
   emitStreamEvent(options.onEvent, { type: 'done' });
