@@ -58,6 +58,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.71.7** | **Mouse-wheel scrolling now works in Natureco Code.** Using the wheel from the normal view opens the fully expanded tool transcript and scrolls immediately; wheel, arrow and page-key navigation work alongside clickable expand/collapse cards. |
 | **v5.71.6** | **Switch models inside Code with `/model`.** Natureco scans the active provider's live model catalog, offers numbered selection, persists the choice, and falls back to one shared current catalog also used by setup, `models`, `infer`, and `capability`. Provider presets now include current GPT-5.6, Claude 5, Gemini 3.x, MiniMax M2.7, Grok 4.5 and other current families. |
 | **v5.71.5** | **Complete edit diffs and direct card clicks.** File-edit cards now show the complete bounded red/green patch in normal output instead of hiding the actual change behind `(+N lines)`. While the prompt is waiting, clicking a tool card or its `(+N lines)` footer opens the full transcript directly; compact non-edit cards explicitly advertise `Ctrl+O`. |
 | **v5.71.4** | **Long-running Code goals and interactive tool details.** Code turns now allow 10,000 tool rounds by default (`codeMaxToolRounds: 0` for unlimited); compact tool cards open in a `Ctrl+O` transcript viewer and can be expanded/collapsed by clicking; edits through `~/...` paths and oversized files show red/green diffs instead of “snapshot unavailable.” |

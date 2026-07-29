@@ -364,7 +364,7 @@ function promptInput({
       const mode = transcriptExpanded ? 'expanded' : 'compact';
       stdout.write(`${CSI}H${CSI}2J${page}`);
       stdout.write(`${CSI}${rows};1H${CSI}2K` +
-        `Transcript (${mode}) · click a card: expand/collapse · ↑/↓/PgUp/PgDn · Ctrl+O/Esc: close`);
+        `Transcript (${mode}) · click a card: expand/collapse · mouse wheel/↑/↓/PgUp/PgDn · Ctrl+O/Esc: close`);
     };
 
     const openTranscript = ({ expanded = false } = {}) => {
@@ -384,8 +384,17 @@ function promptInput({
 
     const handleTranscriptMouse = sequence => {
       const mouse = String(sequence).match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
-      if (!transcriptOpen || !mouse) return false;
+      if (!mouse) return false;
       const button = Number(mouse[1]);
+      if (!transcriptOpen) {
+        if ((button === 64 || button === 65) && typeof getTranscript === 'function') {
+          openTranscript({ expanded: true });
+          transcriptOffset += button === 64 ? -3 : 3;
+          renderTranscript();
+          return true;
+        }
+        return false;
+      }
       if (button === 0 && mouse[4] === 'M') {
         const clickedLine = transcriptOffset + Math.max(0, Number(mouse[3]) - 1);
         getTranscript?.({ expanded: transcriptExpanded, toggleLine: clickedLine });

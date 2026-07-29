@@ -2,6 +2,14 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.7] - 2026-07-30 — Mouse-wheel transcript scrolling
+
+### Fixed
+- **Mouse-wheel events are no longer swallowed while Natureco Code is waiting for input.** Scrolling
+  from the normal view opens the fully expanded tool transcript and applies the initial wheel
+  movement immediately. The transcript continues to support wheel, arrow and page-key navigation
+  without changing direct card-click expansion.
+
 ## [5.71.6] - 2026-07-29 — Interactive model switching and current provider catalogs
 
 ### Added

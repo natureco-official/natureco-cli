@@ -170,6 +170,24 @@ describe('chat-style input box', () => {
     await expect(pending).resolves.toBe('');
   });
 
+  it('opens and scrolls the expanded transcript with the mouse wheel', async () => {
+    const { input, output } = terminal(60);
+    const transcript = Array.from({ length: 60 }, (_, index) => `line-${index + 1}`).join('\n');
+    const getTranscript = vi.fn(({ expanded }) => expanded ? transcript : 'compact');
+    const pending = promptInput({ stdin: input, stdout: output, color: false, getTranscript });
+
+    type(input, '\x1b[<64;5;5M');
+    expect(output.value).toContain('\x1b[?1049h');
+    expect(output.value).toContain('Transcript (expanded)');
+    expect(output.value).toContain('mouse wheel');
+    expect(output.value).toContain('line-36');
+    expect(getTranscript).toHaveBeenCalledWith({ expanded: true });
+
+    type(input, '\x0f');
+    type(input, '\r');
+    await expect(pending).resolves.toBe('');
+  });
+
   it('(a) renders Turkish/emoji input and cleans the box before transcript output', async () => {
     const { input, output, screen } = terminal(45);
     const pending = promptInput({ stdin: input, stdout: output, history: [], color: false });
