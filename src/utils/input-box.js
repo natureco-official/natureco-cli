@@ -367,19 +367,19 @@ function promptInput({
         `Transcript (${mode}) · click a card: expand/collapse · ↑/↓/PgUp/PgDn · Ctrl+O/Esc: close`);
     };
 
-    const openTranscript = () => {
+    const openTranscript = ({ expanded = false } = {}) => {
       if (typeof getTranscript !== 'function') return;
       transcriptOpen = true;
-      transcriptExpanded = false;
+      transcriptExpanded = expanded;
       transcriptOffset = Infinity;
-      stdout.write(`${CSI}?1049h${CSI}?1000h${CSI}?1006h${CSI}?25l`);
+      stdout.write(`${CSI}?1049h${CSI}?25l`);
       renderTranscript();
     };
 
     const closeTranscript = () => {
       if (!transcriptOpen) return;
       transcriptOpen = false;
-      stdout.write(`${CSI}?1006l${CSI}?1000l${CSI}?1049l${CSI}?25h`);
+      stdout.write(`${CSI}?1049l${CSI}?25h`);
     };
 
     const handleTranscriptMouse = sequence => {
@@ -404,7 +404,14 @@ function promptInput({
     // in several Node/terminal combinations. Observe only SGR mouse data here;
     // normal text remains exclusively owned by the keypress transport.
     const onRawMouse = chunk => {
-      handleTranscriptMouse(Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk));
+      const sequence = Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk);
+      if (handleTranscriptMouse(sequence)) return;
+      const mouse = sequence.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
+      if (!mouse || Number(mouse[1]) !== 0 || mouse[4] !== 'M' || typeof getTranscript !== 'function') return;
+      const clickedRow = Number(mouse[3]);
+      const promptRows = rendered?.renderedRows || 1;
+      const promptStart = Math.max(1, (Number(stdout.rows) || 24) - promptRows + 1);
+      if (clickedRow < promptStart) openTranscript({ expanded: true });
     };
 
     const cleanup = () => {
@@ -424,7 +431,9 @@ function promptInput({
       } catch (error) {
         cleanupError ||= error;
       }
-      try { stdout.write(`${CSI}?2004l${CSI}?25h`); } catch (error) { cleanupError ||= error; }
+      try {
+        stdout.write(`${CSI}?1006l${CSI}?1000l${CSI}?2004l${CSI}?25h`);
+      } catch (error) { cleanupError ||= error; }
       return cleanupError;
     };
 
@@ -504,7 +513,7 @@ function promptInput({
         return;
       }
       if (togglesTranscript) {
-        openTranscript();
+        openTranscript({ expanded: false });
         return;
       }
       if (key.ctrl && key.name === 'c') {
@@ -589,8 +598,10 @@ function promptInput({
     try {
       if (typeof stdin.setRawMode === 'function') stdin.setRawMode(true);
       stdout.write(`${CSI}?2004h`);
+      if (typeof getTranscript === 'function') stdout.write(`${CSI}?1000h${CSI}?1006h`);
       stdout.on?.('resize', onResize);
-      stdin.on?.('data', onRawMouse);
+      if (typeof stdin.prependListener === 'function') stdin.prependListener('data', onRawMouse);
+      else stdin.on?.('data', onRawMouse);
       releaseOwner = transport.acquire(onKeypress);
       redraw();
     } catch (error) {

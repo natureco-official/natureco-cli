@@ -2,6 +2,18 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.5] - 2026-07-29 — Complete edit diffs and direct card clicks
+
+### Fixed
+- **The actual changed lines are no longer hidden by the compact tool-card limit.** `edit_file` and
+  `write_file` cards show the complete bounded red/green patch in normal output, while read/search/
+  shell cards remain compact.
+- **Clicking a card in the normal terminal view now opens its full transcript.** A click above the
+  waiting prompt opens the viewer fully expanded; clicking a card inside the viewer toggles that
+  individual card. Compact footers explicitly say `Ctrl+O to view all` as a keyboard fallback.
+- **Terminal mouse coordinates cannot leak into the prompt.** SGR mouse packets are intercepted
+  before Node's readline decoder, preserving the user's draft across open/close interactions.
+
 ## [5.71.4] - 2026-07-29 — Long-running goals and interactive tool details
 
 ### Changed

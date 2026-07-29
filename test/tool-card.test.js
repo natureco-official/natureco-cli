@@ -143,6 +143,16 @@ describe('Rock C unified tool-card renderer', () => {
     expect(output.split('\n').every(line => tui.stringWidth(line) <= 42)).toBe(true);
   });
 
+  it('points compact cards to the interactive transcript viewer', () => {
+    const output = renderToolCall(
+      'read_file',
+      { path: 'long.txt' },
+      { result: Array.from({ length: 20 }, (_, index) => `line-${index}`).join('\n') },
+      { maxLines: 4, expandHint: true, lang: 'en', color: false },
+    );
+    expect(output).toMatch(/… \(\+\d+ lines\) · Ctrl\+O to view all/);
+  });
+
   it('(e) redacts args and diff bodies, sanitizes controls, and suppresses sensitive diffs', () => {
     const home = 'C:\\Users\\alice';
     const token = 'sk-supersecret123456';

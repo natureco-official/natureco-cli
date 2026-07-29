@@ -428,8 +428,20 @@ async function runInterruptibleTurn(options) {
 }
 
 function writeToolCard(name, args, result, snapshots = {}, presentation, { quiet = false, transcript } = {}) {
-  const compact = renderToolCall(name, args, result, { ...snapshots, maxLines: 5 });
-  const expanded = renderToolCall(name, args, result, { ...snapshots, maxLines: 500 });
+  // File changes are the one result users must be able to audit immediately.
+  // Keep read/search/shell cards compact, but never hide the red/green patch
+  // behind the generic five-line preview used by other tools.
+  const isFileChange = name === 'edit_file' || name === 'write_file';
+  const compact = renderToolCall(name, args, result, {
+    ...snapshots,
+    maxLines: isFileChange ? 2000 : 5,
+    expandHint: !isFileChange,
+  });
+  const expanded = renderToolCall(name, args, result, {
+    ...snapshots,
+    maxLines: 2000,
+    expandHint: false,
+  });
   transcript?.push({ compact, expanded });
   if (transcript) {
     let bytes = transcript.reduce((total, card) => total + Buffer.byteLength(card.expanded), 0);
@@ -1539,4 +1551,5 @@ module.exports._presentation = {
   assessRisk,
   compactIfNeeded,
   resolveMaxToolRounds,
+  writeToolCard,
 };

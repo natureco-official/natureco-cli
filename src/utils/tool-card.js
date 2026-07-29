@@ -291,8 +291,11 @@ function renderToolCall(name, args, result, opts = {}) {
   if (renderedBody.length > maxLines) {
     const hidden = renderedBody.length - (maxLines - 1);
     renderedBody = renderedBody.slice(0, maxLines - 1);
+    const hint = opts.expandHint
+      ? ` · ${L('tümü için Ctrl+O', 'Ctrl+O to view all', opts)}`
+      : '';
     renderedBody.push(styled(
-      `… (+${hidden} ${L('satır', 'lines', opts)})`,
+      `… (+${hidden} ${L('satır', 'lines', opts)})${hint}`,
       { color: PALETTE.muted, dim: true },
     ));
   }

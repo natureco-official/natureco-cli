@@ -152,6 +152,24 @@ describe('chat-style input box', () => {
     await expect(pending).resolves.toBe('draft');
   });
 
+  it('opens the fully expanded transcript by clicking a card above the prompt', async () => {
+    const { input, output } = terminal(60);
+    const getTranscript = vi.fn(({ expanded }) => expanded
+      ? 'Tool: edit_file\n-old\n+new'
+      : 'Tool: edit_file\n… (+2 lines)');
+    const pending = promptInput({ stdin: input, stdout: output, color: false, getTranscript });
+
+    type(input, '\x1b[<0;5;5M');
+    expect(output.value).toContain('\x1b[?1049h');
+    expect(output.value).toContain('-old');
+    expect(getTranscript).toHaveBeenCalledWith({ expanded: true });
+
+    await new Promise(resolve => setTimeout(resolve, 10));
+    type(input, '\x0f');
+    type(input, '\r');
+    await expect(pending).resolves.toBe('');
+  });
+
   it('(a) renders Turkish/emoji input and cleans the box before transcript output', async () => {
     const { input, output, screen } = terminal(45);
     const pending = promptInput({ stdin: input, stdout: output, history: [], color: false });

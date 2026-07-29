@@ -11,7 +11,7 @@ const { renderToolCall } = requireCjs('../src/utils/tool-card.js');
 const writeFileTool = requireCjs('../src/tools/write_file.js');
 const editFileTool = requireCjs('../src/tools/edit_file.js');
 
-const { captureFileSnapshot, displayAssistantReply, resolveMaxToolRounds } = codeV5._presentation;
+const { captureFileSnapshot, displayAssistantReply, resolveMaxToolRounds, writeToolCard } = codeV5._presentation;
 const plain = value => tui.stripAnsi(value);
 let saved;
 let tempDir;
@@ -122,5 +122,25 @@ describe('Rock C code_v5 rendering integration', () => {
       { codeMaxToolRounds: 50 },
       { NATURECO_CODE_MAX_TOOL_ROUNDS: '0' },
     )).toBe(Infinity);
+  });
+
+  it('shows the complete red/green edit in the normal card instead of hiding it behind +N lines', () => {
+    let written = '';
+    const presentation = { writeCommitted: value => { written += value; } };
+    const before = Array.from({ length: 20 }, (_, index) => `line ${index}`).join('\n');
+    const after = before.replace('line 10', 'line ten changed');
+
+    writeToolCard(
+      'edit_file',
+      { path: 'sample.txt', old_string: 'line 10', new_string: 'line ten changed' },
+      { success: true, replacements: 1 },
+      { before, after },
+      presentation,
+    );
+
+    const plainCard = tui.stripAnsi(written);
+    expect(plainCard).toContain('-line 10');
+    expect(plainCard).toContain('+line ten changed');
+    expect(plainCard).not.toMatch(/… \(\+\d+ lines\)/);
   });
 });
