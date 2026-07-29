@@ -117,6 +117,19 @@ function viewportAroundCursor(graphemes, cursor, width) {
   };
 }
 
+function truncateToWidth(value, width) {
+  const limit = Math.max(0, Math.floor(width));
+  let result = '';
+  let used = 0;
+  for (const grapheme of segmentGraphemes(value)) {
+    const next = graphemeWidth(grapheme);
+    if (used + next > limit) break;
+    result += grapheme;
+    used += next;
+  }
+  return result;
+}
+
 function ansiStyle(text, color, { bold = false, dim = false, enabled = true } = {}) {
   if (!enabled) return text;
   const [r, g, b] = tui.hexToRgb(color);
@@ -131,6 +144,8 @@ function renderFrame({
   columns,
   placeholder = '',
   color = true,
+  suggestions = [],
+  selectedSuggestion = 0,
 } = {}) {
   const measuredColumns = Number(columns);
   if (!Number.isFinite(measuredColumns) || measuredColumns < 4) {
@@ -185,6 +200,17 @@ function renderFrame({
     );
   }
   lines.push(border(`╰${'─'.repeat(width - 2)}╯`));
+
+  const menuWidth = Math.max(1, width - 4);
+  suggestions.forEach((suggestion, index) => {
+    const selected = index === selectedSuggestion;
+    const command = String(suggestion?.value || '');
+    const description = String(suggestion?.description || '');
+    const raw = `${selected ? '›' : ' '} ${command}${description ? `  ${description}` : ''}`;
+    lines.push(ansiStyle(truncateToWidth(raw, menuWidth), selected
+      ? tui.PALETTE.primary
+      : tui.PALETTE.muted, { bold: selected, enabled: color }));
+  });
 
   return {
     mode: 'box',
@@ -313,6 +339,7 @@ function promptInput({
   placeholder = '',
   color = env?.NO_COLOR === undefined,
   getTranscript,
+  slashCommands = [],
 } = {}) {
   const transport = bootstrapKeypressTransport(stdin);
   const model = createTextModel();
@@ -330,6 +357,8 @@ function promptInput({
   let transcriptOpen = false;
   let transcriptExpanded = false;
   let transcriptOffset = Infinity;
+  let selectedSuggestion = 0;
+  let suggestionsDismissed = false;
   const priorRaw = Boolean(stdin.isRaw);
 
   return new Promise((resolve, reject) => {
@@ -338,12 +367,41 @@ function promptInput({
         renderTranscript();
         return;
       }
-      const next = renderFrame({ model, columns: stdout.columns, placeholder, color });
+      const suggestions = currentSuggestions();
+      const next = renderFrame({
+        model,
+        columns: stdout.columns,
+        placeholder,
+        color,
+        suggestions,
+        selectedSuggestion,
+      });
       stdout.write(`${CSI}?25l`);
       eraseRendered(stdout, rendered);
       drawRendered(stdout, next);
       stdout.write(`${CSI}?25h`);
       rendered = next;
+    };
+
+    const currentSuggestions = () => {
+      const value = modelValue(model);
+      if (
+        suggestionsDismissed
+        || !value.startsWith('/')
+        || /\s/.test(value)
+        || model.cursor !== model.graphemes.length
+      ) return [];
+      const query = value.toLocaleLowerCase();
+      const matches = slashCommands
+        .filter(item => String(item?.value || '').toLocaleLowerCase().startsWith(query))
+        .slice(0, 8);
+      selectedSuggestion = Math.max(0, Math.min(selectedSuggestion, matches.length - 1));
+      return matches;
+    };
+
+    const resetSuggestions = () => {
+      selectedSuggestion = 0;
+      suggestionsDismissed = false;
     };
 
     const transcriptLines = () => {
@@ -540,6 +598,17 @@ function promptInput({
         return;
       }
       if (isEnterKey(key, sequence)) {
+        const suggestions = currentSuggestions();
+        if (suggestions.length > 0) {
+          const selected = suggestions[selectedSuggestion];
+          const suffix = selected.requiresArgument ? ' ' : '';
+          replaceModel(model, `${selected.value}${suffix}`);
+          suggestionsDismissed = true;
+          if (selected.requiresArgument) {
+            redraw();
+            return;
+          }
+        }
         const value = modelValue(model);
         if (value) {
           for (let index = history.length - 1; index >= 0; index--) {
@@ -572,23 +641,47 @@ function promptInput({
           if (model.cursor > 0) {
             model.graphemes.splice(model.cursor - 1, 1);
             model.cursor--;
+            resetSuggestions();
             redraw();
           }
           return;
         case 'delete':
           if (model.cursor < model.graphemes.length) {
             model.graphemes.splice(model.cursor, 1);
+            resetSuggestions();
             redraw();
           }
           return;
         case 'up':
+          if (currentSuggestions().length > 0) {
+            const length = currentSuggestions().length;
+            selectedSuggestion = (selectedSuggestion - 1 + length) % length;
+            redraw();
+            return;
+          }
           changeHistory(-1);
           return;
         case 'down':
+          if (currentSuggestions().length > 0) {
+            selectedSuggestion = (selectedSuggestion + 1) % currentSuggestions().length;
+            redraw();
+            return;
+          }
           changeHistory(1);
           return;
         case 'escape':
+          if (currentSuggestions().length > 0) {
+            suggestionsDismissed = true;
+            redraw();
+          }
+          return;
         case 'tab':
+          if (currentSuggestions().length > 0) {
+            const selected = currentSuggestions()[selectedSuggestion];
+            replaceModel(model, `${selected.value}${selected.requiresArgument ? ' ' : ''}`);
+            suggestionsDismissed = true;
+            redraw();
+          }
           return;
         default:
           break;
@@ -598,6 +691,7 @@ function promptInput({
         isPrintableSequence(sequence)
         || (sequence && segmentGraphemes(sequence).length > 1)
       ) {
+        resetSuggestions();
         insertSequence(sequence);
       }
     });

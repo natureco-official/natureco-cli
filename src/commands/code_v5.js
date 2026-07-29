@@ -126,6 +126,7 @@ function createCodeInputSession({
   readlineModule = readline,
   prompt = promptInput,
   getTranscript,
+  slashCommands = [],
 } = {}) {
   const boxed = canUseInputBox({ stdin, stdout, env });
   const history = [];
@@ -147,6 +148,7 @@ function createCodeInputSession({
         history,
         placeholder: L('Bir mesaj yazın…', 'Type a message…'),
         getTranscript,
+        slashCommands,
       });
       stdout.write("  " + tui.styled("You  ", { color: tui.PALETTE.primary, bold: true }) + value + "\n");
       return value;
@@ -881,8 +883,38 @@ async function codeV5(targetPath, cliOptions = {}) {
     return;
   }
 
+  const SLASH_HELP = [
+    ['/help', L('Bu yardım', 'This help')],
+    ['/clear', L('Ekranı temizle', 'Clear the screen')],
+    ['/compact', L('Konuşma bağlamını şimdi sıkıştır', 'Compact the conversation context now')],
+    ['/context', L('Bağlam kullanımını göster', 'Show context usage')],
+    ['/tools', L('Yüklü araçları listele', 'List loaded tools')],
+    ['/model [model|no]', L('Modelleri listele veya aktif modeli değiştir', 'List models or switch the active model')],
+    ['/undo [dosya]', L('Son dosya değişikliğini geri al', 'Undo the last file change')],
+    ['/retry', L('Son isteği tekrar çalıştır', 'Re-run the last request')],
+    ['/run <komut>', L('Komutu çalıştır, çıktısını bağlama ekle', 'Run a command and add its output to context')],
+    ['/test', L('Proje testlerini çalıştır', "Run the project's tests")],
+    ['/git', L('Git durumu ve son commitler', 'Git status and recent commits')],
+    ['/commit', L('Staged değişiklikleri AI mesajıyla commit et', 'Commit staged changes with an AI message')],
+    ['/index', L('Projeyi yeniden indeksle', 'Re-index the project')],
+    ['/memory', L('Proje hafızasını göster', 'Show project memory')],
+    ['/plan on|approve|reject|show', L('Plan modu', 'Plan mode')],
+    ['/summary', L('Oturum özeti', 'Session summary')],
+    ['/done', L('Özet + kaydet + çıkış', 'Summary + save + exit')],
+    ['Ctrl+O', L('Araç ayrıntılarını aç/kapat', 'Toggle detailed tool transcript')],
+    ['Esc', L('Süren turu kes', 'Interrupt the running turn')],
+    ['Ctrl+C', L('Çıkış', 'Exit')],
+  ];
+
   // Input loop
   const inputSession = createCodeInputSession({
+    slashCommands: SLASH_HELP
+      .filter(([syntax]) => syntax.startsWith('/'))
+      .map(([syntax, description]) => ({
+        value: syntax.split(' ')[0],
+        description,
+        requiresArgument: syntax.includes('<') || syntax.startsWith('/plan '),
+      })),
     getTranscript: ({ expanded = false, toggleLine } = {}) => {
       let cursor = 0;
       if (Number.isInteger(toggleLine) && toggleLine >= 0) {
@@ -908,29 +940,6 @@ async function codeV5(targetPath, cliOptions = {}) {
     }
   };
   writePlainPrompt("\n  ");
-
-  const SLASH_HELP = [
-    ['/help', L('Bu yardım', 'This help')],
-    ['/clear', L('Ekranı temizle', 'Clear the screen')],
-    ['/compact', L('Konuşma bağlamını şimdi sıkıştır', 'Compact the conversation context now')],
-    ['/context', L('Bağlam kullanımını göster', 'Show context usage')],
-    ['/tools', L('Yüklü araçları listele', 'List loaded tools')],
-    ['/model [model|no]', L('Modelleri listele veya aktif modeli değiştir', 'List models or switch the active model')],
-    ['/undo [dosya]', L('Son dosya değişikliğini geri al', 'Undo the last file change')],
-    ['/retry', L('Son isteği tekrar çalıştır', 'Re-run the last request')],
-    ['/run <komut>', L('Komutu çalıştır, çıktısını bağlama ekle', 'Run a command and add its output to context')],
-    ['/test', L('Proje testlerini çalıştır', "Run the project's tests")],
-    ['/git', L('Git durumu ve son commitler', 'Git status and recent commits')],
-    ['/commit', L('Staged değişiklikleri AI mesajıyla commit et', 'Commit staged changes with an AI message')],
-    ['/index', L('Projeyi yeniden indeksle', 'Re-index the project')],
-    ['/memory', L('Proje hafızasını göster', 'Show project memory')],
-    ['/plan on|approve|reject|show', L('Plan modu', 'Plan mode')],
-    ['/summary', L('Oturum özeti', 'Session summary')],
-    ['/done', L('Özet + kaydet + çıkış', 'Summary + save + exit')],
-    ['Ctrl+O', L('Araç ayrıntılarını aç/kapat', 'Toggle detailed tool transcript')],
-    ['Esc', L('Süren turu kes', 'Interrupt the running turn')],
-    ['Ctrl+C', L('Çıkış', 'Exit')],
-  ];
 
   let lastUserMessage = null;
 

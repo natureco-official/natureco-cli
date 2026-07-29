@@ -128,6 +128,41 @@ function type(input, value) {
 }
 
 describe('chat-style input box', () => {
+  it('shows, filters, and selects slash commands with arrows and Enter', async () => {
+    const { input, output } = terminal(60);
+    const slashCommands = [
+      { value: '/help', description: 'Show help' },
+      { value: '/model', description: 'Switch model' },
+      { value: '/tools', description: 'List tools' },
+    ];
+    const pending = promptInput({ stdin: input, stdout: output, color: false, slashCommands });
+
+    type(input, '/');
+    expect(output.value).toContain('/help  Show help');
+    expect(output.value).toContain('/model  Switch model');
+    type(input, '\x1b[B');
+    type(input, '\r');
+
+    await expect(pending).resolves.toBe('/model');
+  });
+
+  it('keeps required slash-command arguments editable after selection', async () => {
+    const { input, output } = terminal(60);
+    const pending = promptInput({
+      stdin: input,
+      stdout: output,
+      color: false,
+      slashCommands: [{ value: '/run', description: 'Run command', requiresArgument: true }],
+    });
+
+    type(input, '/r');
+    type(input, '\r');
+    type(input, 'npm test');
+    type(input, '\r');
+
+    await expect(pending).resolves.toBe('/run npm test');
+  });
+
   it('opens the tool transcript with Ctrl+O and toggles detail with a mouse click', async () => {
     const { input, output } = terminal(60);
     let expanded = false;

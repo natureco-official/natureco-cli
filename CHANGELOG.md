@@ -2,6 +2,13 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.8] - 2026-07-30 — Interactive slash-command palette
+
+### Added
+- **Typing `/` in Natureco Code now opens an interactive command palette.** Continue typing to
+  filter commands, move through matches with Up/Down, and choose with Enter or Tab. Commands that
+  require an argument remain in the input box so the argument can be entered before execution.
+
 ## [5.71.7] - 2026-07-30 — Mouse-wheel transcript scrolling
 
 ### Fixed
