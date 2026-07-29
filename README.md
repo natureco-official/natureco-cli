@@ -58,6 +58,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v5.71.9** | **Native mouse behavior is restored on the main Code screen.** Wheel scrollback, text selection and right-click stay owned by the terminal; Natureco enables mouse tracking only inside the `Ctrl+O` tool transcript and releases it again on close. |
 | **v5.71.8** | **Interactive slash-command palette in Natureco Code.** Type `/` to see commands, keep typing to filter, navigate with Up/Down, and select with Enter or Tab; commands requiring arguments remain editable. |
 | **v5.71.7** | **Mouse-wheel scrolling now works in Natureco Code.** Using the wheel from the normal view opens the fully expanded tool transcript and scrolls immediately; wheel, arrow and page-key navigation work alongside clickable expand/collapse cards. |
 | **v5.71.6** | **Switch models inside Code with `/model`.** Natureco scans the active provider's live model catalog, offers numbered selection, persists the choice, and falls back to one shared current catalog also used by setup, `models`, `infer`, and `capability`. Provider presets now include current GPT-5.6, Claude 5, Gemini 3.x, MiniMax M2.7, Grok 4.5 and other current families. |

@@ -2,6 +2,14 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.9] - 2026-07-30 — Native terminal mouse behavior
+
+### Fixed
+- **The main Natureco Code screen no longer captures the terminal mouse.** Native terminal
+  scrollback, text selection, and right-click behavior remain available while entering prompts.
+  Mouse reporting is enabled only inside the transcript explicitly opened with `Ctrl+O`, where
+  card clicks and wheel navigation are needed, and is disabled again immediately on close.
+
 ## [5.71.8] - 2026-07-30 — Interactive slash-command palette
 
 ### Added

@@ -430,29 +430,20 @@ function promptInput({
       transcriptOpen = true;
       transcriptExpanded = expanded;
       transcriptOffset = Infinity;
-      stdout.write(`${CSI}?1049h${CSI}?25l`);
+      stdout.write(`${CSI}?1049h${CSI}?1000h${CSI}?1006h${CSI}?25l`);
       renderTranscript();
     };
 
     const closeTranscript = () => {
       if (!transcriptOpen) return;
       transcriptOpen = false;
-      stdout.write(`${CSI}?1049l${CSI}?25h`);
+      stdout.write(`${CSI}?1006l${CSI}?1000l${CSI}?1049l${CSI}?25h`);
     };
 
     const handleTranscriptMouse = sequence => {
       const mouse = String(sequence).match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
-      if (!mouse) return false;
+      if (!transcriptOpen || !mouse) return false;
       const button = Number(mouse[1]);
-      if (!transcriptOpen) {
-        if ((button === 64 || button === 65) && typeof getTranscript === 'function') {
-          openTranscript({ expanded: true });
-          transcriptOffset += button === 64 ? -3 : 3;
-          renderTranscript();
-          return true;
-        }
-        return false;
-      }
       if (button === 0 && mouse[4] === 'M') {
         const clickedLine = transcriptOffset + Math.max(0, Number(mouse[3]) - 1);
         getTranscript?.({ expanded: transcriptExpanded, toggleLine: clickedLine });
@@ -472,13 +463,7 @@ function promptInput({
     // normal text remains exclusively owned by the keypress transport.
     const onRawMouse = chunk => {
       const sequence = Buffer.isBuffer(chunk) ? chunk.toString() : String(chunk);
-      if (handleTranscriptMouse(sequence)) return;
-      const mouse = sequence.match(/^\x1b\[<(\d+);(\d+);(\d+)([Mm])$/);
-      if (!mouse || Number(mouse[1]) !== 0 || mouse[4] !== 'M' || typeof getTranscript !== 'function') return;
-      const clickedRow = Number(mouse[3]);
-      const promptRows = rendered?.renderedRows || 1;
-      const promptStart = Math.max(1, (Number(stdout.rows) || 24) - promptRows + 1);
-      if (clickedRow < promptStart) openTranscript({ expanded: true });
+      handleTranscriptMouse(sequence);
     };
 
     const cleanup = () => {
@@ -701,7 +686,6 @@ function promptInput({
     try {
       if (typeof stdin.setRawMode === 'function') stdin.setRawMode(true);
       stdout.write(`${CSI}?2004h`);
-      if (typeof getTranscript === 'function') stdout.write(`${CSI}?1000h${CSI}?1006h`);
       stdout.on?.('resize', onResize);
       if (typeof stdin.prependListener === 'function') stdin.prependListener('data', onRawMouse);
       else stdin.on?.('data', onRawMouse);

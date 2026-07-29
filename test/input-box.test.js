@@ -173,8 +173,10 @@ describe('chat-style input box', () => {
     const pending = promptInput({ stdin: input, stdout: output, color: false, getTranscript });
 
     type(input, 'draft');
+    expect(output.value).not.toContain('\x1b[?1000h');
     type(input, '\x0f');
     expect(output.value).toContain('\x1b[?1049h');
+    expect(output.value).toContain('\x1b[?1000h');
     expect(output.value).toContain('Transcript (compact)');
 
     type(input, '\x1b[<0;5;1M');
@@ -187,36 +189,34 @@ describe('chat-style input box', () => {
     await expect(pending).resolves.toBe('draft');
   });
 
-  it('opens the fully expanded transcript by clicking a card above the prompt', async () => {
+  it('leaves terminal mouse reporting disabled in the main view', async () => {
     const { input, output } = terminal(60);
     const getTranscript = vi.fn(({ expanded }) => expanded
       ? 'Tool: edit_file\n-old\n+new'
       : 'Tool: edit_file\n… (+2 lines)');
     const pending = promptInput({ stdin: input, stdout: output, color: false, getTranscript });
 
-    type(input, '\x1b[<0;5;5M');
-    expect(output.value).toContain('\x1b[?1049h');
-    expect(output.value).toContain('-old');
-    expect(getTranscript).toHaveBeenCalledWith({ expanded: true });
+    expect(output.value).not.toContain('\x1b[?1049h');
+    expect(output.value).not.toContain('\x1b[?1000h');
+    expect(getTranscript).not.toHaveBeenCalled();
 
-    await new Promise(resolve => setTimeout(resolve, 10));
-    type(input, '\x0f');
     type(input, '\r');
     await expect(pending).resolves.toBe('');
   });
 
-  it('opens and scrolls the expanded transcript with the mouse wheel', async () => {
+  it('scrolls with the mouse wheel after the transcript is explicitly opened', async () => {
     const { input, output } = terminal(60);
     const transcript = Array.from({ length: 60 }, (_, index) => `line-${index + 1}`).join('\n');
-    const getTranscript = vi.fn(({ expanded }) => expanded ? transcript : 'compact');
+    const getTranscript = vi.fn(() => transcript);
     const pending = promptInput({ stdin: input, stdout: output, color: false, getTranscript });
 
+    type(input, '\x0f');
     type(input, '\x1b[<64;5;5M');
     expect(output.value).toContain('\x1b[?1049h');
-    expect(output.value).toContain('Transcript (expanded)');
+    expect(output.value).toContain('Transcript (compact)');
     expect(output.value).toContain('mouse wheel');
     expect(output.value).toContain('line-36');
-    expect(getTranscript).toHaveBeenCalledWith({ expanded: true });
+    expect(getTranscript).toHaveBeenCalledWith({ expanded: false });
 
     type(input, '\x0f');
     type(input, '\r');
