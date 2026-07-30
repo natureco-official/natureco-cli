@@ -126,16 +126,56 @@ describe('code_v5 tool gates answer every announced call', () => {
     expect(answer.content).toMatch(/DRY RUN/i);
   });
 
-  it('reports unparsable tool arguments back to the model instead of guessing {}', async () => {
+  // A tool call carrying half a JSON document is a call that was cut off at
+  // the output ceiling. Recording it as `tool_calls` and reporting the parse
+  // error as a tool result breaks the conversation PERMANENTLY: MiniMax
+  // answers a history containing malformed `tool_calls` with HTTP 200 and an
+  // empty body, the screen says the model returned nothing, and retrying
+  // resends the same history so it never recovers. It stays out of the
+  // transcript instead.
+  it('keeps a truncated tool call out of the transcript and tells the model to take a smaller step', async () => {
     const messages = [{ role: 'user', content: 'go' }];
     const reply = {
       content: null,
-      tool_calls: [{ id: 'c1', type: 'function', function: { name: 'read_file', arguments: '{not json' } }],
+      finish_reason: 'length',
+      tool_calls: [{ id: 'c1', type: 'function', function: { name: 'write_file', arguments: '{"content":"aaa' } }],
     };
 
     await processToolCalls(reply, {}, [], messages, null, {});
 
-    const answer = messages.find(m => m.role === 'tool' && m.tool_call_id === 'c1');
-    expect(answer.content).toMatch(/JSON/i);
+    expect(messages.some(m => Array.isArray(m.tool_calls))).toBe(false);
+    expect(messages.some(m => m.role === 'tool')).toBe(false);
+    const note = messages[messages.length - 1];
+    expect(note.role).toBe('system');
+    expect(note.content).toMatch(/write_file/);
+    expect(note.content).toMatch(/edit_file|küçük|small/i);
+  });
+
+  // A single round can carry both a sound and a truncated call. The sound one
+  // must still run and still be answered: providers reject a transcript with
+  // an unanswered `tool_call`, so the pairing has to stay exact.
+  it('still runs the well-formed calls when a sibling call was truncated', async () => {
+    let read = false;
+    const tools = [{
+      name: 'read_file', description: 'read',
+      parameters: { type: 'object', properties: {} },
+      execute: async () => { read = true; return 'file contents'; },
+    }];
+    const messages = [{ role: 'user', content: 'go' }];
+    const reply = {
+      content: null,
+      finish_reason: 'length',
+      tool_calls: [
+        call('sound', 'read_file', { filePath: 'a.txt' }),
+        { id: 'cut', type: 'function', function: { name: 'write_file', arguments: '{"content":"aaa' } },
+      ],
+    };
+
+    await processToolCalls(reply, {}, tools, messages, null, {});
+
+    expect(read).toBe(true);
+    const assistant = messages.find(m => Array.isArray(m.tool_calls));
+    expect(assistant.tool_calls.map(t => t.id)).toEqual(['sound']);
+    expect(messages.filter(m => m.role === 'tool').map(m => m.tool_call_id)).toEqual(['sound']);
   });
 });

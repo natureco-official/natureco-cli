@@ -162,8 +162,61 @@ function createCodeInputSession({
   };
 }
 
+/**
+ * The output budget the model gets for one round.
+ *
+ * Effort levels were sized for chat: `medium` means 2048 tokens. In the coding
+ * agent that same budget also has to cover a tool call's ARGUMENTS, and
+ * `write_file`'s argument is the entire file. Measured live against MiniMax
+ * (M2.5 and M2.7 behave identically): writing a ~100-line HTML file cuts the
+ * call off at ~6 KB with `finish_reason: "length"`, leaving half a JSON
+ * document — and once that lands in the transcript every following request
+ * comes back as an empty body. The truncation did not just cost a round, it
+ * killed the session.
+ *
+ * `max_tokens` is a ceiling, not a spend: tokens that are never generated are
+ * never billed. So the ceiling is kept high enough to write a file regardless
+ * of effort level, while effort keeps driving temperature, tool breadth and
+ * iteration count.
+ */
+const DEFAULT_CODE_MAX_OUTPUT_TOKENS = 16_384;
+
+function resolveMaxOutputTokens(effortCfg, config = {}, env = process.env) {
+  const raw = env.NATURECO_CODE_MAX_OUTPUT_TOKENS
+    ?? config.codeMaxOutputTokens
+    ?? config.code?.maxOutputTokens;
+  if (raw !== undefined && raw !== null && raw !== '') {
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  }
+  return Math.max(effortCfg.maxTokens || 0, DEFAULT_CODE_MAX_OUTPUT_TOKENS);
+}
+
+/**
+ * Is the provider refusing the output ceiling we asked for?
+ *
+ * Two different reasons, one remedy: either the ceiling is above the model's
+ * output limit, or input + ceiling overflows its context window. Both are
+ * fixed by asking again with a smaller ceiling, so they share a door.
+ *
+ * Matching on the message text looks brittle, but the alternative is a
+ * per-provider table of model output limits that goes stale with every new
+ * model. A false positive costs one retry at a smaller budget; a false
+ * negative costs the whole turn.
+ */
+function isMaxTokensRejection(error) {
+  const message = String(error?.message || '');
+  const topical = /max_?tokens|max output|output limit|context length|context window/i.test(message);
+  if (!topical) return false;
+  return /exceed|too (large|high|big|many)|greater than|at most|maximum|invalid|must be|however you requested/i
+    .test(message);
+}
+
 async function sendMessageWithTools(providerUrl, providerKey, model, messages, toolDefs, options = {}) {
-  const effortLevel = getEffortLevel();
+  const runtimeConfig = getConfig();
+  // `getEffortLevel()` was called with no argument, so `cfg = {}` always
+  // resolved to `medium`: the documented `effort` setting had no effect.
+  const effortLevel = getEffortLevel(runtimeConfig);
   const effortCfg = getEffortConfig(effortLevel);
   const fallbackChain = getFallbackChain();
   const selectedModel = fallbackChain.current || model;
@@ -177,17 +230,29 @@ async function sendMessageWithTools(providerUrl, providerKey, model, messages, t
     model: selectedModel,
   };
 
+  const maxTokens = options.maxTokens ?? resolveMaxOutputTokens(effortCfg, runtimeConfig);
   try {
     return await streamProviderCompletion(providerConfig, messages, tools, {
       signal: options.signal,
       onEvent: options.onEvent,
       model: selectedModel,
       temperature: effortCfg.temperature,
-      maxTokens: effortCfg.maxTokens,
+      maxTokens,
       responseFormat,
     });
   } catch (error) {
     if (isAbortError(error, options.signal)) throw error;
+    // The coding ceiling can exceed what this particular model accepts (older
+    // Anthropic models cap at 4096/8192). The provider says so explicitly, so
+    // rather than keeping a model table that goes stale, listen to it and try
+    // once more at the effort budget. The model is not switched: the problem is
+    // the ceiling we asked for, not the model.
+    if (isMaxTokensRejection(error) && maxTokens > effortCfg.maxTokens) {
+      return sendMessageWithTools(providerUrl, providerKey, model, messages, toolDefs, {
+        ...options,
+        maxTokens: effortCfg.maxTokens,
+      });
+    }
     const fallback = fallbackChain.recordError(selectedModel, error);
     if (fallback.fallback) {
       console.log(tui.C.yellow(`\n  ⚠ ${selectedModel} ${L('başarısız', 'failed')} → ${fallback.nextModel} ${L('deneniyor...', 'trying...')}\n`));
@@ -1459,25 +1524,63 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult,
 
   const refusals = new Map();
   const runnable = [];
+  // Calls cut off at the output ceiling. These are not refused calls — the
+  // model never finished writing them — and unlike a refusal they must not
+  // reach the transcript at all (see below).
+  const truncated = [];
+  const announced = [];
   for (const tc of reply.tool_calls) {
     let args;
     try {
       args = JSON.parse(tc.function.arguments || "{}");
     } catch (error) {
-      refusals.set(tc.id, `${L('Araç argümanları geçerli JSON değil', 'Tool arguments are not valid JSON')}: ${error.message}`);
+      truncated.push({ name: tc.function?.name || '?', reason: error.message });
       continue;
     }
+    announced.push(tc);
     const refusal = await screenToolCall(tc.function.name, args);
     if (refusal) refusals.set(tc.id, refusal);
     else runnable.push({ name: tc.function.name, args, id: tc.id });
   }
 
-  // The assistant turn is recorded before anything runs, and every announced
-  // call gets exactly one answer below — including refused ones. Dropping a
-  // refused call instead left the transcript identical to the one that
-  // produced it, so the model re-issued the same call and the user was
+  // A tool call carrying half a JSON document is NEVER written to the
+  // transcript.
+  //
+  // Recording it with an "arguments are not valid JSON" result looks
+  // reasonable — the model sees the error and corrects itself. That is not
+  // what happens on the provider side: once malformed `tool_calls` are in the
+  // history, MiniMax answers EVERY subsequent request with HTTP 200 and a
+  // completely empty body (measured live). The screen says the model returned
+  // an empty reply, and retrying never helps because it resends the same
+  // history: the session is dead for good.
+  //
+  // So the truncated call never enters the history. The model is told what
+  // happened in plain text instead, appended after the tool results so the
+  // assistant/tool ordering stays intact. Well-formed calls carry on normally.
+  //
+  // Every well-formed call, refusals included, still gets exactly one answer
+  // below. Dropping a refused call left the transcript identical to the one
+  // that produced it, so the model re-issued the same call and the user was
   // re-prompted every iteration until the loop cap.
-  messages.push({ role: "assistant", content: reply.content || null, tool_calls: reply.tool_calls });
+  if (announced.length > 0) {
+    messages.push({ role: "assistant", content: reply.content || null, tool_calls: announced });
+  } else {
+    messages.push({
+      role: "assistant",
+      content: reply.content || L('(araç çağrısı çıktı sınırında kesildi)', '(tool call was cut off at the output limit)'),
+    });
+  }
+
+  if (truncated.length > 0) {
+    const names = truncated.map(item => item.name).join(', ');
+    const line = "\n  " + tui.C.yellow(L(
+      `⚠ Araç çağrısı çıktı sınırında kesildi (${names}) — çalıştırılmadı, modelden daha küçük bir adım isteniyor.`,
+      `⚠ A tool call was cut off at the output limit (${names}) — it did not run; the model is being asked for a smaller step.`,
+    )) + "\n";
+    if (options.presentation) options.presentation.writeCommitted(line);
+    else if (options.quiet) process.stderr.write(line);
+    else process.stdout.write(line);
+  }
 
   const answers = new Map();
   for (const [id, reason] of refusals) answers.set(id, "ERROR: " + reason);
@@ -1549,13 +1652,26 @@ async function processToolCalls(reply, config, toolDefs, messages, onToolResult,
     // Answer in the order the model announced the calls. Providers reject a
     // transcript where a tool_call has no matching result, so anything that
     // never ran (interrupt, crash) is still answered before we unwind.
-    for (const tc of reply.tool_calls) {
+    for (const tc of announced) {
       messages.push({
         role: "tool",
         tool_call_id: tc.id,
         content: answers.has(tc.id)
           ? answers.get(tc.id)
           : "ERROR: " + L('Araç çalıştırılmadı (tur kesildi).', 'Tool did not run (turn was interrupted).'),
+      });
+    }
+    // The note goes AFTER the tool results: providers reject a transcript
+    // where anything sits between `assistant(tool_calls)` and its `tool`
+    // messages.
+    if (truncated.length > 0) {
+      const names = truncated.map(item => item.name).join(', ');
+      messages.push({
+        role: "system",
+        content: `[${L(
+          `Önceki ${names} çağrın çıktı sınırında kesildi ve ÇALIŞTIRILMADI. Aynı çağrıyı aynı boyutta tekrarlama. Dosyanın tamamını tek seferde yazmak yerine edit_file ile küçük, hedefli değişiklikler yap ya da işi birkaç çağrıya böl.`,
+          `Your previous ${names} call was cut off at the output limit and DID NOT RUN. Do not repeat the same call at the same size. Instead of writing a whole file in one go, make small targeted changes with edit_file, or split the work across several calls.`,
+        )}]`,
       });
     }
   }
@@ -1587,5 +1703,7 @@ module.exports._presentation = {
   assessRisk,
   compactIfNeeded,
   resolveMaxToolRounds,
+  resolveMaxOutputTokens,
+  isMaxTokensRejection,
   writeToolCard,
 };

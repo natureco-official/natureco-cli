@@ -11,7 +11,14 @@ const { renderToolCall } = requireCjs('../src/utils/tool-card.js');
 const writeFileTool = requireCjs('../src/tools/write_file.js');
 const editFileTool = requireCjs('../src/tools/edit_file.js');
 
-const { captureFileSnapshot, displayAssistantReply, resolveMaxToolRounds, writeToolCard } = codeV5._presentation;
+const {
+  captureFileSnapshot,
+  displayAssistantReply,
+  resolveMaxToolRounds,
+  resolveMaxOutputTokens,
+  isMaxTokensRejection,
+  writeToolCard,
+} = codeV5._presentation;
 const plain = value => tui.stripAnsi(value);
 let saved;
 let tempDir;
@@ -122,6 +129,46 @@ describe('Rock C code_v5 rendering integration', () => {
       { codeMaxToolRounds: 50 },
       { NATURECO_CODE_MAX_TOOL_ROUNDS: '0' },
     )).toBe(Infinity);
+  });
+
+  // The 2048-token effort budget was sized for chat; in the coding agent it
+  // truncated a `write_file` call's arguments, and the truncated call poisoned
+  // the history so the provider stopped answering. The ceiling has to fit a
+  // whole file regardless of effort level.
+  it('gives the coding agent an output budget a whole file fits in', () => {
+    expect(resolveMaxOutputTokens({ maxTokens: 2048 }, {}, {})).toBe(16_384);
+    expect(resolveMaxOutputTokens({ maxTokens: 1024 }, {}, {})).toBe(16_384);
+    // A higher effort ceiling is never lowered.
+    expect(resolveMaxOutputTokens({ maxTokens: 32_000 }, {}, {})).toBe(32_000);
+    // An explicit setting wins; the environment wins over the setting.
+    expect(resolveMaxOutputTokens({ maxTokens: 2048 }, { codeMaxOutputTokens: 4096 }, {})).toBe(4096);
+    expect(resolveMaxOutputTokens({ maxTokens: 2048 }, { code: { maxOutputTokens: 8192 } }, {})).toBe(8192);
+    expect(resolveMaxOutputTokens(
+      { maxTokens: 2048 },
+      { codeMaxOutputTokens: 4096 },
+      { NATURECO_CODE_MAX_OUTPUT_TOKENS: '9000' },
+    )).toBe(9000);
+    // Nonsense is ignored rather than obeyed.
+    expect(resolveMaxOutputTokens({ maxTokens: 2048 }, { codeMaxOutputTokens: 'abc' }, {})).toBe(16_384);
+    expect(resolveMaxOutputTokens({ maxTokens: 2048 }, { codeMaxOutputTokens: -1 }, {})).toBe(16_384);
+  });
+
+  it('recognises a provider refusing the requested output ceiling', () => {
+    expect(isMaxTokensRejection(new Error(
+      'Anthropic API error: 400 - max_tokens: 16384 > 8192, which is the maximum allowed',
+    ))).toBe(true);
+    expect(isMaxTokensRejection(new Error(
+      'Provider API error: 400 - {"error":{"message":"invalid max_tokens: must be <= 4096"}}',
+    ))).toBe(true);
+    // The real risk in a long session: the ceiling does not fit the remaining
+    // context rather than the model. Same remedy, same door.
+    expect(isMaxTokensRejection(new Error(
+      "Provider API error: 400 - This model's maximum context length is 32768 tokens, "
+      + 'however you requested 40960 tokens (24576 in the messages, 16384 in the completion)',
+    ))).toBe(true);
+    expect(isMaxTokensRejection(new Error('Provider API error: 429 - rate limit'))).toBe(false);
+    expect(isMaxTokensRejection(new Error('fetch failed'))).toBe(false);
+    expect(isMaxTokensRejection(undefined)).toBe(false);
   });
 
   it('shows the complete red/green edit in the normal card instead of hiding it behind +N lines', () => {

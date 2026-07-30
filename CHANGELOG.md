@@ -2,6 +2,32 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [5.71.10] - 2026-07-30 — Fix: a truncated tool call killed the whole session
+
+### Fixed
+- **A file write could leave the coding session permanently unable to get a reply.** The coding
+  agent asked every provider for `max_tokens: 2048` — the effort level's chat-sized budget. In the
+  agent that budget also has to cover a tool call's *arguments*, and `write_file`'s argument is the
+  entire file. Measured live against MiniMax (M2.5 and M2.7 behave identically): writing a
+  ~100-line HTML file cut the call off at ~6 KB with `finish_reason: "length"`, leaving half a JSON
+  document.
+
+  That malformed call was then recorded in the transcript with a "not valid JSON" tool result.
+  From that point on the provider answered **every** subsequent request with HTTP 200 and a
+  completely empty body, and retrying never helped because it resent the same poisoned history.
+
+  Two changes: the coding agent's output ceiling now fits a whole file (`codeMaxOutputTokens`,
+  `NATURECO_CODE_MAX_OUTPUT_TOKENS`; `max_tokens` is a ceiling, not a spend, so a higher one costs
+  nothing that is not generated), and a truncated call never reaches the transcript at all — the
+  model is told in plain text that the call did not run and to take a smaller step with
+  `edit_file`. Well-formed calls in the same round still run and are still answered exactly once.
+- **A provider that refuses the requested ceiling no longer fails the turn.** Whether the ceiling
+  exceeds the model's output limit or input + ceiling overflows its context window, the request is
+  retried once at the effort budget instead of falling straight through to the model-fallback
+  chain.
+- **The `effort` setting had no effect.** `getEffortLevel()` was called with no argument, so it
+  always resolved to `medium` no matter what was configured.
+
 ## [5.71.9] - 2026-07-30 — Native terminal mouse behavior
 
 ### Fixed
