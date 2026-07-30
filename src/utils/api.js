@@ -1489,12 +1489,18 @@ async function streamOpenAICompletion(providerConfig, messages, tools, options =
 
   let content = '';
   let usage;
+  // Carried so callers can see truncation. `length` means the model hit the
+  // output ceiling: a tool call's arguments may be half a JSON document, and
+  // writing that into the history breaks the conversation permanently (see
+  // processToolCalls in code_v5).
+  let finishReason = null;
   const toolCallBuffer = [];
   await consumeSse(response, parsed => {
     if (parsed.usage) {
       usage = parsed.usage;
       emitStreamEvent(options.onEvent, { type: 'usage', usage, ...usage });
     }
+    if (parsed.choices?.[0]?.finish_reason) finishReason = parsed.choices[0].finish_reason;
     const delta = parsed.choices?.[0]?.delta;
     if (!delta) return;
     if (Array.isArray(delta.tool_calls)) {
@@ -1517,6 +1523,7 @@ async function streamOpenAICompletion(providerConfig, messages, tools, options =
     content: content || (toolCalls.length > 0 ? null : ''),
     ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
     ...(usage ? { usage } : {}),
+    ...(finishReason ? { finish_reason: finishReason } : {}),
   };
 }
 
