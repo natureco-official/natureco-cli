@@ -14,15 +14,16 @@ All notable changes to NatureCo CLI will be documented in this file.
 - Updated the supported-version and credential-disclosure guidance in `SECURITY.md`.
 
 ### Changed
-- Node.js 20.17 or newer is now required. This matches the supported versions of the
-  interactive prompt and patched Hono/MCP dependency chain.
+- Node.js 22.13 or newer is now required. This matches the supported versions of Urðr,
+  the interactive prompt, and the patched Hono/MCP dependency chain.
 - Command handlers are loaded only when invoked. Help, version, and completion paths
   no longer load the full command graph, contact the update registry, or create links
   under the user's home directory.
 - Built-in skill/tool links are now created explicitly by `natureco setup`.
 - Removed the install-time script that modified the user's home directory, ran doctor,
   and could invoke a nested `npm install`.
-- CI now covers Node 20.17, 22, and 24 across Linux, Windows, and macOS combinations.
+- CI now covers the Node 22.13 floor plus current Node 22 and 24 across Linux, Windows,
+  and macOS combinations.
   Lint warnings have a non-regression budget, startup performance is measured for both
   version and help, and dependency auditing blocks moderate-or-higher findings.
 - Coverage gates increased to 25% lines/statements/functions and 20% branches; tests no

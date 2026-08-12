@@ -3,7 +3,7 @@
 [![npm version](https://img.shields.io/npm/v/natureco-cli)](https://www.npmjs.com/package/natureco-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-blue)]()
-[![Node](https://img.shields.io/badge/node-%3E%3D20.17.0-brightgreen)]()
+[![Node](https://img.shields.io/badge/node-%3E%3D22.13.0-brightgreen)]()
 [![Downloads](https://img.shields.io/npm/dm/natureco-cli)](https://www.npmjs.com/package/natureco-cli)
 [![Stars](https://img.shields.io/github/stars/natureco-official/natureco-cli)](https://github.com/natureco-official/natureco-cli)
 
@@ -58,7 +58,7 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
-| **v6.0.0** | **Security and release hardening.** Zero known npm audit findings, Node 20.17+ support, lazy command loading, side-effect-free help, multi-version CI, stronger coverage/lint gates, pinned skill sources with SHA-256 provenance, and a CycloneDX runtime SBOM. |
+| **v6.0.0** | **Security and release hardening.** Zero known npm audit findings, Node 22.13+ support, lazy command loading, side-effect-free help, multi-version CI, stronger coverage/lint gates, pinned skill sources with SHA-256 provenance, and a CycloneDX runtime SBOM. |
 | **v5.71.9** | **Native mouse behavior is restored on the main Code screen.** Wheel scrollback, text selection and right-click stay owned by the terminal; Natureco enables mouse tracking only inside the `Ctrl+O` tool transcript and releases it again on close. |
 | **v5.71.8** | **Interactive slash-command palette in Natureco Code.** Type `/` to see commands, keep typing to filter, navigate with Up/Down, and select with Enter or Tab; commands requiring arguments remain editable. |
 | **v5.71.7** | **Mouse-wheel scrolling now works in Natureco Code.** Using the wheel from the normal view opens the fully expanded tool transcript and scrolls immediately; wheel, arrow and page-key navigation work alongside clickable expand/collapse cards. |
@@ -454,7 +454,7 @@ natureco models list --provider anthropic
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
-| **Node.js** | 20.17 | 22.x or 24.x |
+| **Node.js** | 22.13 | 22.x or 24.x |
 | **RAM** | 256 MB | 512 MB |
 | **Disk** | 100 MB | 500 MB (with cache) |
 | **OS** | macOS 12, Win 10, Ubuntu 20 | macOS 14+, Win 11, Ubuntu 22 |
