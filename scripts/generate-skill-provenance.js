@@ -29,10 +29,14 @@ const LICENSES = {
   'halt-catch-fire/skills': 'SEE-UPSTREAM',
 };
 
+function canonicalText(content) {
+  return content.toString('utf8').replace(/\r\n/g, '\n');
+}
+
 function sha256(content) {
   // Git may materialize text files with CRLF on Windows. Provenance must
   // describe the logical source content, not the checkout platform.
-  const canonicalContent = content.toString('utf8').replace(/\r\n/g, '\n');
+  const canonicalContent = canonicalText(content);
   return crypto.createHash('sha256').update(canonicalContent, 'utf8').digest('hex');
 }
 
@@ -87,7 +91,7 @@ function main() {
   const manifest = buildManifest();
   if (process.argv.includes('--check')) {
     const current = fs.existsSync(OUTPUT) ? fs.readFileSync(OUTPUT, 'utf8') : '';
-    if (current !== stable(manifest)) {
+    if (canonicalText(current) !== stable(manifest)) {
       console.error('SKILL_PROVENANCE.json is missing or stale. Run npm run provenance:generate.');
       process.exitCode = 1;
       return;
@@ -101,4 +105,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { buildManifest, sha256 };
+module.exports = { buildManifest, canonicalText, sha256 };
