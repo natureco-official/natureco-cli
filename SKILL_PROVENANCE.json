@@ -325,7 +325,7 @@
     {
       "name": "azure-validate",
       "path": "skills/azure-validate/SKILL.md",
-      "sha256": "1d5add2d940e762efeeb518ee2cc4f82ab2f5faa08b0b5d8b8bf60e2f8d599d2",
+      "sha256": "658bc439e1c6ad3b3085492baeeeaeeaaed8920ac3f7588da4f78b967bf1c141",
       "kind": "third-party",
       "repository": "https://github.com/microsoft/azure-skills",
       "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
@@ -609,7 +609,7 @@
     {
       "name": "code-review",
       "path": "skills/code-review/SKILL.md",
-      "sha256": "9520a9de7ae1044406ea1acd1a503ba1115bc992cc7fb91a4ad6b18cb23eb53b",
+      "sha256": "7a672dbd507df933f5ed8c7c180d607d07d64fb3f542edfd6aec0d1f21349c9d",
       "kind": "natureco",
       "repository": "https://github.com/natureco-official/natureco-cli",
       "license": "SEE-PACKAGE-LICENSE"
@@ -2347,7 +2347,7 @@
     {
       "name": "summarize",
       "path": "skills/summarize/SKILL.md",
-      "sha256": "6cb3738f5464316082e8b1821816475763210ccaf5f6e8dcfb6683e9eb16583c",
+      "sha256": "1742f491d5e8983da565e29dcba0c6e521b565ab94b710cf7511ff5f77e3765a",
       "kind": "natureco",
       "repository": "https://github.com/natureco-official/natureco-cli",
       "license": "SEE-PACKAGE-LICENSE"
@@ -2553,7 +2553,7 @@
     {
       "name": "translate",
       "path": "skills/translate/SKILL.md",
-      "sha256": "95cc0213d7a94104e2ad8cd90d6f547468ca4bfa18a218436957f155d455586d",
+      "sha256": "afda8a6caba9c721578e030a188962b31ab76d5386b1c3f640846a17d8bcb46b",
       "kind": "natureco",
       "repository": "https://github.com/natureco-official/natureco-cli",
       "license": "SEE-PACKAGE-LICENSE"

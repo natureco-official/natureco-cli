@@ -30,7 +30,10 @@ const LICENSES = {
 };
 
 function sha256(content) {
-  return crypto.createHash('sha256').update(content).digest('hex');
+  // Git may materialize text files with CRLF on Windows. Provenance must
+  // describe the logical source content, not the checkout platform.
+  const canonicalContent = content.toString('utf8').replace(/\r\n/g, '\n');
+  return crypto.createHash('sha256').update(canonicalContent, 'utf8').digest('hex');
 }
 
 function importedSkills() {
@@ -98,4 +101,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { buildManifest };
+module.exports = { buildManifest, sha256 };
