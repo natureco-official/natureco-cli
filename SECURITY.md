@@ -1,29 +1,29 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-| Version | Supported          |
-|---------|--------------------|
-| 5.6.x   | Active support     |
-| 5.5.x   | Critical fixes only |
-| < 5.5   | End of life        |
+| Version | Support |
+| --- | --- |
+| 6.0.x | Active support |
+| 5.71.x | Critical security fixes only |
+| < 5.71 | End of life |
 
-## Reporting a Vulnerability
+Security support follows the latest published minor line. This table is updated as
+part of every minor release.
 
-If you discover a security vulnerability in NatureCo CLI:
+## Reporting a vulnerability
 
-1. **DO NOT** open a public GitHub issue
-2. Email: **security@natureco.me**
-3. Include:
-   - Description of the vulnerability
-   - Steps to reproduce
-   - Potential impact
+Do not open a public issue for an undisclosed vulnerability. Email
+**security@natureco.me** with a description, reproduction steps, affected versions,
+and potential impact. We aim to acknowledge reports within 48 hours and will share
+status updates until remediation or coordinated disclosure.
 
-We will respond within **48 hours**.
+Never include live API keys or tokens in issues, logs, screenshots, or chat. Revoke
+and rotate any credential that has been disclosed, even if it was only used for a
+short-lived test.
 
-## Security Best Practices
+## Release controls
 
-- **Never commit API keys** — use `.env` files
-- **Review** `natureco doctor` output
-- **Use Dangerous Command Approval** — enabled by default in v5.6.x
-- **Update regularly** — `npm update -g natureco-cli`
+Releases run syntax, lint, unit/regression, smoke, provenance, package-integrity,
+and dependency-audit gates. Use `.env` or the operating system credential store for
+secrets, keep dangerous-command approval enabled, and update the CLI regularly.

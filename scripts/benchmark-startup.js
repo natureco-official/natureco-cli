@@ -18,9 +18,14 @@ function measure(args, runs = 7) {
 }
 
 const version = measure(['--version']);
-const report = { timestamp: new Date().toISOString(), node: process.version, platform: process.platform, version };
+const help = measure(['help'], 5);
+const report = { timestamp: new Date().toISOString(), node: process.version, platform: process.platform, version, help };
 console.log(JSON.stringify(report, null, 2));
 if (version.median >= 100) {
   console.error(`--version median ${version.median.toFixed(1)}ms exceeds 100ms target`);
+  process.exitCode = 1;
+}
+if (help.median >= 300) {
+  console.error(`help median ${help.median.toFixed(1)}ms exceeds 300ms target`);
   process.exitCode = 1;
 }
