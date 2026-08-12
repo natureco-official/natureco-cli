@@ -76,7 +76,7 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.105.0",
+    "@anthropic-ai/sdk": "^0.116.0",
     "@inquirer/prompts": "^8.5.2",
     "@slack/web-api": "^8.0.0",
     "@whiskeysockets/baileys": "^7.0.0-rc10",
