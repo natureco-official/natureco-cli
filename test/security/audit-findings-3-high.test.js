@@ -105,7 +105,17 @@ describe('AUDIT_FINDINGS_3 high-severity regressions', () => {
     vi.spyOn(os, 'homedir').mockReturnValue(home);
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     const adminRpc = (await import('../../src/commands/admin-rpc.js')).default;
-    const port = String(42000 + Math.floor(Math.random() * 10000));
+    // Port 0 = işletim sistemi boş bir port seçsin.
+    //
+    // Önceden 42000–52000 arası RASTGELE bir port seçiliyordu. Windows'ta bu
+    // aralığın parçaları WinNAT/Hyper-V tarafından rezerve edilir ve rezerve bir
+    // porta bağlanmak EACCES verir (kullanımda olsaydı EADDRINUSE olurdu). Bu
+    // yüzden test Windows CI'da ara ara düşüyordu: "expected '❌ Server error:
+    // listen EACCES ... 127.0.0.1:49813' to contain 'value hidden'". Testin
+    // belirli bir porta ihtiyacı yok — yalnızca çıktıyı denetliyor.
+    //
+    // Kararsız bir güvenlik testi, zamanla görmezden gelinen bir güvenlik testidir.
+    const port = '0';
     adminRpc.startAdmin(port);
     await new Promise(resolve => setTimeout(resolve, 50));
     const token = fs.readFileSync(path.join(home, '.natureco', 'admin-token'), 'utf8').trim();
