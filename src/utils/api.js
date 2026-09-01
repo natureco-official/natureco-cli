@@ -10,6 +10,7 @@ const { getToolDefinitions, executeToolCalls } = require('./tool-runner');
 const { MCPClient } = require('./mcp-client');
 const TB = require('./token-budget');
 const { accumulateToolCallDeltas, finalizeToolCalls } = require('./streaming-tools');
+const { applyOpenAIReasoningShape, extractReasoningDelta } = require('./reasoning-models');
 const { AgentCore } = require('./agent-core');
 const { selectTools, buildCatalog, buildCatalogNames, createEnableToolsTool } = require('./tool-profile');
 
@@ -170,13 +171,19 @@ function buildRequestBody(messages, model, options = {}, provider) {
     };
   }
   // OpenAI-compatible
-  return {
+  //
+  // applyOpenAIReasoningShape ŞART: o-serisi ve gpt-5 ailesi `max_tokens`
+  // parametresini ve temperature !== 1 değerini REDDEDER. Bu iki alan koşulsuz
+  // gönderildiği için o modellerle her istek 400 dönüyordu. Ayrıca düşünen
+  // modellerde bütçe akıl yürütme + çıktının toplamı olduğundan taban bir
+  // değere yükseltiliyor; aksi hâlde bütçe düşünmeye gidip content boş kalıyor.
+  return applyOpenAIReasoningShape({
     model,
     messages,
     max_tokens: maxTokens,
     temperature,
     ...(options.tools && options.tools.length > 0 ? { tools: options.tools, tool_choice: 'auto' } : {})
-  };
+  }, model);
 }
 
 function buildProviderRequest(providerConfig, messages, tools, options = {}) {
@@ -1488,6 +1495,7 @@ async function streamOpenAICompletion(providerConfig, messages, tools, options =
   }
 
   let content = '';
+  let reasoning = '';
   let usage;
   // Carried so callers can see truncation. `length` means the model hit the
   // output ceiling: a tool call's arguments may be half a JSON document, and
@@ -1509,6 +1517,16 @@ async function streamOpenAICompletion(providerConfig, messages, tools, options =
         emitStreamEvent(options.onEvent, { ...item, type: 'tool_call_delta' });
       }
     }
+    // Düşünme metni ayrı bir alanda gelir (MiniMax, DeepSeek, Kimi, Moonshot,
+    // GLM-Z, QwQ). Eskiden yalnızca delta.content okunduğu için bu modellerde
+    // ekranda HİÇBİR ŞEY akmıyor, kullanıcı donmuş sanıyor ve o tokenlar yine
+    // faturalanıyordu. Ayrı bir olay olarak yayılıyor ki arayüz onu soluk
+    // gösterebilsin; nihai içeriğe KARIŞTIRILMIYOR.
+    const reasoningDelta = extractReasoningDelta(delta);
+    if (reasoningDelta) {
+      reasoning += reasoningDelta;
+      emitStreamEvent(options.onEvent, { type: 'reasoning_delta', text: reasoningDelta });
+    }
     if (typeof delta.content === 'string' && delta.content) {
       content += delta.content;
       emitStreamEvent(options.onEvent, { type: 'text_delta', text: delta.content });
@@ -1521,6 +1539,11 @@ async function streamOpenAICompletion(providerConfig, messages, tools, options =
   return {
     role: 'assistant',
     content: content || (toolCalls.length > 0 ? null : ''),
+    // Düşünme metni AYRI alanda döner; content'e karıştırılmaz. Transkripte
+    // yazılmaması gerekir (sağlayıcılar onu geri kabul etmez), ama çağıranın
+    // "model boş cevap verdi" ile "model düşündü ama çıktı üretemedi" durumunu
+    // ayırt edebilmesi için görünür olmalı.
+    ...(reasoning ? { reasoning_content: reasoning } : {}),
     ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
     ...(usage ? { usage } : {}),
     ...(finishReason ? { finish_reason: finishReason } : {}),
