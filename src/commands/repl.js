@@ -76,6 +76,19 @@ function fixModelNameLeak(text, botName) {
 global.fixModelNameLeak = fixModelNameLeak;
 
 // v4.8.0: Tool definitions — başlangıçta bir kez yükle (performans)
+//
+// KOPYA DÖNDÜRÜR, önbelleğin kendisini DEĞİL. Çağıranlar (sendStreaming,
+// processToolCalls) dönen diziye plan/worktree/sanal araçları ve enable_tools'u
+// push ediyor. Önbelleğin referansı döndürülürse bu eklemeler kalıcı olur ve
+// HER TURDA birikir: ikinci mesajda iki `enable_tools`, beşincide beş tane
+// sağlayıcıya gider. enable_tools `_alwaysExpose: true` olduğu için her zaman
+// sunulur ve ne tool-profile ne formatToolsForOpenAI tekilleştirme yapar —
+// OpenAI uyumlu sağlayıcıların çoğu yinelenen fonksiyon adında 400 döner.
+// Ayrıca dizi oturum boyunca sınırsız büyür.
+//
+// code_v5.js:641 bu tuzağa düşmüyor çünkü her turda loadToolDefinitions()'ı
+// yeniden çağırıyor. Burada önbellek korunuyor (yükleme maliyeti gerçek),
+// yalnızca dışarıya sığ kopya veriliyor.
 let _toolDefs = null;
 
 // Yapılandırılmış MCP sunucularının araçları.
@@ -119,7 +132,7 @@ function getToolDefs() {
       _toolDefs = [..._mcpToolDefs];
     }
   }
-  return _toolDefs;
+  return _toolDefs.slice();
 }
 
 // ── System prompt tier cache (Hermes-style prefix cache warmth) ────────────
@@ -743,7 +756,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
       fullText = content;
       // Non-stream tool call desteği
       if (msg.tool_calls && msg.tool_calls.length > 0) {
-        const toolResults = await processToolCalls(msg.tool_calls, onToolCall, stdinPrompt);
+        const toolResults = await processToolCalls(msg.tool_calls, onToolCall, stdinPrompt, toolDefs);
         currentMessages.push(msg);
         currentMessages.push(...toolResults);
         continue; // Tekrar API çağır
@@ -832,7 +845,7 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
         tool_calls: finalized,
       });
       // Her tool call'ı çalıştır, sonuçları tool mesajı olarak ekle
-      const toolResults = await processToolCalls(finalized, onToolCall, stdinPrompt);
+      const toolResults = await processToolCalls(finalized, onToolCall, stdinPrompt, toolDefs);
       currentMessages.push(...toolResults);
 
       // Plan mode review: plan submitted, wait for user approval
@@ -921,8 +934,13 @@ async function askPermissionPrompt(question, hint, prompter) {
 const _permSessionCache = new Map();
 
 
-async function processToolCalls(toolCalls, onToolCall, onAsk) {
-  const toolDefs = getToolDefs();
+// toolDefs AÇIKÇA geçirilir. Sanal araçlar (EnterPlanMode, CreateTask, …)
+// manifestte yoktur; tanımları execute'larıyla birlikte yalnızca sendStreaming
+// içinde kurulur. Eskiden buraya getToolDefs() ile ulaşıyorlardı — ama sadece
+// önbelleğin kirlenmesi sayesinde, yani bir hatanın yan etkisi olarak.
+// Kirlenme giderilince tek doğru yol, turun listesini parametre olarak vermek.
+async function processToolCalls(toolCalls, onToolCall, onAsk, turToolDefs) {
+  const toolDefs = turToolDefs || getToolDefs();
   const results = [];
 
   // Parse all tool calls first
