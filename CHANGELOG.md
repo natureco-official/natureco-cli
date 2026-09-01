@@ -2,6 +2,23 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [6.2.1] - 2026-09-01 — Paket sayfasındaki belgeler ve Windows'ta kararsız test
+
+### Documentation
+- **README abonelik özelliğini hiç anlatmıyordu** ve sürüm tablosu v6.0.0'da
+  kalmıştı. npm paket sayfasında görünen şey README olduğu için, 6.1.0 ve
+  6.2.0'ın getirdikleri kuran kişiye hiçbir yerde görünmüyordu. Komut tablosuna
+  `abonelik` komutları, sürüm tablosuna 6.0.1/6.1.0/6.2.0 eklendi.
+
+### Fixed
+- **Windows'ta bir güvenlik testi ara ara düşüyordu.** `H-02` sunucuyu
+  42000–52000 arasından rastgele seçilen bir portta başlatıyordu; Windows'ta bu
+  aralığın parçaları WinNAT tarafından rezerve edilir ve rezerve porta bağlanmak
+  `EACCES` verir. Ölçüldü: CI koşucusunda 49813, geliştirme makinesinde
+  50000–50059 rezerveydi. Testin belirli bir porta ihtiyacı yok; artık işletim
+  sistemi boş port seçiyor. Kararsız bir güvenlik testi, zamanla görmezden
+  gelinen bir güvenlik testidir.
+
 ## [6.2.0] - 2026-09-01 — Abonelikle sohbet ve kod
 
 6.1.0'da abonelik yalnızca **keşfedilebiliyordu** (`durum`/`modeller`/`kota`);
