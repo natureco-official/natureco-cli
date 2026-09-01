@@ -2,6 +2,53 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [6.0.1] - 2026-09-01 — Sessizce etkisiz kalan korumalar
+
+Bu sürümdeki bulguların tamamı aracın gerçek kullanımıyla ortaya çıktı ve hepsi
+aynı deseni paylaşıyor: **koruma var görünüyor ama işlemiyor.** Her düzeltme,
+geri alındığında düşen bir testle sabitlendi.
+
+### Security
+- Bozuk `exec-approvals.json` artık tüm onay katmanını sessizce kapatmıyor.
+  `loadApprovals` ayrıştırma hatasını yutup en izinli varsayılana (`security: full`)
+  düşüyordu; bir test makinesinde dosya iki aydır bozuk durumdaydı ve hiçbir komut
+  onaya sorulmuyordu. Hata artık görünür ve kısıtlayıcı tarafa düşülüyor.
+- Tanınmayan `security` değeri (`"auto"`, yazım hatası, boş, tanımsız) artık `full`
+  olmuyor. `full` yalnızca açıkça yazıldığında geçerli; diğer her durumda onay isteniyor.
+- Tehlikeli komut tespiti yeniden yazıldı. Eski liste `^` ile sabitlenmişti ve
+  `sudo rm -rf /`, `rm -rf ~`, `rm -rf .`, `rm -rf /*`, `--no-preserve-root` ve
+  fork bombasının gerçek biçimi dahil en yaygın varyantları kaçırıyordu.
+  Ölçüm: 21/21 yıkıcı komut yakalanıyor (öncesi 4/21), 14/14 masum komut engellenmiyor.
+  Windows karşılıkları (`format`, `rd /s /q`, `Remove-Item -Recurse`) eklendi.
+- İzin kuralları artık sessizce düşmüyor. Ayrıştırıcı tire ve rakam kabul etmediği
+  için `mcp__brave-search__web_search(*)` gibi MCP kuralları hiç yüklenmiyordu;
+  eşleşme bulunamayınca sonuç `allow` olduğu için hatalı yazılmış her `deny` kuralı
+  sessizce izne dönüşüyordu. Geçersiz kural artık uyarı basıyor.
+- Belgelenen izin biçimi ilk kez gerçekten çalışıyor. `Read(~/.ssh/**)` ve
+  `Bash(npm *)` örnekleri gerçek araç adlarıyla (`read_file`, `bash`) hiç
+  eşleşmiyordu; kısa adlar artık gerçek araçlara bağlı ve `~` hem ham hem
+  genişletilmiş biçimde karşılanıyor.
+- `nanoid` override'ı açığın kapsadığı aralığa (`<3.3.18`) sabitlenmişti. Bu,
+  CI'ın her PR'da düşmesine ve `npm publish` kapısının kapalı kalmasına yol açıyordu.
+
+### Fixed
+- `natureco chat` uzun oturumlarda sağlayıcı hatasıyla ölmüyor. Araç listesi
+  önbelleğin referansı olarak döndürülüyor ve her tura 15 sanal araç + bir
+  `enable_tools` daha ekleniyordu; ikinci mesajda iki, beşincide beş `enable_tools`
+  gönderiliyordu. Çoğu OpenAI uyumlu sağlayıcı yinelenen fonksiyon adında 400 döner.
+- `natureco mcp set` ile eklenen sunucuyu ajan artık görüyor. Komut
+  `~/.natureco/mcp-servers.json` dosyasına yazıyor, çalışma zamanı ise
+  `config.json` içindeki `mcpServers` alanını okuyordu; ikisi hiç buluşmuyordu.
+  Eski dosyada kalan kayıtlar bir kez otomatik taşınıyor.
+- `mcp` yardım metni gerçek eylemleri gösteriyor. `add|remove|test|enable|disable|templates`
+  ilan ediliyordu ama `list` dışında hiçbiri uygulanmamıştı; uygulanan dördü
+  (`show`, `set`, `unset`, `serve`) hiç ilan edilmiyordu.
+
+### Changed
+- `main` dalının zorunlu durum kontrolleri gerçek iş adlarıyla eşleştirildi.
+  Zorunlu tutulan `test` adında bir kontrol hiç üretilmiyordu; koruma hem hiçbir
+  şeyi denetlemiyor hem her PR'ı süresiz bekletiyordu.
+
 ## [6.0.0] - 2026-08-12 — Security and release hardening
 
 ### Security
