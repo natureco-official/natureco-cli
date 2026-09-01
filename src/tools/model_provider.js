@@ -21,10 +21,8 @@ const inputSchema = {
 };
 
 async function execute(params) {
-  const fs = require('fs');
-  const path = require('path');
-  const os = require('os');
-  const cfg = (() => { try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; } })();
+  // Ortak ayar modülü: abonelik köprüsü gibi çalışma anı sağlayıcıları da görülür.
+  const cfg = require('../utils/config').getConfig();
   const { getProviderNames, getProvider, resolveProviderConfig, detectFamily } = require('../utils/model-provider');
 
   switch (params.action) {

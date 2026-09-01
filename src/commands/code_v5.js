@@ -18,6 +18,7 @@ const os = require("os");
 const readline = require("readline");
 const { execSync, execFileSync } = require("child_process");
 const chalk = require("chalk");
+const { abonelikKipi, abonelikBagla } = require("../utils/abonelik-baglayici");
 const { getLang: _gl } = require("../utils/i18n");
 const L = (tr, en) => (_gl() === "en" ? en : tr);
 const tui = require("../utils/tui");
@@ -599,12 +600,38 @@ async function codeV5(targetPath, cliOptions = {}) {
   const headlessPrompt = typeof cliOptions.print === 'string' && cliOptions.print.trim()
     ? cliOptions.print.trim()
     : null;
-  // Opt-in workflow pre-step (see the turn body for why it is no longer the default).
-  const useWorkflow = cliOptions.workflow === true || getConfig().codeWorkflow === true;
-
   if (cliOptions.list) { printSessionList(); return; }
 
   const config = getConfig();
+
+  // Abonelik kipi: sağlayıcı yerine yerel köprü. Köprü OpenAI'ın `tools`
+  // alanını iletmediği için (arkadaki ajanın kendi araçlarını natureco'nun onay
+  // katmanı dışında çalıştırmasını istemiyoruz) burada YEREL ARAÇ ÇAĞRISI
+  // KULLANILAMAZ; `code` bunu kendiliğinden anlamıyor, çünkü repl'in aksine
+  // supportsNativeToolCalls'a bakmıyor. Bu yüzden abonelikte metin tabanlı
+  // workflow akışına açıkça geçiyoruz — araçlar çalışmaya devam eder, kararı
+  // model metinle verir, çalıştıran natureco olur.
+  let abonelikKoprusu = null;
+  if (abonelikKipi(config)) {
+    try {
+      const b = await abonelikBagla(config, { surum: require('../../package.json').version });
+      config.providerUrl = b.providerUrl;
+      config.providerApiKey = b.providerApiKey;
+      abonelikKoprusu = b;
+      const kapat = () => { try { b.kapat(); } catch { /* kapanışta hata yutulur */ } };
+      process.once('exit', kapat);
+      process.once('SIGINT', () => { kapat(); process.exit(130); });
+      console.log(L(`\n  ${b.saglayici} aboneliği kullanılıyor.\n`, `\n  Using ${b.saglayici} subscription.\n`));
+    } catch (e) {
+      console.error(`\n  ❌ ${e.message}\n`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
+  // Opt-in workflow pre-step (see the turn body for why it is no longer the default).
+  const useWorkflow = cliOptions.workflow === true || getConfig().codeWorkflow === true
+    || abonelikKoprusu !== null;
   const maxToolRounds = resolveMaxToolRounds(config);
   if (!config.providerUrl || !config.providerApiKey) {
     // Exit non-zero: a script or CI job that pipes `natureco code -p …` must be

@@ -10,17 +10,15 @@
  */
 
 const fs = require("fs");
+const { istemciSec } = require("../utils/http-secici");
 const path = require("path");
 const os = require("os");
-const https = require("https");
 
 const PLAN_DIR = path.join(os.homedir(), ".natureco", "plans");
 
-function loadConfig() {
-  try {
-    return JSON.parse(fs.readFileSync(path.join(os.homedir(), ".natureco", "config.json"), "utf8"));
-  } catch { return {}; }
-}
+// Ortak ayar modülü üzerinden okunur; dosyayı doğrudan okumak çalışma
+// anında doğan sağlayıcıları (ör. abonelik köprüsü) görmez.
+function loadConfig() { return require("../utils/config").getConfig(); }
 
 function isMiniMax(url) {
   return url && (url.includes("minimax.io") || url.includes("minimaxi.com"));
@@ -75,7 +73,7 @@ Sadece plan yaz, baska bir sey yazma.`;
       ? cfg.providerUrl.replace(/\/+$/, "") + "/v1/text/chatcompletion_v2"
       : cfg.providerUrl.replace(/\/+$/, "") + "/chat/completions";
     const data = JSON.stringify(body);
-    const req = https.request(endpoint, {
+    const req = istemciSec(endpoint).request(endpoint, {
       method: "POST",
       headers: { "Authorization": "Bearer " + cfg.providerApiKey, "Content-Type": "application/json" },
       timeout: 60000,

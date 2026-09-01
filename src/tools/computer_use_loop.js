@@ -5,16 +5,15 @@
  * screenshot → verify → repeat until goal achieved.
  */
 
-const https = require('https');
+const { istemciSec } = require("../utils/http-secici");
 const fs = require('fs');
-const path = require('path');
-const os = require('os');
 const { buildChatEndpoint, isMiniMax, isAnthropic } = require('../utils/provider-detect');
 const { captureScreenshot: platformScreenshot, executeAction: platformExecute } = require('../utils/platform-gui');
 
-function loadConfig() {
-  try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; }
-}
+// Ortak ayar modülü üzerinden okunur. Dosyayı doğrudan okumak,
+// çalışma anında doğan sağlayıcıları (ör. abonelik köprüsü) GÖRMEZ:
+// köprü kipinde burada hâlâ 'abonelik:codex' yazar ve istek başarısız olur.
+function loadConfig() { return require('../utils/config').getConfig(); }
 
 // Windows' `timeout` command requires a real interactive console handle and fails with
 // "Input redirection is not supported" whenever stdin is piped/redirected (e.g. spawned from
@@ -91,7 +90,7 @@ async function visionCall(providerUrl, apiKey, model, prompt, screenshot) {
 function apiCall(providerUrl, apiKey, body) {
   return new Promise((resolve, reject) => {
     const endpoint = buildChatEndpoint(providerUrl);
-    const req = https.request(endpoint, {
+    const req = istemciSec(endpoint).request(endpoint, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       timeout: 120000,
