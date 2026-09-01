@@ -91,7 +91,6 @@ function enforceFactLimit(memory, opts = {}) {
   memory.facts = memory.facts.slice(0, MAX_FACTS_PER_USER);
   const dropped = before - memory.facts.length;
   if (dropped > 0 && !process.env.NATURECO_QUIET_MEMORY) {
-    // eslint-disable-next-line no-console
     console.warn(
       `[memory] cap ${MAX_FACTS_PER_USER} aşıldı, en düşük skorlu ${dropped} fact düşürüldü ` +
       `(NATURECO_MAX_FACTS ile değiştir, NATURECO_QUIET_MEMORY=1 ile sustur)`

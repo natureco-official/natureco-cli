@@ -90,12 +90,46 @@ global.fixModelNameLeak = fixModelNameLeak;
 // yeniden çağırıyor. Burada önbellek korunuyor (yükleme maliyeti gerçek),
 // yalnızca dışarıya sığ kopya veriliyor.
 let _toolDefs = null;
+
+// Yapılandırılmış MCP sunucularının araçları.
+//
+// REPL araç listesini yalnızca yerleşik manifestten (`loadToolDefinitions`)
+// kuruyordu, bu yüzden `natureco chat` içinde HİÇBİR MCP sunucusu görünmüyordu —
+// `natureco code` (code_v5.js) `loadMcpToolDefinitions()` çağırdığı için orada
+// çalışıyordu. Kullanıcı açısından: sunucuyu doğru yapılandırıp hiçbir araç
+// göremiyorsun ve ortada hata da yok.
+//
+// Yükleme async; getToolDefs ise senkron ve birçok yerden çağrılıyor. Bu yüzden
+// araçlar oturum açılışında bir kez ısıtılıp önbelleğe alınır, çağrı yerlerinin
+// hiçbiri değişmez. `deps` yalnızca test enjeksiyonu içindir.
+let _mcpToolDefs = [];
+async function warmMcpTools(deps) {
+  try {
+    const { loadMcpToolDefinitions } = require('../utils/mcp-tools');
+    const res = await loadMcpToolDefinitions(deps);
+    _mcpToolDefs = res.tools || [];
+    // Bozuk bir sunucu REPL'in açılmasını engellememeli, ama sessizce de yutulmamalı.
+    for (const err of res.errors || []) {
+      console.log(chalk.yellow(`  ⚠ MCP: ${err}`));
+    }
+    if (_mcpToolDefs.length > 0) {
+      console.log(chalk.gray(L(
+        `  🔌 MCP: ${res.servers.join(', ')} — ${_mcpToolDefs.length} araç yüklendi`,
+        `  🔌 MCP: ${res.servers.join(', ')} — ${_mcpToolDefs.length} tools loaded`)));
+    }
+  } catch (e) {
+    _mcpToolDefs = [];
+  }
+  _toolDefs = null; // önbelleği tazele ki sonraki getToolDefs MCP'yi de kapsasın
+  return _mcpToolDefs;
+}
+
 function getToolDefs() {
   if (!_toolDefs) {
     try {
-      _toolDefs = loadToolDefinitions();
+      _toolDefs = [...loadToolDefinitions(), ..._mcpToolDefs];
     } catch (e) {
-      _toolDefs = [];
+      _toolDefs = [..._mcpToolDefs];
     }
   }
   return _toolDefs.slice();
@@ -1140,6 +1174,10 @@ async function startRepl(args) {
   args = args || [];
   ensureDir(MEMORY_DIR); ensureDir(SESSION_DIR);
 
+  // MCP araçlarını ilk tur başlamadan ısıt — getToolDefs senkron olduğu için
+  // buradan sonra hiçbir çağrı yerinin await etmesi gerekmez.
+  await warmMcpTools();
+
   const cfg = getConfig();
   let providerUrl = cfg.providerUrl;
   let providerApiKey = cfg.providerApiKey;
@@ -1847,4 +1885,4 @@ async function startRepl(args) {
 module.exports = startRepl;
 // v5.40: test icin — cross-session hafiza bozulma regresyonu (kod adı ≠ kullanici adi)
 module.exports.extractPreferenceFacts = extractPreferenceFacts;
-module.exports._internal = { printHelp, CLI_COMMANDS, loadMemory, getToolDefs };
+module.exports._internal = { printHelp, CLI_COMMANDS, loadMemory, warmMcpTools, getToolDefs };
