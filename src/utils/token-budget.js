@@ -295,19 +295,80 @@ function smartTrim(messages) {
  * Rough token estimate for a whole transcript (chars/4, plus per-message
  * overhead and serialized tool_calls, which are billed but carry no `content`).
  */
+/**
+ * Latin dışı karakterlerin token maliyeti çok daha yüksektir.
+ *
+ * chars/4 kuralı ASCII için makul, ama Türkçe'nin aksanlı harfleri, CJK,
+ * Hangul, Kana, Kiril, Arapça ve Yunanca için ciddi biçimde DÜŞÜK tahmin
+ * üretir — CJK'de bir karakter tipik olarak ~1 token'dır, yani chars/4 gerçek
+ * maliyetin dörtte birini gösterir. Türkçe öncelikli bir üründe bu, bağlamın
+ * dolduğunu geç fark etmek ve sağlayıcıdan context-length hatası yemek demek.
+ *
+ * Düzeltme: Latin dışı her karakter için ek maliyet eklenir.
+ */
+const CJK_VE_BENZERI = /[ᄀ-ᇿ⺀-鿿가-힯豈-﫿＀-￯]/g;
+const LATIN_DISI = /[À-ɏͰ-ϿЀ-ӿ֐-ۿ]/g;
+
+function latinDisiEkMaliyet(metin) {
+  if (!metin) return 0;
+  const cjk = (metin.match(CJK_VE_BENZERI) || []).length;
+  const digerLatinDisi = (metin.match(LATIN_DISI) || []).length;
+  // CJK: karakter başına ~1 token → chars/4 zaten 0,25 saydı, 3 karakter ekle.
+  // Diğer Latin dışı (Türkçe aksanlı, Kiril, Yunanca, Arapça): ~0,5 token →
+  // 1 karakter ekle.
+  return cjk * 3 + digerLatinDisi;
+}
+
 function estimateMessageTokens(messages) {
   if (!Array.isArray(messages)) return 0;
   let chars = 0;
   for (const msg of messages) {
     chars += 16; // role + framing overhead
     const content = msg?.content;
-    if (typeof content === 'string') chars += content.length;
-    else if (content) { try { chars += JSON.stringify(content).length; } catch { /* unserializable */ } }
+    if (typeof content === 'string') {
+      chars += content.length + latinDisiEkMaliyet(content);
+    } else if (content) {
+      try {
+        const s = JSON.stringify(content);
+        chars += s.length + latinDisiEkMaliyet(s);
+      } catch { /* unserializable */ }
+    }
     if (Array.isArray(msg?.tool_calls)) {
-      try { chars += JSON.stringify(msg.tool_calls).length; } catch { /* unserializable */ }
+      try {
+        const s = JSON.stringify(msg.tool_calls);
+        chars += s.length + latinDisiEkMaliyet(s);
+      } catch { /* unserializable */ }
     }
   }
   return Math.ceil(chars / 4);
+}
+
+/**
+ * Bağlam boyutunu SAĞLAYICININ GERÇEK SAYIMINI temel alarak hesaplar.
+ *
+ * Tahmin yalnızca son `usage` raporundan SONRAKİ mesajlar için kullanılır;
+ * öncesi için sağlayıcının kendi sayımı esastır. Böylece hata birikmez:
+ * saf tahminde 50 mesajlık bir transkriptte %20'lik bir sapma, kırpma
+ * kararını tamamen yanlış yere taşıyabiliyordu.
+ *
+ * `usage` bulunamazsa (ilk tur, ya da sağlayıcı raporlamıyorsa) davranış
+ * eskisiyle aynı: tamamı tahmin.
+ *
+ * @param {Array} messages transkript
+ * @param {{usage?: {total_tokens?: number, prompt_tokens?: number, input_tokens?: number}, afterIndex?: number}} [olcum]
+ */
+function estimateContextTokens(messages, olcum) {
+  if (!Array.isArray(messages)) return 0;
+  const u = olcum?.usage;
+  const gercek = Number(u?.total_tokens ?? u?.prompt_tokens ?? u?.input_tokens);
+  const sinir = Number(olcum?.afterIndex);
+
+  if (!Number.isFinite(gercek) || gercek <= 0 || !Number.isFinite(sinir) || sinir < 0) {
+    return estimateMessageTokens(messages);
+  }
+  // Sağlayıcının saydığı kısım + yalnızca ondan sonraki kuyruğun tahmini.
+  const kuyruk = messages.slice(sinir + 1);
+  return gercek + estimateMessageTokens(kuyruk);
 }
 
 /**
@@ -390,5 +451,7 @@ module.exports = {
   smartTrim,
   repairToolPairing,
   estimateMessageTokens,
+  estimateContextTokens,
+  latinDisiEkMaliyet,
   needsCompaction,
 };
