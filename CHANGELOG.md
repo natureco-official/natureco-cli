@@ -2,6 +2,21 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [6.2.2] - 2026-09-01 — Kurulum sihirbazında model listesi okunmuyordu
+
+### Fixed
+- **Model seçim listesinde grup başlıkları `[object Object]` olarak
+  görünüyordu** ve imleç seçilemez bir satırın üstünde başlıyordu. Bu, aracı ilk
+  kez kuran kişinin gördüğü ilk ekran. Sebep: soru kütüphanesi, `value` alanı
+  olmayan bir seçeneği ham değer sayıp `String(nesne)` çağırıyor — eski inquirer
+  alışkanlığıyla yazılan `{ name: 'BAŞLIK', disabled: true }` satırlarında `name`
+  duruyor ama hiç okunmuyordu. Başlıklar artık kütüphanenin kendi ayraç kavramına
+  çevriliyor; dönüşüm kütüphaneye uyum sınırında yapıldığı için aynı kalıbı
+  kullanan beş yerin hepsi tek seferde düzeldi.
+- **`natureco update` güncelleme olduğunu söylüyor ama nasıl yapılacağını
+  söylemiyordu.** Araçta zaten `natureco update run` var; durum ekranında hiç
+  geçmiyordu. Artık bir sonraki adım yazıyor.
+
 ## [6.2.1] - 2026-09-01 — Paket sayfasındaki belgeler ve Windows'ta kararsız test
 
 ### Documentation

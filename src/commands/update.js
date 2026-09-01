@@ -73,6 +73,11 @@ function cmdStatus() {
       console.log(chalk.green('  ✓ You are up to date.\n'));
     } else {
       console.log(chalk.yellow('  Update available: v' + current + ' → v' + latest + '\n'));
+      // Bir sonraki adımı SÖYLE. "Güncelleme mevcut" deyip nasıl yapılacağını
+      // söylememek kullanıcıyı dışarıya sormaya itiyordu; kendi güncelleyicimiz
+      // var ama bu ekranda hiç geçmiyordu.
+      console.log(chalk.gray('  Güncellemek için: ') + chalk.cyan('natureco update run'));
+      console.log(chalk.gray('  veya: ') + chalk.cyan('npm i -g natureco-cli@latest') + '\n');
     }
   } else {
     console.log(chalk.gray('  Could not check latest version.\n'));
