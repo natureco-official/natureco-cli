@@ -16,7 +16,7 @@
  */
 
 const { AbonelikKoprusu } = require('./abonelik-kopru');
-const { tumDurumlar } = require('./abonelik-saglayicilari');
+const { tumDurumlar, SAGLAYICILAR } = require('./abonelik-saglayicilari');
 const { calismaZamaniAyariniAyarla } = require('./config');
 
 /** Yapılandırma abonelik kipinde mi? */
@@ -66,7 +66,10 @@ async function abonelikBagla(cfg, { surum } = {}) {
   return {
     providerUrl: kopru.url,
     providerApiKey: kopru.anahtar,
-    saglayici: durum.ad,
+    // Sabit kayıttan okunur, durum nesnesinden DEĞİL: durum dosya okumasından
+    // türediği için ekrana basıldığında sır sızdırma analizinde işaretleniyor.
+    // Görünen ad zaten sabit; kaynağı da sabit olsun.
+    saglayici: SAGLAYICILAR[anahtar].ad,
     kapat: async () => { calismaZamaniAyariniAyarla(null); await kopru.kapat(); },
   };
 }

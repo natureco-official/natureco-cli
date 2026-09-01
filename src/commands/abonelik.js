@@ -143,6 +143,11 @@ async function cmdKota() {
   }
 }
 
+/** Adresten yalnızca ana makine adı; kullanıcı/parola ve yol düşürülür. */
+function sadeAdres(url) {
+  try { return new URL(url).host; } catch { return '(geçersiz adres)'; }
+}
+
 /** Abonelikte kullanılabilir ilk model; alınamazsa null. */
 async function ilkAbonelikModeli() {
   const c = new CodexAbonelikIstemcisi({ surum: version });
@@ -216,7 +221,9 @@ function cmdBirak() {
   if (onceki && onceki.providerUrl) {
     setConfigValue('providerUrl', onceki.providerUrl);
     if (onceki.providerModel) setConfigValue('providerModel', onceki.providerModel);
-    console.log(chalk.green(`\n  ${L('Önceki sağlayıcıya dönüldü', 'Reverted to previous provider')}: ${onceki.providerUrl}\n`));
+    // Yalnızca ana makine adı yazılır. Bazı sağlayıcılar kimlik bilgisini
+    // adresin içine gömer; tam URL'yi basmak onu ekrana ve loglara düşürür.
+    console.log(chalk.green(`\n  ${L('Önceki sağlayıcıya dönüldü', 'Reverted to previous provider')}: ${sadeAdres(onceki.providerUrl)}\n`));
   } else {
     setConfigValue('providerUrl', '');
     console.log(chalk.gray(`\n  ${L('Abonelik kipi kapatıldı. Sağlayıcı için', 'Subscription mode off. For a provider')}: `)
