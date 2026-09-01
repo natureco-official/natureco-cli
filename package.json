@@ -82,7 +82,7 @@
     "@whiskeysockets/baileys": "^7.0.0-rc10",
     "chalk": "^4.1.2",
     "commander": "^11.1.0",
-    "diff": "^5.2.2",
+    "diff": "^9.0.0",
     "discord.js": "^14.27.0",
     "irc": "^0.5.2",
     "marked": "^4.3.0",
