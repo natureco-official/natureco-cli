@@ -47,7 +47,7 @@ function extractPreferenceFacts(content) {
   return out;
 }
 const chalk = require('chalk');
-const { abonelikKipi, abonelikBagla } = require('../utils/abonelik-baglayici');
+const { abonelikKipi, abonelikBagla, saglayiciAdi } = require('../utils/abonelik-baglayici');
 const { getLang: _getLang } = require('../utils/i18n');
 const L = (tr, en) => (_getLang() === 'en' ? en : tr);
 const tui = require('../utils/tui');
@@ -1203,7 +1203,11 @@ async function startRepl(args) {
       // Köprü OpenAI `tools` alanını iletmez; REPL yerel araç çağrısı
       // desteklenmeyen sağlayıcılardaki hazır akışa düşmeli.
       cfg.nativeToolCalls = false;
-      console.log(chalk.gray(L(`\n  ${b.saglayici} aboneliği kullanılıyor.\n`, `\n  Using ${b.saglayici} subscription.\n`)));
+      // Ad, gizli anahtarı da taşıyan `b` yerine sabit kayıttan okunur:
+      // sır taşıyan bir nesneden gösterim verisi çekip ekrana basmak,
+      // hem sızıntı analizinde işaretlenir hem de gereksiz bir bağdır.
+      const saglayici = saglayiciAdi(cfg);
+      console.log(chalk.gray(L(`\n  ${saglayici} aboneliği kullanılıyor.\n`, `\n  Using ${saglayici} subscription.\n`)));
     } catch (e) {
       console.log(chalk.red(`\n  ❌ ${e.message}\n`));
       process.exit(1);

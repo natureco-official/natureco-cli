@@ -18,7 +18,7 @@ const os = require("os");
 const readline = require("readline");
 const { execSync, execFileSync } = require("child_process");
 const chalk = require("chalk");
-const { abonelikKipi, abonelikBagla } = require("../utils/abonelik-baglayici");
+const { abonelikKipi, abonelikBagla, saglayiciAdi } = require("../utils/abonelik-baglayici");
 const { getLang: _gl } = require("../utils/i18n");
 const L = (tr, en) => (_gl() === "en" ? en : tr);
 const tui = require("../utils/tui");
@@ -621,7 +621,9 @@ async function codeV5(targetPath, cliOptions = {}) {
       const kapat = () => { try { b.kapat(); } catch { /* kapanışta hata yutulur */ } };
       process.once('exit', kapat);
       process.once('SIGINT', () => { kapat(); process.exit(130); });
-      console.log(L(`\n  ${b.saglayici} aboneliği kullanılıyor.\n`, `\n  Using ${b.saglayici} subscription.\n`));
+      // Ad, gizli anahtarı da taşıyan `b` yerine sabit kayıttan okunur.
+      const saglayici = saglayiciAdi(config);
+      console.log(L(`\n  ${saglayici} aboneliği kullanılıyor.\n`, `\n  Using ${saglayici} subscription.\n`));
     } catch (e) {
       console.error(`\n  ❌ ${e.message}\n`);
       process.exitCode = 1;

@@ -30,6 +30,12 @@ function secilenSaglayici(cfg) {
   return m ? m[1].toLowerCase() : 'codex';
 }
 
+/** Sağlayıcının görünen adı — sabit kayıttan, sır taşıyan nesnelerden değil. */
+function saglayiciAdi(cfg) {
+  const s = SAGLAYICILAR[secilenSaglayici(cfg)];
+  return s ? s.ad : 'abonelik';
+}
+
 /**
  * Köprüyü açar ve REPL'in kullanacağı sağlayıcı bilgilerini döndürür.
  * Kullanılamıyorsa SEBEBİYLE hata verir — sessizce API anahtarına düşmez,
@@ -74,4 +80,4 @@ async function abonelikBagla(cfg, { surum } = {}) {
   };
 }
 
-module.exports = { abonelikKipi, secilenSaglayici, abonelikBagla };
+module.exports = { abonelikKipi, secilenSaglayici, saglayiciAdi, abonelikBagla };
