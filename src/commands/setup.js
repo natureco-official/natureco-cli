@@ -10,7 +10,7 @@ const readline = require('readline');
 const inquirer = require('../utils/inquirer-wrapper');
 const brand = require('../utils/branding');
 const { COLORS, FULL_LOGO } = brand;
-const { applySetupCatalog } = require('../utils/model-catalog');
+const { applySetupCatalog, buildModelChoices } = require('../utils/model-catalog');
 const { findModelsEndpoint, fetchLiveModels } = require('./models');
 
 const BASE_DIR = path.join(os.homedir(), '.natureco');
@@ -356,45 +356,27 @@ async function cmdWizard() {
     const preset = PROVIDER_PRESETS[provider];
     providerUrl = preset.url;
 
-    // Direkt model listesi - tier gruplari ile
+    // Model listesi, gruplar KATALOGDAN türetilir.
+    //
+    // Eskiden gruplar sabit kodluydu (flagship/reasoning, balanced, fast,
+    // classic, audio/vision/embedding/custom) ve bu listelerden hiçbirine
+    // uymayan bir `tier` değeri modeli SESSİZCE DÜŞÜRÜYORDU. Ölçüldü:
+    // 76 modelin 15'i seçim ekranında hiç görünmüyordu — preview, agentic,
+    // legacy, coding, research katmanlarının tamamı. Model katalogda vardı,
+    // `natureco models` onu listeliyordu, ama kurulumda seçilemiyordu.
+    //
+    // Ayrıca satır `${m.label} (${m.cost})` biçimindeydi ve `cost` katalogda
+    // 76/76 boş olduğu için ekranda "Claude Fable 5 ()" görünüyordu. Artık
+    // dolu olan `desc` alanı gösteriliyor, boş alanlar hiç yazılmıyor.
+    const secenekler = buildModelChoices(preset.models, L);
+    secenekler.push({ name: "─────────────────────", disabled: true });
+    secenekler.push({ name: L('✏️  Custom model adı (ileri düzey)', '✏️  Custom model name (advanced)'), value: '__custom__' });
+
     const { modelId } = await inquirer.prompt([{
       type: 'list',
       name: 'modelId',
       message: `  ${L('Model sec', 'Select model')} (${preset.models.length} ${L('secenek', 'options')}):`,
-      choices: [
-        { name: '─────────────────────', disabled: true },
-        { name: L('🟢 GÜÇLÜ / REASONING (en iyi)', '🟢 POWERFUL / REASONING (best)'), disabled: true },
-        ...preset.models.filter(m => m.tier === 'flagship' || m.tier === 'reasoning').map(m => ({
-          name: `  ${m.label} (${m.cost})`,
-          value: m.id,
-        })),
-        { name: '─────────────────────', disabled: true },
-        { name: L('🟡 ORTA (dengeli)', '🟡 MID (balanced)'), disabled: true },
-        ...preset.models.filter(m => m.tier === 'balanced').map(m => ({
-          name: `  ${m.label} (${m.cost})`,
-          value: m.id,
-        })),
-        { name: '─────────────────────', disabled: true },
-        { name: L('🔵 HIZLI / UCUZ', '🔵 FAST / CHEAP'), disabled: true },
-        ...preset.models.filter(m => m.tier === 'fast').map(m => ({
-          name: `  ${m.label} (${m.cost})`,
-          value: m.id,
-        })),
-        { name: '─────────────────────', disabled: true },
-        { name: L('⚪ KLASİK (legacy)', '⚪ CLASSIC (legacy)'), disabled: true },
-        ...preset.models.filter(m => m.tier === 'classic').map(m => ({
-          name: `  ${m.label} (${m.cost})`,
-          value: m.id,
-        })),
-        { name: '─────────────────────', disabled: true },
-        { name: L('🔊 ÖZEL (audio/vision/embedding)', '🔊 SPECIAL (audio/vision/embedding)'), disabled: true },
-        ...preset.models.filter(m => ['audio', 'vision', 'embedding', 'custom'].includes(m.tier)).map(m => ({
-          name: `  ${m.label} (${m.cost})`,
-          value: m.id,
-        })),
-        { name: '─────────────────────', disabled: true },
-        { name: L('✏️  Custom model adı (ileri düzey)', '✏️  Custom model name (advanced)'), value: '__custom__' },
-      ],
+      choices: secenekler,
       pageSize: 20,
     }]);
 

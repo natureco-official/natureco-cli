@@ -223,4 +223,68 @@ function applySetupCatalog(target, L) {
   return target;
 }
 
-module.exports = { PROVIDERS, providerKeyFromUrl, getProviderModels, getSetupPresets, applySetupCatalog };
+/**
+ * Model seçim listesini üretir — HİÇBİR MODELİ DÜŞÜRMEDEN.
+ *
+ * Eskiden bu mantık setup.js içinde satır içiydi ve gruplar sabit kodluydu:
+ * flagship/reasoning, balanced, fast, classic, audio/vision/embedding/custom.
+ * Bu listelerin hiçbirine uymayan bir `tier` değeri modeli SESSİZCE
+ * düşürüyordu. Ölçüldü: 76 modelin 15'i seçim ekranında hiç görünmüyordu
+ * (preview, agentic, legacy, coding, research katmanlarının tamamı). Model
+ * katalogda vardı ve `natureco models` onu listeliyordu, ama kurulumda
+ * seçilemiyordu.
+ *
+ * Ayrıca satır `${label} (${cost})` biçimindeydi; `cost` katalogda 76/76 boş
+ * olduğu için ekranda "Claude Fable 5 ()" görünüyordu.
+ *
+ * @param {Array<{id:string,label:string,tier?:string,desc?:string,cost?:string}>} models
+ * @param {(tr:string,en:string)=>string} L
+ */
+function buildModelChoices(models, L = (tr) => tr) {
+  const KATMAN_SIRASI = [
+    ['flagship', L('🟢 GÜÇLÜ (en iyi)', '🟢 POWERFUL (best)')],
+    ['reasoning', L('🧠 DÜŞÜNEN (reasoning)', '🧠 REASONING')],
+    ['balanced', L('🟡 ORTA (dengeli)', '🟡 MID (balanced)')],
+    ['fast', L('🔵 HIZLI / UCUZ', '🔵 FAST / CHEAP')],
+    ['coding', L('💻 KODLAMA', '💻 CODING')],
+    ['agentic', L('🤖 AJAN', '🤖 AGENTIC')],
+    ['research', L('🔎 ARAŞTIRMA', '🔎 RESEARCH')],
+    ['preview', L('🧪 ÖNİZLEME', '🧪 PREVIEW')],
+    ['audio', L('🔊 SES', '🔊 AUDIO')],
+    ['vision', L('👁 GÖRÜ', '👁 VISION')],
+    ['embedding', L('🧮 EMBEDDING', '🧮 EMBEDDING')],
+    ['classic', L('⚪ KLASİK', '⚪ CLASSIC')],
+    ['legacy', L('⚪ ESKİ (legacy)', '⚪ LEGACY')],
+  ];
+
+  const liste = Array.isArray(models) ? models : [];
+  const satir = (m) => {
+    const ek = [m.desc, m.cost].filter(x => x && String(x).trim()).join(' · ');
+    return { name: ek ? `  ${m.label || m.id} — ${ek}` : `  ${m.label || m.id}`, value: m.id };
+  };
+
+  const secenekler = [];
+  const yerlesenler = new Set();
+  for (const [katman, baslik] of KATMAN_SIRASI) {
+    const grup = liste.filter(m => m.tier === katman);
+    if (!grup.length) continue;
+    grup.forEach(m => yerlesenler.add(m.id));
+    secenekler.push({ name: '─────────────────────', disabled: true });
+    secenekler.push({ name: baslik, disabled: true });
+    secenekler.push(...grup.map(satir));
+  }
+  // Yakalayıcı: bilinmeyen ya da eksik `tier` değeri olan modeller de listelenir.
+  // Katalog büyüdükçe hiçbir model sessizce kaybolmaz.
+  const kalanlar = liste.filter(m => !yerlesenler.has(m.id));
+  if (kalanlar.length) {
+    secenekler.push({ name: '─────────────────────', disabled: true });
+    secenekler.push({ name: L('📦 DİĞER', '📦 OTHER'), disabled: true });
+    secenekler.push(...kalanlar.map(satir));
+  }
+  return secenekler;
+}
+
+module.exports = {
+  PROVIDERS, providerKeyFromUrl, getProviderModels, getSetupPresets,
+  applySetupCatalog, buildModelChoices,
+};
