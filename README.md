@@ -58,6 +58,9 @@ natureco code
 
 | Version | Highlights |
 |---------|-----------|
+| **v6.2.0** | **Chat and code on your ChatGPT subscription.** If you already pay for ChatGPT Plus/Pro, `natureco chat` and `natureco code` can run on it — no API key, no per-token bill. Usage is reported from the provider's own count rather than an estimate. Claude subscriptions are detected too (chat wiring is ChatGPT-only for now). Requests go through OpenAI's own `codex` client: your token is never touched and no client is impersonated. |
+| **v6.1.0** | **Reasoning models, context accuracy, self-improvement core.** Support for `reasoning_content` and `max_completion_tokens` (without which the o-series and gpt-5 family returned 400 on every request); token estimation corrected for non-Latin text, where the flat `chars/4` rule undercounted by up to 3×; and a skill-distillation loop that will not learn away its own guardrails. |
+| **v6.0.1** | **Protections that were silently inert.** Approval policy now fails closed instead of falling back to full access when its file is corrupt; permission rules match tool aliases so a `read(...)` rule actually covers `read_file`. |
 | **v6.0.0** | **Security and release hardening.** Zero known npm audit findings, Node 22.13+ support, lazy command loading, side-effect-free help, multi-version CI, stronger coverage/lint gates, pinned skill sources with SHA-256 provenance, and a CycloneDX runtime SBOM. |
 | **v5.71.9** | **Native mouse behavior is restored on the main Code screen.** Wheel scrollback, text selection and right-click stay owned by the terminal; Natureco enables mouse tracking only inside the `Ctrl+O` tool transcript and releases it again on close. |
 | **v5.71.8** | **Interactive slash-command palette in Natureco Code.** Type `/` to see commands, keep typing to filter, navigate with Up/Down, and select with Enter or Tab; commands requiring arguments remain editable. |
@@ -210,6 +213,11 @@ NatureCo reports GUI success only after a state-changing action, a changed scree
 | `natureco bots` | List available bots |
 | `natureco models` | Manage provider models |
 | `natureco ultrareview <file>` | Deep code review |
+| `natureco abonelik durum` | Which subscriptions are usable on this machine |
+| `natureco abonelik kullan` | Run chat/code on your subscription instead of an API key |
+| `natureco abonelik birak` | Switch back to your previous provider |
+| `natureco abonelik modeller` | Models available on the subscription |
+| `natureco abonelik kota` | Subscription quota and reset time |
 
 `natureco code` uses its chat-style input box in VT-capable terminals (Windows Terminal,
 Cupertino Terminal, and VS Code included). Set `NATURECO_PLAIN_INPUT=1` to use the
