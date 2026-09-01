@@ -2,6 +2,23 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [6.3.0] - 2026-09-01 — Kurulumda önce abonelik sorulur
+
+### Changed
+- **Kurulum sihirbazı artık aboneliği ilk seçenek olarak sunuyor.** Sihirbaz
+  yalnızca API anahtarlı sağlayıcıları listeliyordu; ChatGPT aboneliği olan biri,
+  aboneliğiyle ek ödeme yapmadan kullanabilecekken doğrudan "API Key:" istemine
+  yönlendiriliyordu — üstelik anahtarsız çalışma yolu üründe zaten vardı. İlk
+  kurulum, aracın en pahalı yanlış yönlendirme noktasıydı.
+  - Kullanılabilir abonelik listenin **başında** ve seçilebilir.
+  - Seçilirse **API anahtarı adımı hiç sorulmaz**; model de otomatik ayarlanır.
+  - Sağlayıcı CLI'si kurulu ama oturumu açılmamışsa satır **gizlenmez**:
+    seçilemez olarak, yanında düzeltme komutuyla görünür. Gizlemek, kullanıcının
+    böyle bir yol olduğunu hiç öğrenememesi demek olurdu.
+  - Hiç abonelik yoksa sihirbaz eskisiyle birebir aynı kalır.
+- **Mevcut API anahtarı silinmez.** Aboneliğe geçince eski sağlayıcı ayarı
+  korunur; `natureco abonelik birak` diyen kullanıcı anahtarı yeniden girmez.
+
 ## [6.2.2] - 2026-09-01 — Kurulum sihirbazında model listesi okunmuyordu
 
 ### Fixed

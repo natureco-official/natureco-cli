@@ -11,6 +11,7 @@ const inquirer = require('../utils/inquirer-wrapper');
 const brand = require('../utils/branding');
 const { COLORS, FULL_LOGO } = brand;
 const { applySetupCatalog, buildModelChoices } = require('../utils/model-catalog');
+const { tumDurumlar } = require('../utils/abonelik-saglayicilari');
 const { findModelsEndpoint, fetchLiveModels } = require('./models');
 
 const BASE_DIR = path.join(os.homedir(), '.natureco');
@@ -289,6 +290,47 @@ function saveConfig(data) {
   writePrivateFile(CONFIG_FILE, JSON.stringify(data, null, 2));
 }
 
+/**
+ * Sağlayıcı listesinin başına gelecek abonelik seçenekleri.
+ *
+ * Kullanılabilir abonelikler seçilebilir satır olur. Kurulu ama oturumu
+ * açılmamış olanlar da GÖSTERİLİR (seçilemez, yanında düzeltme komutuyla):
+ * gizlemek, kullanıcının böyle bir yol olduğunu hiç öğrenememesi demek olurdu.
+ * Ağ çağrısı yapılmaz; yalnızca yerel duruma bakılır.
+ */
+function abonelikSecenekleri(L, durumlar) {
+  const hepsi = durumlar || tumDurumlar();
+  const satirlar = [];
+  for (const d of Object.values(hepsi)) {
+    if (d.kullanilabilir) {
+      satirlar.push({
+        name: `${d.ad} ${L('aboneliğim', 'subscription')} — ${L('API anahtarı GEREKMEZ', 'NO API key needed')}`,
+        value: `abonelik:${d.anahtar}`,
+      });
+    } else if (!/kurulu değil/.test(d.sebep || '')) {
+      // CLI kurulu ama oturum yok: ne yapılacağını söyle.
+      satirlar.push({ name: `${d.ad} — ${d.sebep} (${d.giris})`, disabled: true });
+    }
+  }
+  if (satirlar.length) satirlar.push({ name: '─────────────────────', disabled: true });
+  return satirlar;
+}
+
+/** Abonelikte kullanılabilir ilk model; alınamazsa null. */
+async function abonelikVarsayilanModeli(anahtar) {
+  if (anahtar !== 'codex') return null;
+  const { CodexAbonelikIstemcisi } = require('../utils/codex-subscription');
+  const c = new CodexAbonelikIstemcisi({ surum: require('../../package.json').version });
+  try {
+    await c.baslat();
+    const r = await c.modeller();
+    const ms = (r?.models || r?.data || []).map(m => m.id || m.slug || m.name).filter(Boolean);
+    return ms[0] || null;
+  } catch {
+    return null;
+  } finally { c.kapat(); }
+}
+
 async function setup(params) {
   try {
     const [action] = params || [];
@@ -328,6 +370,12 @@ async function cmdWizard() {
   const cfg = getConfig();
 
   // v5.6.4: Step 1 - Provider + direkt model wizard (tier yok)
+  //
+  // ABONELİK EN ÜSTTE. Kurulum sihirbazı uzun süre yalnızca API anahtarlı
+  // sağlayıcıları sunuyordu; ChatGPT aboneliği olan biri bedavaya
+  // kullanabilecekken doğrudan anahtar girmeye yönlendiriliyordu. Kullanılabilir
+  // bir abonelik varsa ilk seçenek o olmalı — ve seçilirse anahtar adımı hiç
+  // sorulmamalı.
   console.log(chalk.white('  Step 1: Provider & Model'));
   console.log(chalk.gray('  ─────────────────────────────────────────────'));
 
@@ -337,17 +385,34 @@ async function cmdWizard() {
     name: 'provider',
     message: '  AI Provider:',
     choices: [
+      ...abonelikSecenekleri(L),
       ...providerKeys.map(k => ({
         name: `${PROVIDER_PRESETS[k].name} (${PROVIDER_PRESETS[k].models.length} model)`,
         value: k,
       })),
       { name: 'Custom URL', value: 'custom' },
     ],
-    pageSize: 14,
+    pageSize: 16,
   }]);
 
+  // Abonelik seçildiyse API anahtarı adımının tamamı ATLANIR — zaten anahtarsız
+  // çalışmanın yolu bu. Devam eden akış (bot adı, kanallar) aynen sürer.
+  const abonelikSecildi = String(provider).startsWith('abonelik:');
+
   let providerUrl, providerModel;
-  if (provider === 'custom') {
+  if (abonelikSecildi) {
+    const anahtar = provider.slice('abonelik:'.length);
+    providerUrl = `abonelik:${anahtar}`;
+    console.log(chalk.gray(L('\n  Abonelikteki modeller alınıyor...', '\n  Fetching subscription models...')));
+    providerModel = await abonelikVarsayilanModeli(anahtar);
+    if (providerModel) {
+      console.log(chalk.gray(`  ${L('Model', 'Model')}: `) + chalk.white(providerModel));
+    } else {
+      // Model alınamadıysa akışı durdurmuyoruz; kullanıcı sonra seçebilir.
+      console.log(chalk.yellow(L('  Model listesi alınamadı. Sonra seçebilirsin: ', '  Could not list models. You can pick one later: '))
+        + chalk.cyan('natureco abonelik modeller'));
+    }
+  } else if (provider === 'custom') {
     providerUrl = await rlQuestion(`  Provider URL (${cfg.providerUrl || 'https://api.openai.com/v1'}): `);
     providerModel = await rlQuestion(`  Model (${cfg.providerModel || 'gpt-4o'}): `);
     providerUrl = providerUrl || cfg.providerUrl || 'https://api.openai.com/v1';
@@ -389,7 +454,16 @@ async function cmdWizard() {
     console.log(chalk.gray(`  Model: ${providerModel}`));
   }
 
-  // Step 2: API Key
+  // Step 2: API Key — abonelik kipinde bu adım YOK.
+  if (abonelikSecildi) {
+    console.log('');
+    console.log(chalk.green(L('  ✓ API anahtarı gerekmiyor — aboneliğin kullanılacak.',
+      '  ✓ No API key needed — your subscription will be used.')));
+    // Eski anahtar duruyorsa bırakılır: `natureco abonelik birak` ile eski
+    // sağlayıcıya dönmek isteyen kullanıcı anahtarı yeniden girmek zorunda kalmasın.
+    console.log(chalk.gray(L('  Eski sağlayıcına dönmek istersen: ', '  To go back to your previous provider: '))
+      + chalk.cyan('natureco abonelik birak') + '\n');
+  } else {
   console.log('');
   console.log(chalk.white('  Step 2: API Key'));
   console.log(chalk.gray('  ─────────────────────────────────────────────'));
@@ -440,6 +514,7 @@ async function cmdWizard() {
     } else {
       console.log(L('  ✓ API key gecerli!', '  ✓ API key valid!'));
     }
+  }
   }
 
   // Step 3: Bot & User identity
@@ -615,6 +690,7 @@ function cmdDirs() {
 }
 
 module.exports = setup;
+module.exports._internal = { abonelikSecenekleri };
 
 /**
  * v5.6.0: API key dogrulama — test istegi gonder
