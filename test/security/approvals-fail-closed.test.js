@@ -40,8 +40,30 @@ describe('resolveMode — bilinmeyen değer full olmaz', () => {
     }
   });
 
+  // DİKKAT: requiresApproval TEK BİR NESNE alır ({command, agentId, security, ask}).
+  // İlk sürümde konumsal çağrılmıştı; `command` undefined kalıyor ve fonksiyon
+  // diskteki politikaya düşüyordu. Test yerelde (bozuk dosya → ask) geçiyor,
+  // CI'da (dosya yok → full) düşüyordu — yani doğru sebeple değil, tesadüfen
+  // geçen bir testti.
   test('bilinmeyen politikada tehlikeli komut onay ister', () => {
-    const sonuc = approvals.requiresApproval('sudo rm -rf /', { security: 'auto', ask: 'off' });
+    const sonuc = approvals.requiresApproval({
+      command: 'sudo rm -rf /', security: 'auto', ask: 'off',
+    });
+    expect(sonuc.required).toBe(true);
+    expect(sonuc.reason).toBe('ask');
+  });
+
+  test('açıkça full seçilmişse onay istenmez (bilinçli tercih korunur)', () => {
+    const sonuc = approvals.requiresApproval({
+      command: 'sudo rm -rf /', security: 'full', ask: 'off',
+    });
+    expect(sonuc.required).toBe(false);
+  });
+
+  test('deny modu her komutu durdurur', () => {
+    const sonuc = approvals.requiresApproval({
+      command: 'ls', security: 'deny', ask: 'off',
+    });
     expect(sonuc.required).toBe(true);
   });
 });
@@ -72,8 +94,8 @@ describe('loadApprovals — bozuk dosya açık tarafa düşmez', () => {
   test('bozuk dosyada tehlikeli komut onay ister', () => {
     fs.writeFileSync(yol, 'bu json degil', 'utf8');
     const politika = approvals.resolveEffectivePolicy('default');
-    const sonuc = approvals.requiresApproval('rm -rf ~', {
-      security: politika.security, ask: politika.ask,
+    const sonuc = approvals.requiresApproval({
+      command: 'rm -rf ~', security: politika.security, ask: politika.ask,
     });
     expect(sonuc.required).toBe(true);
   });
