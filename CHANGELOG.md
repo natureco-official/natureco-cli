@@ -2,6 +2,39 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [6.1.0] - 2026-09-01 — Düşünen modeller, bağlam doğruluğu, öz-gelişim çekirdeği
+
+### Added
+- **Düşünen (reasoning) model desteği.** `reasoning_content`, `max_completion_tokens`
+  ve akıl yürütme bütçesi kod tabanında hiç yoktu. Sonuçları: OpenAI'ın o-serisi
+  ve gpt-5 ailesiyle **her istek 400 dönüyordu** (bu modeller `max_tokens` ve
+  `temperature !== 1` değerini reddeder); MiniMax/DeepSeek/Kimi/Moonshot ile
+  **ekranda hiçbir şey akmıyordu** (düşünme metni ayrı alanda gelir, okunmuyordu);
+  ve düşünen modelde bütçe akıl yürütme + çıktının toplamı olduğu için varsayılan
+  değer cevabın tamamını düşünmeye harcatıp boş içerik bırakabiliyordu.
+- **Öz-gelişim çekirdeği.** Konuşmadan skill damıtan döngünün karar katmanı:
+  sayaç tetikli (özyineleme engelli), içerik doğrulaması zorunlu, benzer skill
+  varsa yeni yaratmak yerine yamalama, oku-önce-yaz kapısı.
+- **Güvenlik sinyali filtresi.** Kendini geliştiren bir ajanın en tehlikeli
+  başarısızlık kipi, kendi korkuluklarını aşındırmasıdır. Kullanıcının bir
+  güvenlik davranışından duyduğu memnuniyetsizlik artık skill/hafızaya
+  ÖĞRENİLMİYOR. Ölçüm: 10/10 aşındırma sinyali engellendi, 21/21 meşru geri
+  bildirim geçti, 0 yanlış pozitif.
+
+### Fixed
+- **Token tahmini Latin dışı metinde 3 kata kadar düşüktü.** Düz `chars/4`
+  kuralı CJK'de gerçek maliyetin dörtte birini gösteriyordu; Türkçe'nin aksanlı
+  harfleri de eksik sayılıyordu. Türkçe öncelikli bir üründe bu, bağlamın
+  dolduğunu geç fark edip sağlayıcıdan context-length hatası yemek demek.
+  ASCII metinde tahmin değişmedi.
+- **Sağlayıcının gerçek `usage` sayımı kırpma kararına beslenmiyordu.** Her
+  yanıtta geliyor ama yalnızca muhasebe için kaydediliyordu; uzun transkriptte
+  tahmin hatası birikip kırpmayı yanlış yere taşıyabiliyordu.
+- **Kesilmiş araç çağrısı chat oturumunu kalıcı öldürüyordu.** Bozuk
+  `tool_calls` transkripte yazılıyor, MiniMax bu noktadan sonra her isteğe boş
+  gövde döndürüyordu. `code_v5` için ölçülerek düzeltilen bu koruma chat yoluna
+  hiç uygulanmamıştı.
+
 ## [6.0.1] - 2026-09-01 — Sessizce etkisiz kalan korumalar
 
 Bu sürümdeki bulguların tamamı aracın gerçek kullanımıyla ortaya çıktı ve hepsi
