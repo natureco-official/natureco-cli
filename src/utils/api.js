@@ -914,31 +914,51 @@ async function sendMessageToProvider(apiKey, message, conversationId = null, sys
 
     debugLog('[Provider] Response type:', assistantMessage?.tool_calls ? 'tool_calls' : 'text');
 
-    // Add assistant message to history
-    messages.push(assistantMessage);
+    // Ayrıştırma ÖNCE yapılır, transkripte yazmadan.
+    //
+    // Eskiden assistantMessage doğrudan push ediliyor, bozuk `tool_calls`
+    // transkripte giriyor ve ardından ona "JSON değil" tool sonucu ekleniyordu.
+    // Bu, PR #39'da code_v5 için ölçülerek düzeltilen zehirlenmenin ta kendisi:
+    // kesilmiş bir araç çağrısı transkripte yazıldıktan sonra MiniMax her
+    // isteğe HTTP 200 + boş gövde döndürüyor ve oturum kalıcı olarak ölüyordu.
+    // Aynı koruma chat yoluna hiç uygulanmamıştı.
+    const hamToolCalls = assistantMessage?.tool_calls || [];
+    const malformedCalls = [];
+    const toolCalls = [];
+    const saglamToolCalls = [];
+    for (const tc of hamToolCalls) {
+      try {
+        toolCalls.push({ id: tc.id, name: tc.function.name, input: JSON.parse(tc.function.arguments || '{}') });
+        saglamToolCalls.push(tc);
+      } catch (parseError) {
+        malformedCalls.push({
+          id: tc.id,
+          name: tc.function.name,
+          result: { error: `Tool arguments were not valid JSON: ${parseError.message}` },
+        });
+      }
+    }
+
+    if (malformedCalls.length > 0) {
+      // Bozuk çağrılar transkripte HİÇ yazılmaz. Yalnızca sağlam olanlar
+      // kalır; hiç sağlam yoksa mesaj düz metne indirgenir ki
+      // assistant(tool_calls) → tool eşleşmesi bozulmasın.
+      const uyari = `[Bir araç çağrısı yarım kaldı (${malformedCalls.map(m => m.name).join(', ')}). `
+        + 'Argümanlar geçerli JSON değildi — büyük olasılıkla çıktı sınırına takıldı. '
+        + 'Daha küçük bir adımla tekrar dene.]';
+      messages.push({
+        role: 'assistant',
+        content: (assistantMessage.content || '') + (assistantMessage.content ? '\n' : '') + uyari,
+        ...(saglamToolCalls.length > 0 ? { tool_calls: saglamToolCalls } : {}),
+      });
+    } else {
+      messages.push(assistantMessage);
+    }
 
     // Check for tool calls
-    const hasToolCalls = assistantMessage?.tool_calls?.length > 0;
+    const hasToolCalls = hamToolCalls.length > 0;
     if (hasToolCalls) {
-      debugLog(`[Provider] Tool calls: ${assistantMessage.tool_calls.length}`);
-
-      // Separate local and MCP tool calls.
-      // A model that emits truncated or malformed arguments used to throw here
-      // and take the whole turn down with an unhandled SyntaxError; report the
-      // bad call back to the model instead so it can correct itself.
-      const malformedCalls = [];
-      const toolCalls = [];
-      for (const tc of assistantMessage.tool_calls) {
-        try {
-          toolCalls.push({ id: tc.id, name: tc.function.name, input: JSON.parse(tc.function.arguments || '{}') });
-        } catch (parseError) {
-          malformedCalls.push({
-            id: tc.id,
-            name: tc.function.name,
-            result: { error: `Tool arguments were not valid JSON: ${parseError.message}` },
-          });
-        }
-      }
+      debugLog(`[Provider] Tool calls: ${hamToolCalls.length}`);
 
       // `enable_tools` is served here rather than from the manifest: it only
       // mutates what this loop advertises on the next iteration.
