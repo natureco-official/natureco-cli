@@ -86,6 +86,7 @@ const transcripts = lazyCommand('../src/commands/transcripts');
 const wiki = lazyCommand('../src/commands/wiki');
 const browser = lazyCommand('../src/commands/browser');
 const tools = lazyCommand('../src/commands/tools');
+const abonelik = lazyCommand('../src/commands/abonelik');
 
 const program = new Command();
 
@@ -316,6 +317,12 @@ program
   .command('run <script>')
   .description('Run a markdown script file')
   .action(run);
+
+program
+  .command('abonelik [action]')
+  .alias('subscription')
+  .description('ChatGPT aboneligi ile model kullanimi (durum|modeller|kota)')
+  .action((action) => abonelik([action]));
 
 program
   .command('mcp [action] [params...]')
