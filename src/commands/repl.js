@@ -47,6 +47,7 @@ function extractPreferenceFacts(content) {
   return out;
 }
 const chalk = require('chalk');
+const { abonelikKipi, abonelikBagla, saglayiciAdi } = require('../utils/abonelik-baglayici');
 const { getLang: _getLang } = require('../utils/i18n');
 const L = (tr, en) => (_getLang() === 'en' ? en : tr);
 const tui = require('../utils/tui');
@@ -1190,9 +1191,39 @@ async function startRepl(args) {
     if (args[i] === '--resume') resumeId = args[i + 1] || 'last';
   }
 
+  // Abonelik kipi: sağlayıcı yerine yerel köprüyü kullan. REPL'in geri kalanı
+  // aradaki farkı görmez; providerUrl/Key köprünün ucunu gösterir.
+  let abonelikKoprusu = null;
+  if (abonelikKipi(cfg)) {
+    try {
+      const b = await abonelikBagla(cfg, { surum: require('../../package.json').version });
+      providerUrl = b.providerUrl;
+      providerApiKey = b.providerApiKey;
+      abonelikKoprusu = b;
+      // Köprü OpenAI `tools` alanını iletmez; REPL yerel araç çağrısı
+      // desteklenmeyen sağlayıcılardaki hazır akışa düşmeli.
+      cfg.nativeToolCalls = false;
+      // Ad, gizli anahtarı da taşıyan `b` yerine sabit kayıttan okunur:
+      // sır taşıyan bir nesneden gösterim verisi çekip ekrana basmak,
+      // hem sızıntı analizinde işaretlenir hem de gereksiz bir bağdır.
+      const saglayici = saglayiciAdi(cfg);
+      console.log(chalk.gray(L(`\n  ${saglayici} aboneliği kullanılıyor.\n`, `\n  Using ${saglayici} subscription.\n`)));
+    } catch (e) {
+      console.log(chalk.red(`\n  ❌ ${e.message}\n`));
+      process.exit(1);
+    }
+  }
+
   if (!providerUrl || !providerApiKey) {
     console.log(chalk.red(L('\n  ❌ Provider ayarlı değil. Önce: natureco setup\n', '\n  ❌ Provider not configured. First: natureco setup\n')));
     process.exit(1);
+  }
+
+  // Köprü alt süreç tutuyor; CLI kapanırken bırakılmamalı.
+  if (abonelikKoprusu) {
+    const kapat = () => { try { abonelikKoprusu.kapat(); } catch { /* kapanışta hata yutulur */ } };
+    process.once('exit', kapat);
+    process.once('SIGINT', () => { kapat(); process.exit(130); });
   }
 
   // Memory yükle

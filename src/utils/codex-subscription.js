@@ -84,14 +84,18 @@ class CodexAbonelikIstemcisi {
     this.sonrakiId = 0;
     this.bekleyen = new Map();
     this.bildirimDinleyici = opts.onBildirim || (() => {});
+    /** Sunucudan gelen istekleri karşılar; undefined dönerse "desteklenmiyor" yanıtı gider. */
+    this.istekIsleyici = opts.onIstek || null;
     this.komut = opts.komut || 'codex';
+    /** app-server'a eklenecek argümanlar (ör. -c ile ayar geçersiz kılma). */
+    this.ekArgumanlar = opts.ekArgumanlar || [];
     this.surum = opts.surum || 'bilinmiyor';
     this.kapandi = false;
   }
 
   async baslat() {
     if (this.surec) return;
-    this.surec = spawn(this.komut, ['app-server'], {
+    this.surec = spawn(this.komut, ['app-server', ...(this.ekArgumanlar || [])], {
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: process.platform === 'win32',
     });
@@ -125,16 +129,53 @@ class CodexAbonelikIstemcisi {
       if (!satir) continue;
       let m;
       try { m = JSON.parse(satir); } catch { continue; }
-      if (m.id !== undefined && this.bekleyen.has(m.id)) {
+
+      // AYIRIM SIRASI ÖNEMLİ. İki taraf da id'lerini BAĞIMSIZ numaralandırır,
+      // yani sunucunun bize sorduğu isteğin id'si bizim bekleyen bir isteğimizle
+      // çakışabilir. JSON-RPC'de ayırt edici alan id değil `method`: yanıtlarda
+      // method hiç bulunmaz. Önce ona bakmazsak sunucunun isteğini kendi
+      // yanıtımız sanıp yanlış sözü çözeriz.
+      if (m.method !== undefined) {
+        if (m.id !== undefined) this._sunucuIstegi(m);
+        else {
+          try { this.bildirimDinleyici(m.method, m.params); } catch { /* dinleyici hatası akışı bozmasın */ }
+        }
+      } else if (m.id !== undefined && this.bekleyen.has(m.id)) {
         const { cozumle, reddet, zaman } = this.bekleyen.get(m.id);
         this.bekleyen.delete(m.id);
         clearTimeout(zaman);
         if (m.error) reddet(new Error(m.error.message || 'codex app-server hatası'));
         else cozumle(m.result);
-      } else if (m.method) {
-        try { this.bildirimDinleyici(m.method, m.params); } catch { /* dinleyici hatası akışı bozmasın */ }
       }
     }
+  }
+
+  /**
+   * Sunucudan gelen isteği yanıtlar. YANITSIZ BIRAKILAMAZ: app-server bu
+   * isteklerde bloke olur, tur asılı kalır. Bilmediğimiz bir metot gelirse bile
+   * sessiz kalmak yerine JSON-RPC "method not found" döneriz.
+   */
+  _sunucuIstegi(m) {
+    const gonder = (govde) => {
+      if (this.kapandi || !this.surec) return;
+      try { this.surec.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, ...govde }) + '\n'); }
+      catch { /* süreç ölmüşse yazamayız, zaten reddedilecek */ }
+    };
+    let sonuc;
+    try {
+      sonuc = this.istekIsleyici ? this.istekIsleyici(m.method, m.params) : undefined;
+    } catch (e) {
+      gonder({ error: { code: -32603, message: e.message } });
+      return;
+    }
+    if (sonuc === undefined) {
+      gonder({ error: { code: -32601, message: `natureco-cli bu isteği karşılamıyor: ${m.method}` } });
+      return;
+    }
+    Promise.resolve(sonuc).then(
+      r => gonder({ result: r }),
+      e => gonder({ error: { code: -32603, message: e.message } }),
+    );
   }
 
   _hepsiniReddet(hata) {

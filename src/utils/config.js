@@ -120,13 +120,29 @@ function saveConfig(data, options = {}) {
   _configHash = computeHash(data);
 }
 
+/**
+ * Yalnızca BU süreç için geçerli, diske YAZILMAYAN ayar üstü.
+ *
+ * Abonelik köprüsü gibi çalışma anında doğan sağlayıcılar için var: köprünün
+ * adresi ve anahtarı her açılışta değişir, kalıcı ayara ait değildir.
+ * Okuyucular (repl, code, workflow, alt ajanlar) bunu görür; YAZICILAR görmez —
+ * `setConfigValue` diskteki hâli okur, yoksa köprünün geçici adresi ve gizli
+ * anahtarı kullanıcının ayar dosyasına kalıcı olarak yazılırdı.
+ */
+let _calismaZamaniUstu = null;
+
+function calismaZamaniAyariniAyarla(deger) {
+  _calismaZamaniUstu = deger ? { ...deger } : null;
+}
+
 function loadConfig(options = {}) {
-  const { useCache = true, skipValidation = false } = options;
-  if (useCache && _configCache) return _configCache;
+  const { useCache = true, skipValidation = false, hamDisk = false } = options;
+  const ust = hamDisk ? null : _calismaZamaniUstu;
+  if (useCache && _configCache) return ust ? { ..._configCache, ...ust } : _configCache;
   if (!fs.existsSync(ACTIVE_CONFIG_FILE)) {
     _configCache = null;
     _configHash = null;
-    return null;
+    return ust ? { ...ust } : null;
   }
   try {
     const content = fs.readFileSync(ACTIVE_CONFIG_FILE, 'utf8');
@@ -134,7 +150,7 @@ function loadConfig(options = {}) {
     if (!skipValidation) validateConfig(data);
     _configCache = data;
     _configHash = computeHash(data);
-    return data;
+    return ust ? { ...data, ...ust } : data;
   } catch (err) {
     _configCache = null;
     _configHash = null;
@@ -191,7 +207,9 @@ function getAllConfig() {
 }
 
 function setConfigValue(key, value) {
-  const config = loadConfig() ?? {};
+  // hamDisk: çalışma zamanı üstü (ör. abonelik köprüsünün geçici adresi ve
+  // gizli anahtarı) ASLA diske yazılmamalı.
+  const config = loadConfig({ hamDisk: true }) ?? {};
   const keys = key.split('.');
   let current = config;
   for (let i = 0; i < keys.length - 1; i++) {
@@ -237,6 +255,7 @@ function restoreConfig(backupFile) {
 }
 
 module.exports = {
+  calismaZamaniAyariniAyarla,
   saveConfig,
   loadConfig,
   loadConfigWithRetry,

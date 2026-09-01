@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:dc14a81d-f96b-4bdf-b50b-8fe550b2fad0",
+  "serialNumber": "urn:uuid:99f254a8-e445-447c-b86e-c1f1e6f528b8",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-09-01T16:18:07.416Z",
+    "timestamp": "2026-09-01T19:21:46.902Z",
     "lifecycles": [
       {
         "phase": "build"
@@ -19,14 +19,14 @@
       }
     ],
     "component": {
-      "bom-ref": "natureco-cli@6.1.0",
+      "bom-ref": "natureco-cli@6.2.0",
       "type": "library",
       "name": "natureco-cli",
-      "version": "6.1.0",
+      "version": "6.2.0",
       "scope": "required",
       "author": "Gencay Olgun",
       "description": "Terminal-native AI agent CLI with bilingual TR/EN UI, multi-agent orchestration, persistent memory, secure tools and messaging integrations.",
-      "purl": "pkg:npm/natureco-cli@6.1.0",
+      "purl": "pkg:npm/natureco-cli@6.2.0",
       "properties": [],
       "externalReferences": [
         {
@@ -10517,7 +10517,7 @@
   ],
   "dependencies": [
     {
-      "ref": "natureco-cli@6.1.0",
+      "ref": "natureco-cli@6.2.0",
       "dependsOn": [
         "@anthropic-ai/sdk@0.105.0",
         "@inquirer/prompts@8.5.2",

@@ -2,6 +2,59 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [6.2.0] - 2026-09-01 — Abonelikle sohbet ve kod
+
+6.1.0'da abonelik yalnızca **keşfedilebiliyordu** (`durum`/`modeller`/`kota`);
+sohbete bağlı değildi. Bu sürüm onu gerçek bir sağlayıcı hâline getirir.
+
+### Added
+- **`natureco chat` ve `natureco code` artık abonelikle çalışıyor.** API anahtarı
+  ödemeden, mevcut ChatGPT Plus/Pro aboneliğiyle. `natureco abonelik kullan` ile
+  açılır, `natureco abonelik birak` ile önceki sağlayıcıya dönülür (eski ayar
+  saklandığı için API anahtarı yeniden girilmez).
+- **Gerçek token sayımı.** Abonelik yolunda tüketim `chars/4` tahminiyle değil,
+  sağlayıcının kendi sayımıyla raporlanır; önbelleklenen girdi ve akıl yürütme
+  token'ları da ayrı ayrı görünür.
+- **Claude aboneliği tespiti.** `natureco abonelik durum` artık birden çok
+  sağlayıcı listeler. Oturumun süresi dolmuşsa bunu önceden söyler — dosyanın
+  varlığına bakıp "kullanılabilir" demek, kullanıcıyı başarısız bir çağrıya
+  yollamak olurdu. (Sohbet bağlantısı şimdilik yalnızca ChatGPT için; Claude
+  seçilirse sessizce düşmez, açık hata verir.)
+
+### Security
+- **Abonelik köprüsü salt okunur çalışır.** Aboneliğin arkasındaki uç düz bir
+  model değil, kendi kabuk/dosya araçları olan bir ajandır ve köprüden "dosya
+  oluştur" dendiğinde bunu gerçekten dener. Ölçüldü: koruma konmadığında ve
+  süreç izinliyken dosya **gerçekten yazıldı**; koruma konduğunda aynı süreç
+  ayarıyla engellendi. Dosya ve kabuk eylemleri natureco'nun kendi araçlarından
+  ve onay katmanından geçer.
+- **Yerel uç kimlik doğrular.** Yalnız `127.0.0.1` dinler, her açılışta üretilen
+  rastgele anahtarı sabit zamanlı karşılaştırır ve tarayıcı kaynaklı istekleri
+  reddeder; aksi hâlde makinedeki her süreç için bedava kota olurdu.
+- **Köprünün geçici anahtarı diske yazılmaz.** Ayar yazıcıları diskteki hâli
+  okur; yoksa her açılışta değişen adres ve gizli anahtar kullanıcının ayar
+  dosyasına kalıcı olarak düşerdi.
+- **Sağlayıcı adresi ekrana tam basılmaz.** Bazı sağlayıcılar kimlik bilgisini
+  adrese gömer; artık yalnızca ana makine adı gösterilir.
+
+### Fixed
+- **Akış sürerken kapatma sonsuza kadar asılıyordu.** Sunucu kapanışı açık akış
+  bağlantısının bitmesini bekliyordu; 180 sn'de dönmedi. Artık anında kapanır.
+- **Akış başladıktan sonra oluşan hata tüm süreci çökertiyordu.** Başlıklar
+  gönderilmişken yeniden başlık yazılmaya çalışılıyordu.
+- **Paralel istekler birbirinin turunu çalıyordu.** Tek olay dinleyicisi
+  tutulduğu için ikinci istek başlayınca birincisi sahipsiz kalıp zaman aşımına
+  kadar asılıyordu.
+- **Abonelikte olmayan model adı sessizce boş yanıt döndürüyordu.** Tur normal
+  tamamlanıyor, metin boş geliyordu; artık ne kullanılabileceğini söyleyen açık
+  bir hata verilir. `natureco abonelik kullan` ayrıca modeli de geçirir.
+- **JSON-RPC'de sunucudan gelen istekler yanıtsız kalıyordu.** Bildirim sayılıyor,
+  karşı taraf beklemede kalıyordu; ayrıca iki taraf kimlik numaralarını bağımsız
+  ürettiği için çakışma mümkündü.
+- **Altı modül ayarı dosyadan kendisi okuyor ve `https`'i sabitliyordu.** İkisi de
+  çalışma anında doğan sağlayıcılarda kırılıyordu; ortak ayar modülüne ve şemaya
+  göre taşıyıcı seçimine bağlandılar.
+
 ## [6.1.0] - 2026-09-01 — Düşünen modeller, bağlam doğruluğu, öz-gelişim çekirdeği
 
 ### Added

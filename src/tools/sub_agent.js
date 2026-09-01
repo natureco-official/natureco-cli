@@ -6,14 +6,12 @@
  * sub-problems, or when a focused agent is better than the main loop.
  */
 
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const { istemciSec } = require("../utils/http-secici");
 
-function loadConfig() {
-  try { return JSON.parse(fs.readFileSync(path.join(os.homedir(), '.natureco', 'config.json'), 'utf8')); } catch { return {}; }
-}
+// Ortak ayar modülü üzerinden okunur. Dosyayı doğrudan okumak,
+// çalışma anında doğan sağlayıcıları (ör. abonelik köprüsü) GÖRMEZ:
+// köprü kipinde burada hâlâ 'abonelik:codex' yazar ve istek başarısız olur.
+function loadConfig() { return require('../utils/config').getConfig(); }
 
 function isMiniMax(url) { return url && (url.includes('minimax.io') || url.includes('minimaxi.com') || url.includes('minimax.cn')); }
 function isGemini(url) { return url && (url.includes('generativelanguage.googleapis.com') || url.includes('gemini')); }
@@ -26,7 +24,7 @@ function apiCall(providerUrl, apiKey, body) {
       : isGemini(base)
         ? base + '/openai/chat/completions'
         : base + '/chat/completions';
-    const req = https.request(endpoint, {
+    const req = istemciSec(endpoint).request(endpoint, {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       timeout: 120000,
