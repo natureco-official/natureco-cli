@@ -319,7 +319,10 @@ program
 
 program
   .command('mcp [action] [params...]')
-  .description('Manage MCP servers (list|add|remove|test|enable|disable|templates)')
+  // Eskiden burada list|add|remove|test|enable|disable|templates yazıyordu;
+  // list dışında HİÇBİRİ uygulanmamıştı (src/commands/mcp.js:23-27). Gerçekte
+  // uygulanan dördü ise hiç ilan edilmiyordu.
+  .description('Manage MCP servers (list|show|set|unset|serve)')
   .action((action, params) => {
     const mcpCmd = require('../src/commands/mcp');
     mcpCmd([action, ...(params || [])]);

@@ -4,7 +4,10 @@ const os = require('os');
 const chalk = require('chalk');
 const inquirer = require('./inquirer-wrapper');
 const { NatureCoError } = require('./errors');
-const { writeJsonAtomicSync, readJsonSafeSync } = require('./atomic-file');
+// readJsonSafeSync BİLİNÇLİ olarak kullanılmıyor: bozuk politika dosyasında
+// sessizce varsayılana düşüyordu ve o varsayılan en izinli moddu (security:full).
+// loadApprovals artık hatayı görünür kılıp kısıtlayıcı tarafa düşüyor.
+const { writeJsonAtomicSync } = require('./atomic-file');
 
 const APPROVALS_FILE = path.join(os.homedir(), '.natureco', 'exec-approvals.json');
 const DEFAULT_TIMEOUT_MS = 1800000; // 30 min
@@ -42,8 +45,42 @@ function getApprovalsPath() {
   return APPROVALS_FILE;
 }
 
+/**
+ * Politika dosyasını yükler.
+ *
+ * BOZUK DOSYA SESSİZCE EN İZİNLİ MODA DÜŞMEZ. Eskiden readJsonSafeSync
+ * ayrıştırma hatasını yutup `_emptyApprovals()` döndürüyordu; onun varsayılanı
+ * `security: 'full'`, yani "hiçbir komutu sorma". Sonuç: bozulmuş bir politika
+ * dosyası, hiç uyarı vermeden tüm komut onayını devre dışı bırakıyordu.
+ * (Gerçek bir makinede tam olarak bu görüldü: dosya iki aydır `{not json`
+ * içeriyordu ve kullanıcı politikası olduğunu sanıyordu.)
+ *
+ * Artık: dosya varsa ama okunamıyorsa yüksek sesle uyarılır ve `ask`'e düşülür.
+ * Bir güvenlik politikası bozulduğunda kapalı tarafa düşmelidir.
+ */
 function loadApprovals() {
-  return readJsonSafeSync(APPROVALS_FILE, _emptyApprovals());
+  const fs = require('fs');
+  if (!fs.existsSync(APPROVALS_FILE)) return _emptyApprovals();
+
+  const bozuk = { version: 1, defaults: { security: 'allowlist', ask: 'always' }, agents: {}, _bozuk: true };
+  let ham;
+  try {
+    ham = fs.readFileSync(APPROVALS_FILE, 'utf8');
+  } catch (e) {
+    console.error(`⚠️  Onay politikası okunamadı (${APPROVALS_FILE}): ${e.message}`);
+    console.error('    Güvenli tarafa düşülüyor: her komut için onay istenecek.');
+    return bozuk;
+  }
+  try {
+    const veri = JSON.parse(ham);
+    if (!veri || typeof veri !== 'object') throw new Error('nesne değil');
+    return veri;
+  } catch (e) {
+    console.error(`⚠️  Onay politikası bozuk (${APPROVALS_FILE}): ${e.message}`);
+    console.error('    Güvenli tarafa düşülüyor: her komut için onay istenecek.');
+    console.error('    Düzeltmek için: natureco approvals status');
+    return bozuk;
+  }
 }
 
 function saveApprovals(data) {
@@ -75,12 +112,31 @@ function resolveEffectivePolicy(agentId) {
   };
 }
 
+/**
+ * security + ask → etkin mod.
+ *
+ * TANINMAYAN DEĞER ARTIK `full`'E DÜŞMEZ. Eski son satır `return 'full'` idi;
+ * yani bir yazım hatası ("ful", "auto"), boş dizge ya da tanımsız değer sessizce
+ * "hiçbir komutu sorma"ya dönüşüyordu. Bir güvenlik ayarının en izinli moda
+ * kaza eseri düşmesi, ayarın kendisini anlamsız kılar.
+ *
+ * `full` yalnızca AÇIKÇA yazıldığında geçerlidir. Tanınmayan değer `ask`'e
+ * düşer ve bir kez uyarılır (uyarı komut başına değil, süreç başına).
+ */
+const _uyarilanModlar = new Set();
 function resolveMode(security, ask) {
   if (security === 'deny') return 'deny';
   if (security === 'allowlist' && ask === 'always') return 'ask';
   if (security === 'allowlist') return 'allowlist';
   if (security === 'full') return 'full';
-  return 'full';
+
+  const etiket = String(security ?? '(tanımsız)');
+  if (!_uyarilanModlar.has(etiket)) {
+    _uyarilanModlar.add(etiket);
+    console.error(`⚠️  Bilinmeyen güvenlik politikası: ${etiket}. Geçerli değerler: deny, allowlist, full.`);
+    console.error('    Güvenli tarafa düşülüyor: her komut için onay istenecek.');
+  }
+  return 'ask';
 }
 
 function matchAllowlist(entries, command) {
@@ -143,23 +199,47 @@ function isSafeCommand(command) {
   return false;
 }
 
-// Known dangerous patterns that should always warn
+// Known dangerous patterns that should always warn.
+//
+// Eski liste `^` ile sabitlenmiş ve neredeyse birebir eşleşme arıyordu; ölçümde
+// en yaygın yıkıcı varyantların hepsi kaçıyordu:
+//   rm -rf /                    -> yakalanıyordu
+//   sudo rm -rf /               -> KAÇIYORDU (önek `^`'ı bozuyor)
+//   rm -rf / --no-preserve-root -> KAÇIYORDU (sondaki `$` tutmuyor)
+//   rm -rf ~  /  rm -rf .  /  rm -rf /*  -> KAÇIYORDU
+//   :(){ :|:& };:               -> KAÇIYORDU (desen yanlış yazılmıştı)
+// Bu, aracın son savunma hattı: mod `full` olduğunda onay katmanı hiç
+// sormadığı için bu liste tek engel oluyor.
+//
+// Yaklaşım: `^` yerine önek toleranslı eşleşme (sudo/env/zaman ölçer sarmalayıcı
+// geçilebilsin) ve varyant toleranslı hedef ifadeleri.
 const DANGEROUS_PATTERNS = [
-  /^rm\s+-rf\s+\/\s*$/,
-  /^mkfs/,
-  /^dd\s+if=.*\s+of=\/dev/,
-  /^:\(\)\s*\{.*:\(\)\s*;\s*\};/,
-  /^chmod\s+-R\s+777\s+\//,
-  /^chown\s+-R/,
-  /^>\/dev\/sda/,
-  /^\|.*sh$/,
-  /^curl.*\|.*sh$/,
-  /^wget.*\|.*sh$/,
+  // rm -rf <kök | ev | kök glob | mevcut dizin | üst dizin>, sıra bağımsız bayraklar
+  /(^|[;&|]\s*)(?:sudo\s+|doas\s+|env\s+\S+=\S+\s+)*rm\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[rR][a-zA-Z]*\s+(?:-[a-zA-Z-]+\s+)*(?:\/|~|\$HOME|\/\*|\.|\.\.)(\s|$|\/\*)/,
+  // biçimlendirme ve ham disk yazımı
+  /(^|[;&|]\s*)(?:sudo\s+|doas\s+)*mkfs/,
+  /(^|[;&|]\s*)(?:sudo\s+|doas\s+)*dd\s+.*\bof=\/dev\//,
+  /(^|[;&|]\s*)>\s*\/dev\/(?:sd|nvme|hd|vd)/,
+  // fork bombası — gerçek biçim: :(){ :|:& };:
+  /:\s*\(\s*\)\s*\{.*\|.*&\s*\}\s*;\s*:/,
+  // geniş izin/sahiplik değişikliği
+  /(^|[;&|]\s*)(?:sudo\s+|doas\s+)*chmod\s+(?:-[a-zA-Z]+\s+)*777\s+(?:\/|~|\$HOME)(\s|$)/,
+  /(^|[;&|]\s*)(?:sudo\s+|doas\s+)*chown\s+-[a-zA-Z]*R/,
+  // indir-ve-çalıştır
+  /(?:curl|wget)\b[^|]*\|\s*(?:sudo\s+)?(?:ba|z|k|fi)?sh\b/,
+  // Windows karşılıkları
+  /(^|[;&|]\s*)format\s+[a-zA-Z]:/i,
+  /\bRemove-Item\b[^\n]*-Recurse[^\n]*-Force[^\n]*(?:[A-Za-z]:\\?$|[A-Za-z]:\\\*|\$HOME|~)/i,
+  /(^|[;&|]\s*)rd\s+\/s\s+\/q\s+[a-zA-Z]:\\?(\s|$)/i,
+  // disk bölümleme / önyükleme kaydı
+  /(^|[;&|]\s*)(?:sudo\s+|doas\s+)*(?:fdisk|parted|diskpart)\b/i,
 ];
 
 function isDangerousCommand(command) {
+  const d = String(command || '').trim();
+  if (!d) return false;
   for (const pattern of DANGEROUS_PATTERNS) {
-    if (pattern.test(command.trim())) return true;
+    if (pattern.test(d)) return true;
   }
   return false;
 }

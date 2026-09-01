@@ -3,18 +3,50 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const MCP_CONFIG = path.join(os.homedir(), '.natureco', 'mcp-servers.json');
+const { getMcpServers, saveMcpServers } = require('../utils/mcp');
+
+// Eski, ARTIK OKUNMAYAN konum. Bu komut buraya yazıyordu; ajan çalışma zamanı
+// ise config.json içindeki `mcpServers` alanını okuyor (utils/mcp.js:52,
+// utils/mcp-tools.js:39, utils/api.js:294). İki dosya hiç buluşmuyordu:
+// `natureco mcp set` "configured" diyor, `mcp list` sunucuyu "enabled"
+// gösteriyor, ama ajan onu HİÇ görmüyordu. Aynı şekilde `mcp unset` çalışan
+// bir sunucuyu kaldırmış gibi görünüyor ama config.json'daki kayıt duruyordu.
+const ESKI_MCP_CONFIG = path.join(os.homedir(), '.natureco', 'mcp-servers.json');
+
+/**
+ * Eski dosyada kalmış kayıtları bir kez config.json'a taşır.
+ * Çakışmada config.json kazanır — çalışan yapılandırma bozulmasın.
+ */
+function eskiKayitlariTasi() {
+  if (!fs.existsSync(ESKI_MCP_CONFIG)) return 0;
+  let eski;
+  try { eski = JSON.parse(fs.readFileSync(ESKI_MCP_CONFIG, 'utf8')); }
+  catch { return 0; }
+  const adlar = Object.keys(eski || {});
+  if (!adlar.length) return 0;
+
+  const mevcut = getMcpServers();
+  let tasinan = 0;
+  for (const ad of adlar) {
+    if (mevcut[ad]) continue;
+    mevcut[ad] = eski[ad];
+    tasinan++;
+  }
+  if (tasinan) saveMcpServers(mevcut);
+  try { fs.renameSync(ESKI_MCP_CONFIG, ESKI_MCP_CONFIG + '.tasindi'); } catch { /* best-effort */ }
+  if (tasinan) {
+    console.log(chalk.yellow(`\n  ${tasinan} MCP sunucusu eski dosyadan taşındı (artık ajan da görüyor).`));
+  }
+  return tasinan;
+}
 
 function loadServers() {
-  if (!fs.existsSync(MCP_CONFIG)) return {};
-  try { return JSON.parse(fs.readFileSync(MCP_CONFIG, 'utf8')); }
-  catch { return {}; }
+  eskiKayitlariTasi();
+  return getMcpServers();
 }
 
 function saveServers(servers) {
-  const dir = path.dirname(MCP_CONFIG);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(MCP_CONFIG, JSON.stringify(servers, null, 2), 'utf8');
+  saveMcpServers(servers);
 }
 
 function mcp(args) {
