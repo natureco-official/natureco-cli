@@ -66,6 +66,9 @@ NATURECO_CLI_DOC.md
 PROVIDERS_GUIDE.md
 MARKETING_*.md
 nc-restore/
+scripts/import-skills-log.json
+scripts/import-curated-skills-log.json
+workflow-grep-sonuc.txt
 
 # Secrets / credentials (CRITICAL)
 .env

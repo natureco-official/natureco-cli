@@ -14,77 +14,78 @@ const packageJson = require('../package.json');
 require('../src/utils/process-errors').install();
 // Yeni sürüm bildirimi (önbellekten senkron basar; ağı arka planda, engellemeden tazeler).
 // Eski sürümde kalan kullanıcılar yeni skill/araçlardan haberdar olsun diye eklendi.
-try { require('../src/utils/update-check').maybeNotify(packageJson.version); } catch { /* asla komutu bozma */ }
+const startupCommand = process.argv[2];
+if (startupCommand && !['help', '--help', '-h', 'completion'].includes(startupCommand)) {
+  try { require('../src/utils/update-check').maybeNotify(packageJson.version); } catch { /* optional */ }
+}
 // Yerleşik skill/araçları ~/.natureco altında görünür yap (junction/symlink; kopya yok)
-try { require('../src/utils/builtin-links').ensureBuiltinLinks(); } catch { /* asla komutu bozma */ }
-const login = require('../src/commands/login');
-const logout = require('../src/commands/logout');
-const account = require('../src/commands/account');
-const dna = require('../src/commands/dna');
-const lang = require('../src/commands/lang');
-const bots = require('../src/commands/bots');
-const chat = require('../src/commands/chat');
-const help = require('../src/commands/help');
-const gateway = require('../src/commands/gateway');
-const init = require('../src/commands/init');
-const config = require('../src/commands/config');
-const ask = require('../src/commands/ask');
-const run = require('../src/commands/run');
-const signal = require('../src/commands/signal');
-const irc = require('../src/commands/irc');
-const mattermost = require('../src/commands/mattermost');
-const imessage = require('../src/commands/imessage');
-const sms = require('../src/commands/sms');
-const webhooks = require('../src/commands/webhooks');
-const bonjour = require('../src/commands/bonjour');
-const policy = require('../src/commands/policy');
-const voice = require('../src/commands/voice');
-const clickclack = require('../src/commands/clickclack');
-const adminRpc = require('../src/commands/admin-rpc');
-const ocPath = require('../src/commands/oc-path');
-const workboard = require('../src/commands/workboard');
-const threadOwnership = require('../src/commands/thread-ownership');
-const devicePair = require('../src/commands/device-pair');
-const openProse = require('../src/commands/open-prose');
-const vydra = require('../src/commands/vydra');
+// Built-in links are created explicitly by setup; read-only commands do not mutate the home directory.
+function lazyCommand(modulePath) {
+  let handler;
+  return function loadAndRun(...args) {
+    handler ||= require(modulePath);
+    return handler.apply(this, args);
+  };
+}
+
+const login = lazyCommand('../src/commands/login');
+const logout = lazyCommand('../src/commands/logout');
+const account = lazyCommand('../src/commands/account');
+const dna = lazyCommand('../src/commands/dna');
+const lang = lazyCommand('../src/commands/lang');
+const bots = lazyCommand('../src/commands/bots');
+const chat = lazyCommand('../src/commands/chat');
+const help = lazyCommand('../src/commands/help');
+const gateway = lazyCommand('../src/commands/gateway');
+const init = lazyCommand('../src/commands/init');
+const config = lazyCommand('../src/commands/config');
+const ask = lazyCommand('../src/commands/ask');
+const run = lazyCommand('../src/commands/run');
+const adminRpc = lazyCommand('../src/commands/admin-rpc');
+const ocPath = lazyCommand('../src/commands/oc-path');
+const workboard = lazyCommand('../src/commands/workboard');
+const threadOwnership = lazyCommand('../src/commands/thread-ownership');
+const devicePair = lazyCommand('../src/commands/device-pair');
+const openProse = lazyCommand('../src/commands/open-prose');
+const vydra = lazyCommand('../src/commands/vydra');
 // OpenClaw uyumlu komutlar
-const agent = require('../src/commands/agent');
-const approvals = require('../src/commands/approvals');
-const backup = require('../src/commands/backup');
-const audit = require('../src/commands/audit');
-const cost = require('../src/commands/cost');
-const naturehub = require('../src/commands/naturehub');
-const medium = require('../src/commands/medium');
-const seo = require('../src/commands/seo');
-const xp = require('../src/commands/xp');
-const team = require('../src/commands/team');
-const repl = require('../src/commands/repl');
-const capability = require('../src/commands/capability');
-const commitments = require('../src/commands/commitments');
-const completion = require('../src/commands/completion');
-const configure = require('../src/commands/configure');
-const crestodian = require('../src/commands/crestodian');
-const daemon = require('../src/commands/daemon');
-const devices = require('../src/commands/devices');
-const directory = require('../src/commands/directory');
-const dns = require('../src/commands/dns');
-const docs = require('../src/commands/docs');
-const execPolicy = require('../src/commands/exec-policy');
-const health = require('../src/commands/health');
-const infer = require('../src/commands/infer');
-const node = require('../src/commands/node');
-const nodes = require('../src/commands/nodes');
-const onboard = require('../src/commands/onboard');
-const proxy = require('../src/commands/proxy');
-const qr = require('../src/commands/qr');
-const sandbox = require('../src/commands/sandbox');
-const secrets = require('../src/commands/secrets');
-const system = require('../src/commands/system');
-const terminal = require('../src/commands/terminal');
-const transcripts = require('../src/commands/transcripts');
-const wiki = require('../src/commands/wiki');
-const browser = require('../src/commands/browser');
-const tools = require('../src/commands/tools');
+const agent = lazyCommand('../src/commands/agent');
+const approvals = lazyCommand('../src/commands/approvals');
+const backup = lazyCommand('../src/commands/backup');
+const audit = lazyCommand('../src/commands/audit');
+const cost = lazyCommand('../src/commands/cost');
+const naturehub = lazyCommand('../src/commands/naturehub');
+const medium = lazyCommand('../src/commands/medium');
+const seo = lazyCommand('../src/commands/seo');
+const xp = lazyCommand('../src/commands/xp');
+const team = lazyCommand('../src/commands/team');
+const repl = lazyCommand('../src/commands/repl');
+const capability = lazyCommand('../src/commands/capability');
+const commitments = lazyCommand('../src/commands/commitments');
+const completion = lazyCommand('../src/commands/completion');
+const configure = lazyCommand('../src/commands/configure');
+const crestodian = lazyCommand('../src/commands/crestodian');
+const daemon = lazyCommand('../src/commands/daemon');
+const devices = lazyCommand('../src/commands/devices');
+const directory = lazyCommand('../src/commands/directory');
+const dns = lazyCommand('../src/commands/dns');
+const docs = lazyCommand('../src/commands/docs');
+const execPolicy = lazyCommand('../src/commands/exec-policy');
+const health = lazyCommand('../src/commands/health');
+const infer = lazyCommand('../src/commands/infer');
+const node = lazyCommand('../src/commands/node');
+const nodes = lazyCommand('../src/commands/nodes');
+const onboard = lazyCommand('../src/commands/onboard');
+const proxy = lazyCommand('../src/commands/proxy');
+const qr = lazyCommand('../src/commands/qr');
+const sandbox = lazyCommand('../src/commands/sandbox');
+const secrets = lazyCommand('../src/commands/secrets');
+const system = lazyCommand('../src/commands/system');
+const terminal = lazyCommand('../src/commands/terminal');
+const transcripts = lazyCommand('../src/commands/transcripts');
+const wiki = lazyCommand('../src/commands/wiki');
+const browser = lazyCommand('../src/commands/browser');
+const tools = lazyCommand('../src/commands/tools');
 
 const program = new Command();
 
@@ -230,6 +231,7 @@ program
   .command('setup [action]')
   .description('Run initial setup wizard (wizard|config|workspace|dirs|status)')
   .action(async (action) => {
+    try { require('../src/utils/builtin-links').ensureBuiltinLinks(); } catch { /* optional */ }
     const setup = require('../src/commands/setup');
     await setup(action ? [action] : []);
   });

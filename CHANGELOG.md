@@ -2,6 +2,37 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [6.0.0] - 2026-08-12 — Security and release hardening
+
+### Security
+- Updated Discord, Urðr MCP, MCP SDK, Undici, Hono, `ip-address`, `fast-uri`,
+  `brace-expansion`, and `nanoid`; `npm audit` now reports zero known vulnerabilities.
+- Added a CycloneDX runtime SBOM and made SBOM validation part of the publish gate.
+- Pinned every imported third-party skill to an immutable Git commit. The new
+  `SKILL_PROVENANCE.json` records the source, revision, license marker, and SHA-256
+  digest of all 319 bundled skills.
+- Updated the supported-version and credential-disclosure guidance in `SECURITY.md`.
+
+### Changed
+- Node.js 22.13 or newer is now required. This matches the supported versions of Urðr,
+  the interactive prompt, and the patched Hono/MCP dependency chain.
+- Command handlers are loaded only when invoked. Help, version, and completion paths
+  no longer load the full command graph, contact the update registry, or create links
+  under the user's home directory.
+- Built-in skill/tool links are now created explicitly by `natureco setup`.
+- Removed the install-time script that modified the user's home directory, ran doctor,
+  and could invoke a nested `npm install`.
+- CI now covers the Node 22.13 floor plus current Node 22 and 24 across Linux, Windows,
+  and macOS combinations.
+  Lint warnings have a non-regression budget, startup performance is measured for both
+  version and help, and dependency auditing blocks moderate-or-higher findings.
+- Coverage gates increased to 25% lines/statements/functions and 20% branches; tests no
+  longer use forced process termination, so leaked handles can fail naturally.
+
+### Repository
+- Removed the tracked 5.6.2 restore snapshot and generated import/search logs.
+- Expanded third-party notices and added deterministic provenance/SBOM generators.
+
 ## [5.71.10] - 2026-07-30 — Fix: a truncated tool call killed the whole session
 
 ### Fixed

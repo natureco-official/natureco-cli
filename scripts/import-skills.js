@@ -12,7 +12,7 @@ const SKILLS_DIR = path.resolve(__dirname, '..', 'skills');
  */
 const ENTRIES = [
   // --- anthropics/skills (flat) ---
-  { owner: 'anthropics', repo: 'skills', skills: [
+  { owner: 'anthropics', repo: 'skills', ref: 'f17010c9bb483898c1d9c9f42dde2b3a98889434', skills: [
     'algorithmic-art', 'brand-guidelines', 'canvas-design', 'claude-api',
     'doc-coauthoring', 'docx', 'frontend-design', 'internal-comms',
     'mcp-builder', 'pdf', 'pptx', 'skill-creator', 'slack-gif-creator',
@@ -20,7 +20,7 @@ const ENTRIES = [
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- mattpocock/skills (nested under categories) ---
-  { owner: 'mattpocock', repo: 'skills', skills: [
+  { owner: 'mattpocock', repo: 'skills', ref: '84fdeffd12f2ee307994d1eb6feb48173b6e0502', skills: [
     // deprecated
     'design-an-interface', 'qa', 'request-refactor-plan', 'ubiquitous-language',
     // productivity
@@ -36,7 +36,7 @@ const ENTRIES = [
   ].map(n => ({ name: n, subpath: `skills/${getCategory(n)}/${n}` })) },
 
   // --- xixu-me/skills (flat) ---
-  { owner: 'xixu-me', repo: 'skills', skills: [
+  { owner: 'xixu-me', repo: 'skills', ref: '1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f', skills: [
     'github-actions-docs', 'use-my-browser', 'readme-i18n',
     'secure-linux-web-hosting', 'develop-userscripts',
     'openclaw-secure-linux-cloud', 'opensource-guide-coach',
@@ -44,31 +44,31 @@ const ENTRIES = [
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- vercel-labs/agent-skills (flat) ---
-  { owner: 'vercel-labs', repo: 'agent-skills', skills: [
+  { owner: 'vercel-labs', repo: 'agent-skills', ref: '7c180d9044c9ae2b442b567aad4e42a28dd5ed62', skills: [
     'composition-patterns', 'deploy-to-vercel', 'react-best-practices',
     'react-native-skills', 'react-view-transitions', 'vercel-cli-with-tokens',
     'vercel-optimize', 'web-design-guidelines', 'writing-guidelines',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- supabase/agent-skills (flat) ---
-  { owner: 'supabase', repo: 'agent-skills', skills: [
+  { owner: 'supabase', repo: 'agent-skills', ref: '8331f910845103c08d51f6ca1d86ebb7d1f745e3', skills: [
     'supabase-postgres-best-practices', 'supabase',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- obra/superpowers (flat) ---
-  { owner: 'obra', repo: 'superpowers', skills: [
+  { owner: 'obra', repo: 'superpowers', ref: '44c9b2d6e889982ac18c27d05a19fefe335194e1', skills: [
     'brainstorming', 'systematic-debugging', 'writing-plans',
     'using-superpowers', 'test-driven-development',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- juliusbrussee/caveman (flat) ---
-  { owner: 'juliusbrussee', repo: 'caveman', skills: [
+  { owner: 'juliusbrussee', repo: 'caveman', ref: '099327780ef69ad88c4cfc15c54314579ac367a4', skills: [
     'caveman', 'caveman-review', 'caveman-commit', 'caveman-compress',
     'cavecrew', 'caveman-stats', 'caveman-help',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- microsoft/azure-skills (flat) ---
-  { owner: 'microsoft', repo: 'azure-skills', skills: [
+  { owner: 'microsoft', repo: 'azure-skills', ref: '29e3b054a8319147bb969f1fffa7d051cf757d91', skills: [
     'microsoft-foundry', 'azure-ai', 'airunway-aks-setup',
     'appinsights-instrumentation', 'azure-aigateway', 'azure-cloud-migrate',
     'azure-compliance', 'azure-compute', 'azure-cost', 'azure-deploy',
@@ -81,7 +81,7 @@ const ENTRIES = [
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- leonxlnx/taste-skill (flat) ---
-  { owner: 'leonxlnx', repo: 'taste-skill', skills: [
+  { owner: 'leonxlnx', repo: 'taste-skill', ref: 'e988add20dab0fa97d7a76781c48961c8184288e', skills: [
     'brandkit', 'brutalist-skill', 'gpt-tasteskill', 'image-to-code-skill',
     'imagegen-frontend-mobile', 'imagegen-frontend-web', 'minimalist-skill',
     'output-skill', 'redesign-skill', 'soft-skill', 'stitch-skill',
@@ -89,30 +89,30 @@ const ENTRIES = [
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- remotion-dev/skills (flat) ---
-  { owner: 'remotion-dev', repo: 'skills', skills: [
+  { owner: 'remotion-dev', repo: 'skills', ref: 'b12104ef5f1b1ca2ca5590fcc7c1804fbc85556f', skills: [
     'remotion',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- mcollina/skills (flat) ---
-  { owner: 'mcollina', repo: 'skills', skills: [
+  { owner: 'mcollina', repo: 'skills', ref: 'a88a866db5dc07f74d6dcef530a3b639158bdc97', skills: [
     'fastify', 'documentation', 'init', 'linting-neostandard-eslint9',
     'node', 'nodejs-core', 'oauth', 'octocat', 'skill-optimizer',
     'snipgrapher', 'typescript-magician',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- spillwavesolutions/design-doc-mermaid (flat) ---
-  { owner: 'spillwavesolutions', repo: 'design-doc-mermaid', skills: [
+  { owner: 'spillwavesolutions', repo: 'design-doc-mermaid', ref: 'e13f987306d5cd7a34f541927a3228343dd90e45', skills: [
     'design-doc-mermaid',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- vyralcontent/content-skills (flat) ---
-  { owner: 'vyralcontent', repo: 'content-skills', skills: [
+  { owner: 'vyralcontent', repo: 'content-skills', ref: '349e495d97029a3e6303a7510e3f39c73f36d8fe', skills: [
     'viral-short-form-ideas', 'viral-short-form', 'viral-instagram-reels',
     'viral-tiktok-content',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- heygen-com/hyperframes (flat) ---
-  { owner: 'heygen-com', repo: 'hyperframes', skills: [
+  { owner: 'heygen-com', repo: 'hyperframes', ref: '2350f9b69b10c32ec12d0f84800133aa5173804e', skills: [
     'hyperframes', 'hyperframes-animation', 'hyperframes-core',
     'hyperframes-media', 'hyperframes-cli', 'hyperframes-creative',
     'motion-graphics', 'general-video', 'website-to-video',
@@ -121,19 +121,19 @@ const ENTRIES = [
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- roin-orca/skills ---
-  { owner: 'roin-orca', repo: 'skills', skills: [
+  { owner: 'roin-orca', repo: 'skills', ref: '44cd96fe7d40373e023329d9a87591b816b42562', skills: [
     'simple',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- larksuite/cli ---
-  { owner: 'larksuite', repo: 'cli', skills: [
+  { owner: 'larksuite', repo: 'cli', ref: '5190cfd60f5046c6f61bd02dfed08a54c5eb277a', skills: [
     'lark-doc', 'lark-base', 'lark-shared', 'lark-approval',
     'lark-workflow-meeting-summary', 'lark-workflow-project-summary',
     'lark-workflow-chat-summary',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 
   // --- halt-catch-fire/skills ---
-  { owner: 'halt-catch-fire', repo: 'skills', skills: [
+  { owner: 'halt-catch-fire', repo: 'skills', ref: 'becc25649700d5457772a00e5143e28ccf9e5afa', skills: [
     'remotion-render', 'landing-page-design',
   ].map(n => ({ name: n, subpath: `skills/${n}` })) },
 ];
@@ -215,7 +215,7 @@ async function main() {
         continue;
       }
 
-      const url = `https://raw.githubusercontent.com/${entry.owner}/${entry.repo}/main/${skill.subpath}/SKILL.md`;
+      const url = `https://raw.githubusercontent.com/${entry.owner}/${entry.repo}/${entry.ref}/${skill.subpath}/SKILL.md`;
 
       try {
         const content = await fetchUrl(url);
@@ -258,4 +258,11 @@ async function main() {
   console.log(`\nLog: ${logPath}`);
 }
 
-main().catch(console.error);
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { ENTRIES, main };

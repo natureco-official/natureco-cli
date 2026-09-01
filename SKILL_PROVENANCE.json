@@ -1,0 +1,2866 @@
+{
+  "schemaVersion": 1,
+  "generatedBy": "scripts/generate-skill-provenance.js",
+  "skills": [
+    {
+      "name": "a-b-testing",
+      "path": "skills/a-b-testing/SKILL.md",
+      "sha256": "98044a03064330b426111411d27b8f97f94cbabff5da62c162caf5e91784f286",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "accessibility-audit",
+      "path": "skills/accessibility-audit/SKILL.md",
+      "sha256": "564e1a54302454c17cccb2282c4c1047e7f89f63edd85e8758e486004b05c950",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "agent-memory",
+      "path": "skills/agent-memory/SKILL.md",
+      "sha256": "4c0a32f741fb35a678c853759188d0aae3d850988193fc4fe7151465685302e2",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "agent-orchestration",
+      "path": "skills/agent-orchestration/SKILL.md",
+      "sha256": "83b40fe394e3416bad7315af66406e9529621c365a26cad09586d6e7a71c8c89",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "airunway-aks-setup",
+      "path": "skills/airunway-aks-setup/SKILL.md",
+      "sha256": "89652e09aae17485d4f72e7417480c39289ac444a4985355ffbf2821e17fdd96",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/airunway-aks-setup/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "algorithmic-art",
+      "path": "skills/algorithmic-art/SKILL.md",
+      "sha256": "3bc4092c09804853186524c826bc0621b940bb6122c05b84496dff95388e6eef",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/algorithmic-art/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "analytics-setup",
+      "path": "skills/analytics-setup/SKILL.md",
+      "sha256": "dcb7d69d6041d7f7dd69af53cc43ab7a05465c94c18eb2525a52138a42a9d177",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "api-design",
+      "path": "skills/api-design/SKILL.md",
+      "sha256": "5a2a3280b03ec0c3b1002b79876ede49ce7f4c839734eeaf6101071385b6e2f0",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "api-versioning",
+      "path": "skills/api-versioning/SKILL.md",
+      "sha256": "5400f49e8fc896d34ee2ef0f1cba107c7e6ce4a857c1a0afb0e0a45415447eee",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "appinsights-instrumentation",
+      "path": "skills/appinsights-instrumentation/SKILL.md",
+      "sha256": "0086a38ba8dcb1be0e828f5d86d768d73110729bce51be9c60431ec59c47106c",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/appinsights-instrumentation/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "audio-transcription",
+      "path": "skills/audio-transcription/SKILL.md",
+      "sha256": "40de4d811e3a1c1d752c362095a7b58923b65e8d95a11a5d3a335410b616e01d",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "authentication-patterns",
+      "path": "skills/authentication-patterns/SKILL.md",
+      "sha256": "97909dc0b9ae96b16049467b0a2ee34bb47e85c68fe03567b095f16c3bbc619c",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "authorization-rbac",
+      "path": "skills/authorization-rbac/SKILL.md",
+      "sha256": "54e603e8ae17f62d64aab941a699a70af3f7ca6a97f9409b136fc4bfb6f6cb5f",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "azure-ai",
+      "path": "skills/azure-ai/SKILL.md",
+      "sha256": "9060994a74a9c8510c6e64d01edcef55440cefbba399c93cda18980651fff186",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-ai/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-aigateway",
+      "path": "skills/azure-aigateway/SKILL.md",
+      "sha256": "2229d5e496d19e159bc97a7cc8b818be18a39d0a65578473d623af088aa21b4e",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-aigateway/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-cloud-migrate",
+      "path": "skills/azure-cloud-migrate/SKILL.md",
+      "sha256": "db31a871e00002b6895c5e32ade22244d3a92fbf3db88314474cef8c74b354ef",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-cloud-migrate/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-compliance",
+      "path": "skills/azure-compliance/SKILL.md",
+      "sha256": "1f35685eadc0aa9f0c3299c248425d83740271e679170f8048356926fc1403aa",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-compliance/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-compute",
+      "path": "skills/azure-compute/SKILL.md",
+      "sha256": "884d17e240d11148465cda7b4820f23e4efc6e13a0ae8ad07d60b714fdcb4506",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-compute/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-cost",
+      "path": "skills/azure-cost/SKILL.md",
+      "sha256": "1bc522b995b8abd42b189cc3478031d52d9230ab41dde0e19a5db39832c85abc",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-cost/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-deploy",
+      "path": "skills/azure-deploy/SKILL.md",
+      "sha256": "c3e877d874cac1834753e7b3b35a8a33e1257b3b5f3c429dcab238bd19c28601",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-deploy/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-diagnostics",
+      "path": "skills/azure-diagnostics/SKILL.md",
+      "sha256": "75f3e45d535efa721acf42931031d6ed27c1cca6574be9b881a0dd59139a88ad",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-diagnostics/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-enterprise-infra-planner",
+      "path": "skills/azure-enterprise-infra-planner/SKILL.md",
+      "sha256": "993c893c4f610fd228e007010cfc5b7db03e4b361302772146e4fa64f21c5c76",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-enterprise-infra-planner/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-hosted-copilot-sdk",
+      "path": "skills/azure-hosted-copilot-sdk/SKILL.md",
+      "sha256": "342dda8b9eb682aa2349bfcfe4cf28524c246e2739604f2f88ca9cb23281fdb5",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-hosted-copilot-sdk/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-kubernetes",
+      "path": "skills/azure-kubernetes/SKILL.md",
+      "sha256": "9c8f61b2dd265ddbd08d2082e470f339c63c43d3c784324189a06927c75e80fb",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-kubernetes/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-kusto",
+      "path": "skills/azure-kusto/SKILL.md",
+      "sha256": "d3018c0de4b700f805cab55a40a16de7bab4ba3ed747f69819450c6edca891d7",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-kusto/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-messaging",
+      "path": "skills/azure-messaging/SKILL.md",
+      "sha256": "6304fe3ccbb6f36a4dcafe1bfe30d0c03618019d68fb4a933fd716bf8763d84c",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-messaging/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-prepare",
+      "path": "skills/azure-prepare/SKILL.md",
+      "sha256": "4b2eb85a6c997a65ae1b189885f8cea23883220dfb87ed7307e1b2a10a80eeb6",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-prepare/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-quotas",
+      "path": "skills/azure-quotas/SKILL.md",
+      "sha256": "b517e29b50ba07dc42dd4fd356c0c15d5d41435415f6835ddb2ad874d6997237",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-quotas/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-rbac",
+      "path": "skills/azure-rbac/SKILL.md",
+      "sha256": "5fa1410b1526906d42f094bd38ec0dee952cd67a24d0dd15590833b954627cb7",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-rbac/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-reliability",
+      "path": "skills/azure-reliability/SKILL.md",
+      "sha256": "001ca1733d1db5e950d7fc603eac7c28309458e54ab0ca54896002e08fe3285c",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-reliability/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-resource-lookup",
+      "path": "skills/azure-resource-lookup/SKILL.md",
+      "sha256": "81357bebb50b2a9cbfe46386eae4643d565445562882de4f891801b8b5dbfed1",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-resource-lookup/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-resource-visualizer",
+      "path": "skills/azure-resource-visualizer/SKILL.md",
+      "sha256": "a0dd18d0f49514e53c0683b32f93c60c34fab454e941e28cdff72444cd5d4440",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-resource-visualizer/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-storage",
+      "path": "skills/azure-storage/SKILL.md",
+      "sha256": "0bb1208ef49ffcce3400d803139b682901b0df93a7c0b72518b01543da244fe6",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-storage/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-upgrade",
+      "path": "skills/azure-upgrade/SKILL.md",
+      "sha256": "56b6ce64bca0630e42a3691a08b624227fd5c45e082adc328bfd4ef356a00b20",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-upgrade/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "azure-validate",
+      "path": "skills/azure-validate/SKILL.md",
+      "sha256": "658bc439e1c6ad3b3085492baeeeaeeaaed8920ac3f7588da4f78b967bf1c141",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/azure-validate/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "backup-strategy",
+      "path": "skills/backup-strategy/SKILL.md",
+      "sha256": "d020d83e869b91589d33172ce6c8914b077479c8a2d565dcdef6826eb6b92b34",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "bash-scripting",
+      "path": "skills/bash-scripting/SKILL.md",
+      "sha256": "7cd1e48d100d756748cc3309fd913a719b511dd1c561d06301ba33a949e279c6",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "batch-api-calls",
+      "path": "skills/batch-api-calls/SKILL.md",
+      "sha256": "c879980d77bc1689bab1aa312d696cb4866b043a4e0b72c80a88e4f0593ccff6",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "batch-processing",
+      "path": "skills/batch-processing/SKILL.md",
+      "sha256": "4557840b3e1e8cd6ca3b033b1aaa0bea0402c754ccfae8962a7395265c3ec110",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "brainstorming",
+      "path": "skills/brainstorming/SKILL.md",
+      "sha256": "e14914605f640e0841758e45d0ab2a53243b59b921f929e47921c99668f2e61d",
+      "kind": "third-party",
+      "repository": "https://github.com/obra/superpowers",
+      "revision": "44c9b2d6e889982ac18c27d05a19fefe335194e1",
+      "source": "https://raw.githubusercontent.com/obra/superpowers/44c9b2d6e889982ac18c27d05a19fefe335194e1/skills/brainstorming/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "brand-guidelines",
+      "path": "skills/brand-guidelines/SKILL.md",
+      "sha256": "1120b3769e2985cefb3d25be981b1f914abeba57ae079b83c20c666c164fa9fe",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/brand-guidelines/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "brandkit",
+      "path": "skills/brandkit/SKILL.md",
+      "sha256": "b0c4837e1bd140ca816ae54948754ddd2ac1e2a4d3619363777a80caf00b2ede",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/brandkit/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "brutalist-skill",
+      "path": "skills/brutalist-skill/SKILL.md",
+      "sha256": "fffbaac8597f07679e9d87145533567658aedba3b5eca6f16a7075a333048caa",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/brutalist-skill/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "bulk-file-operations",
+      "path": "skills/bulk-file-operations/SKILL.md",
+      "sha256": "596edcb4da395c791f1787eabf451fa55278a36e0e6b3ff07f3abe6900c03d44",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "cache-responses",
+      "path": "skills/cache-responses/SKILL.md",
+      "sha256": "8663f9f967ed21523cd149ecdb8efcb87c237b601e0028f32a7bda78c32bf462",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "caching-strategy",
+      "path": "skills/caching-strategy/SKILL.md",
+      "sha256": "f2125d9db67714b99d7bbf800c941532f0113b1515584da56f3fd3cdf48e5d15",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "calendar-optimization",
+      "path": "skills/calendar-optimization/SKILL.md",
+      "sha256": "0503e80495ae3c38f8527819ddeba935007e3cff5f24ad1522a9992a32a4e9bf",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "canvas-design",
+      "path": "skills/canvas-design/SKILL.md",
+      "sha256": "a1f288079624402f30682753c1d43920b6664785698d21d3e7aa197450a6448b",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/canvas-design/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "cavecrew",
+      "path": "skills/cavecrew/SKILL.md",
+      "sha256": "b74f374f6aae6e9a31e78e7d876860406fe5833378e9298536edf176c12f379b",
+      "kind": "third-party",
+      "repository": "https://github.com/juliusbrussee/caveman",
+      "revision": "099327780ef69ad88c4cfc15c54314579ac367a4",
+      "source": "https://raw.githubusercontent.com/juliusbrussee/caveman/099327780ef69ad88c4cfc15c54314579ac367a4/skills/cavecrew/SKILL.md",
+      "license": "LicenseRef-Upstream"
+    },
+    {
+      "name": "caveman",
+      "path": "skills/caveman/SKILL.md",
+      "sha256": "33b2e14c8d8045994c943aca677f46fedf67b0bb4a75567892baa99e3fb80232",
+      "kind": "third-party",
+      "repository": "https://github.com/juliusbrussee/caveman",
+      "revision": "099327780ef69ad88c4cfc15c54314579ac367a4",
+      "source": "https://raw.githubusercontent.com/juliusbrussee/caveman/099327780ef69ad88c4cfc15c54314579ac367a4/skills/caveman/SKILL.md",
+      "license": "LicenseRef-Upstream"
+    },
+    {
+      "name": "caveman-commit",
+      "path": "skills/caveman-commit/SKILL.md",
+      "sha256": "58db7b8efab911a629c26e7132517d9076e4e3645009eb604cb8c25663477841",
+      "kind": "third-party",
+      "repository": "https://github.com/juliusbrussee/caveman",
+      "revision": "099327780ef69ad88c4cfc15c54314579ac367a4",
+      "source": "https://raw.githubusercontent.com/juliusbrussee/caveman/099327780ef69ad88c4cfc15c54314579ac367a4/skills/caveman-commit/SKILL.md",
+      "license": "LicenseRef-Upstream"
+    },
+    {
+      "name": "caveman-compress",
+      "path": "skills/caveman-compress/SKILL.md",
+      "sha256": "929299ed737f3971f0952a3ad2959149ec86c1b0fd8c87433f33a394060bff23",
+      "kind": "third-party",
+      "repository": "https://github.com/juliusbrussee/caveman",
+      "revision": "099327780ef69ad88c4cfc15c54314579ac367a4",
+      "source": "https://raw.githubusercontent.com/juliusbrussee/caveman/099327780ef69ad88c4cfc15c54314579ac367a4/skills/caveman-compress/SKILL.md",
+      "license": "LicenseRef-Upstream"
+    },
+    {
+      "name": "caveman-help",
+      "path": "skills/caveman-help/SKILL.md",
+      "sha256": "590d6c6c17254bda56d18da7cc9d0bf252aeec5d1c78b77dd7ae4cabb8404f89",
+      "kind": "third-party",
+      "repository": "https://github.com/juliusbrussee/caveman",
+      "revision": "099327780ef69ad88c4cfc15c54314579ac367a4",
+      "source": "https://raw.githubusercontent.com/juliusbrussee/caveman/099327780ef69ad88c4cfc15c54314579ac367a4/skills/caveman-help/SKILL.md",
+      "license": "LicenseRef-Upstream"
+    },
+    {
+      "name": "caveman-review",
+      "path": "skills/caveman-review/SKILL.md",
+      "sha256": "9ef09065f26b9781275b5a4775e14870e331fab833efb2a2aa33f3205a2b83c3",
+      "kind": "third-party",
+      "repository": "https://github.com/juliusbrussee/caveman",
+      "revision": "099327780ef69ad88c4cfc15c54314579ac367a4",
+      "source": "https://raw.githubusercontent.com/juliusbrussee/caveman/099327780ef69ad88c4cfc15c54314579ac367a4/skills/caveman-review/SKILL.md",
+      "license": "LicenseRef-Upstream"
+    },
+    {
+      "name": "caveman-stats",
+      "path": "skills/caveman-stats/SKILL.md",
+      "sha256": "b9e49e46ede956e0c1633eae82a695c996f728bc48f3903f001d301068a2b0ea",
+      "kind": "third-party",
+      "repository": "https://github.com/juliusbrussee/caveman",
+      "revision": "099327780ef69ad88c4cfc15c54314579ac367a4",
+      "source": "https://raw.githubusercontent.com/juliusbrussee/caveman/099327780ef69ad88c4cfc15c54314579ac367a4/skills/caveman-stats/SKILL.md",
+      "license": "LicenseRef-Upstream"
+    },
+    {
+      "name": "changelog-generation",
+      "path": "skills/changelog-generation/SKILL.md",
+      "sha256": "dfc4ebb6a1309f2ba647488dbb23fbe0e061d114c80176cccd29305284d5e312",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "chat-bot-design",
+      "path": "skills/chat-bot-design/SKILL.md",
+      "sha256": "633e9077b06a3bbb7a0552e983613490f7c297fd2117085142c4334a3a1ac19d",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "chunking-strategy",
+      "path": "skills/chunking-strategy/SKILL.md",
+      "sha256": "d55d07743168a5ff04c8b54a2afe4db8a73a0835084100f711bd80f34cc47f00",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "ci-cd-pipeline",
+      "path": "skills/ci-cd-pipeline/SKILL.md",
+      "sha256": "5b505cb1170e7ac751a7dfd2be5e6bce6ecceb1e68dc8ea100fcdac267fdc6ca",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "classification-pipeline",
+      "path": "skills/classification-pipeline/SKILL.md",
+      "sha256": "341cb43a8ab9cfed7e5170042788f47960d087b4ba760e6670e5bc1feb371ad5",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "claude-api",
+      "path": "skills/claude-api/SKILL.md",
+      "sha256": "3ae3297638c3797c90538ecc08448464686d237676c8cb58ed4bb189267c7da3",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/claude-api/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "clipboard-master",
+      "path": "skills/clipboard-master/SKILL.md",
+      "sha256": "87e57576d25955b04ef80397e4de2e1995c04dfbdded52b84d7a7f4e4a7330dd",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "code-explanation",
+      "path": "skills/code-explanation/SKILL.md",
+      "sha256": "3682af2fb90ca5e615280264ae8538d62054e6c9f944c45595e2a063e0cd46ae",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "code-generation",
+      "path": "skills/code-generation/SKILL.md",
+      "sha256": "998f8f97b53a8abf5836a766176e0e1295fdcdd40224217098b10c97b4aa8176",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "code-migration",
+      "path": "skills/code-migration/SKILL.md",
+      "sha256": "270fc4a306070e4119b06e1816c74e03a339d88f5a9d083ff9762e355fcdbe79",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "code-refactoring",
+      "path": "skills/code-refactoring/SKILL.md",
+      "sha256": "4da7c8363b7f8d7efb1ecbd204a607d25ed18e7624efb2b975648f2dcab708e7",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "code-review",
+      "path": "skills/code-review/SKILL.md",
+      "sha256": "7a672dbd507df933f5ed8c7c180d607d07d64fb3f542edfd6aec0d1f21349c9d",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "code-review-checklist",
+      "path": "skills/code-review-checklist/SKILL.md",
+      "sha256": "fce943c922e203e95c6a733f4a2374703304011ecaa4752f50c0908e22bb6617",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "composition-patterns",
+      "path": "skills/composition-patterns/SKILL.md",
+      "sha256": "e38e0eaa609316b10423a9a138ed95e35099accd3f735585295c8a8f165c28a3",
+      "kind": "third-party",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "source": "https://raw.githubusercontent.com/vercel-labs/agent-skills/7c180d9044c9ae2b442b567aad4e42a28dd5ed62/skills/composition-patterns/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "contact-management",
+      "path": "skills/contact-management/SKILL.md",
+      "sha256": "9c41976d667eb842a327e5cfbdc8d20ba93f2ccd17f7448c0be708c30faa2daa",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "content-generation",
+      "path": "skills/content-generation/SKILL.md",
+      "sha256": "763ebb303f1cdc999c0625523b06d885dff34e54f80167e97f99ea5b653872e4",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "context-pruning",
+      "path": "skills/context-pruning/SKILL.md",
+      "sha256": "8628736727f1efe72a038f4420b5af601eee6ba6fa2e1ee463dbf5d2a9f46785",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "context-window-management",
+      "path": "skills/context-window-management/SKILL.md",
+      "sha256": "abb32efd8f434a98da86637b792637f9ebf48686c8a3eb0e12119314f7bef415",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "continuous-improvement",
+      "path": "skills/continuous-improvement/SKILL.md",
+      "sha256": "86ba7846cbf64f29db4b68dfb980214f343703e2cefe4b93044eb57fffdd0e00",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "cron-scheduling",
+      "path": "skills/cron-scheduling/SKILL.md",
+      "sha256": "7977f640e0a8d134ba93b1714f65730874be67b751d7237f0571325dce680654",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "cross-platform-compat",
+      "path": "skills/cross-platform-compat/SKILL.md",
+      "sha256": "4bef5c272b496257d9d0b910d05bc75822524abbd7f6499729923c9daa7070cf",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "csv-processing",
+      "path": "skills/csv-processing/SKILL.md",
+      "sha256": "9caf657b5839f901346485d76af00a2fc0a9198b5edf8c34f1732e8e3c013906",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "daily-journal",
+      "path": "skills/daily-journal/SKILL.md",
+      "sha256": "fdf83e2fae101a3be559f24cac71e546c995b6b4142ad5007a1125bd7f20c559",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "data-analysis",
+      "path": "skills/data-analysis/SKILL.md",
+      "sha256": "6fa423e3db6b8f4d51c3e34fce9fc731d0bcd537127844f441e27b1b5044778c",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "data-backup",
+      "path": "skills/data-backup/SKILL.md",
+      "sha256": "4f7e8f8f943cc3345b10665f25188189bfcdff6ca7ab55c59562992cd25c8e92",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "data-cleaning",
+      "path": "skills/data-cleaning/SKILL.md",
+      "sha256": "11016f861219e43273a478bab3194cc96559b52da25ffd53b4c20f0faa933d9b",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "data-extraction",
+      "path": "skills/data-extraction/SKILL.md",
+      "sha256": "b883012c759c68d7a485db98c5f719fda9e51b82add6fd6b7c4c82b3a348ca3e",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "data-validation",
+      "path": "skills/data-validation/SKILL.md",
+      "sha256": "8e98dddebc385b05961bcf9aec6597d334e9741dc44f9f7d803fc4f74439aa22",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "database-migrations",
+      "path": "skills/database-migrations/SKILL.md",
+      "sha256": "b67442efe257f52c6bc406eb402099c2c088c7ffe21705d02546be88880e8708",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "database-schema-design",
+      "path": "skills/database-schema-design/SKILL.md",
+      "sha256": "e6f8fe8837cd5336211f3db9744539243bdea9d822a67f7f9146bd33ff631c39",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "decision-mapping",
+      "path": "skills/decision-mapping/SKILL.md",
+      "sha256": "d71faf119fb64d66dd124b8010058d84c437bdb07787c8b772fbda37b7205879",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/in-progress/decision-mapping/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "decision-matrix",
+      "path": "skills/decision-matrix/SKILL.md",
+      "sha256": "baeb7aa6d3b66c77c23e783d0164fb8e3b6942cbbf013a17b7688bf741368512",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "dependency-management",
+      "path": "skills/dependency-management/SKILL.md",
+      "sha256": "5e81f7733e7007207c259d9468dc6b1bdca197bdb9899d6945ef0f1f13fbd5d8",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "deploy-to-vercel",
+      "path": "skills/deploy-to-vercel/SKILL.md",
+      "sha256": "cfcc3dd479ab2e0ae721ddf39b8af84d977321487672f1487c8d6855f576927b",
+      "kind": "third-party",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "source": "https://raw.githubusercontent.com/vercel-labs/agent-skills/7c180d9044c9ae2b442b567aad4e42a28dd5ed62/skills/deploy-to-vercel/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "design-an-interface",
+      "path": "skills/design-an-interface/SKILL.md",
+      "sha256": "a2596e9fa2d50e23ba014f64a5b8f9df4eb56b846a52cad152899ef5eb97b085",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/deprecated/design-an-interface/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "design-doc-mermaid",
+      "path": "skills/design-doc-mermaid/SKILL.md",
+      "sha256": "a6e4cadb2a15509691eb1489ae48966e2a3c31d162340daf0c216c88de124d25",
+      "kind": "third-party",
+      "repository": "https://github.com/spillwavesolutions/design-doc-mermaid",
+      "revision": "e13f987306d5cd7a34f541927a3228343dd90e45",
+      "source": "https://raw.githubusercontent.com/spillwavesolutions/design-doc-mermaid/e13f987306d5cd7a34f541927a3228343dd90e45/skills/design-doc-mermaid/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "dev-environment-setup",
+      "path": "skills/dev-environment-setup/SKILL.md",
+      "sha256": "98503fa9bf9827d6ac9a723a149d4386ef5eadf520c625ad437a61b7f720a7ec",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "develop-userscripts",
+      "path": "skills/develop-userscripts/SKILL.md",
+      "sha256": "dcf479356d93f4f62da1cc786fa27b9bcec8a95a0ff93ee079ba4e82d3679f4d",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/develop-userscripts/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "distraction-blocker",
+      "path": "skills/distraction-blocker/SKILL.md",
+      "sha256": "4b0d35d26a5c15ec1308d5638b5f3596ee357f5a6a5b517f61db2dca1bd479c7",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "doc-coauthoring",
+      "path": "skills/doc-coauthoring/SKILL.md",
+      "sha256": "2e47d78846faeea4a56e9809c52700087a15a2155a3f293a3efbaded81398ef4",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/doc-coauthoring/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "docker-optimization",
+      "path": "skills/docker-optimization/SKILL.md",
+      "sha256": "14fbe3e1f0018735db292d13d74430529c806d75c503f199f88a0d2f0ccfc70c",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "document-template",
+      "path": "skills/document-template/SKILL.md",
+      "sha256": "cf7e8f0fd1c2afea4871172bc4169975e96f5c663a1c284e18932409bdb07c05",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "documentation",
+      "path": "skills/documentation/SKILL.md",
+      "sha256": "5c5a5a169459a5be92966c41e6128cc537990d647a495a7755ba72b10bc833ca",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/documentation/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "documentation-gen",
+      "path": "skills/documentation-gen/SKILL.md",
+      "sha256": "fe2f80bcc597c8b674c3727210f6e0c336b6a317317f19724d9ac6ba228cf6e6",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "docx",
+      "path": "skills/docx/SKILL.md",
+      "sha256": "cfbabd72b1aec7dfaad988fb6e5e16b27dc744b9a00cae15db9045e95f53903e",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/docx/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "edit-article",
+      "path": "skills/edit-article/SKILL.md",
+      "sha256": "e10fba546f45357fe0aaa7494b9e186910d4525818d19f9b2ad6f28cc506aa5e",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/personal/edit-article/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "efficient-formatting",
+      "path": "skills/efficient-formatting/SKILL.md",
+      "sha256": "9314046e22e4b48eb34757ce02c38699629357a4ec2dfaf71621e856fe3295e3",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "email-management",
+      "path": "skills/email-management/SKILL.md",
+      "sha256": "ac5427ea8bf4be15efaf06aaa2399b4ba039b4887cad3c4375c83242f49a34e3",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "email-service",
+      "path": "skills/email-service/SKILL.md",
+      "sha256": "2d02be296c1352ab3b108ae60f66a358bd79565f47ae6cfe16a512e54ba669ca",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "embedding-generation",
+      "path": "skills/embedding-generation/SKILL.md",
+      "sha256": "20ccac2eb9f2fc0c55b42845c7d3c496da2213f264f16fca568cbb09a99f504f",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "entity-extraction",
+      "path": "skills/entity-extraction/SKILL.md",
+      "sha256": "70bb9fa58b0a6d0f42e8479e3ed2688b29e2df3e0bed825568494ee941f8e138",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "entra-agent-id",
+      "path": "skills/entra-agent-id/SKILL.md",
+      "sha256": "a21b4ddbcaea5c2655ea1ba7593fe3268d07ab9f6a0ca98209f07282f3636cb7",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/entra-agent-id/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "entra-app-registration",
+      "path": "skills/entra-app-registration/SKILL.md",
+      "sha256": "c95e095025be0579170293652ff89a0515870e2585e238cdbb2491f53d6f4fde",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/entra-app-registration/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "environment-config",
+      "path": "skills/environment-config/SKILL.md",
+      "sha256": "9f39e1c82f3fd3cffbe1a6927c74f26033c6eaa2bd8b80e4d237c16ba4abebfa",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "error-handling",
+      "path": "skills/error-handling/SKILL.md",
+      "sha256": "c35bef3fe3ac90c29054de6c51527c6253ee49a0d845fa860b1862a1049620ba",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "estimation-techniques",
+      "path": "skills/estimation-techniques/SKILL.md",
+      "sha256": "1c9155333194da25ec2ff7d564cc0573b4f2c708856fc755c76160fc629ec986",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "event-driven-architecture",
+      "path": "skills/event-driven-architecture/SKILL.md",
+      "sha256": "0bdae59b1a4a6ee90e48634c57efa542dc420329b0e7a72eb011a6c9ee7ed19b",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "excel-automation",
+      "path": "skills/excel-automation/SKILL.md",
+      "sha256": "9e5f9172cae52f22845729c4e61247c00eb0d6dedd9eb4c93bd62a33938ac3a2",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "execution-monitoring",
+      "path": "skills/execution-monitoring/SKILL.md",
+      "sha256": "e5aab60e37fe9067a0c97c546312ac145699faecb32fd69a0bba028b8419c197",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "expense-tracking",
+      "path": "skills/expense-tracking/SKILL.md",
+      "sha256": "61399339424a1f688dfc5ef4d283ff45a6f223329150cc47323cc1002766ac56",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "faceless-explainer",
+      "path": "skills/faceless-explainer/SKILL.md",
+      "sha256": "c65e0a5a8b085d8382691cc6d89ea6ac6301b6259226e643cb40bf4da383b567",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/faceless-explainer/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "fastify",
+      "path": "skills/fastify/SKILL.md",
+      "sha256": "d1d90340de01fe4b13aadcc868e69a15f98bf03d1dd881bacbb4762b93e93733",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/fastify/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "feature-engineering",
+      "path": "skills/feature-engineering/SKILL.md",
+      "sha256": "a34b7b7bf7bf983709570b34486502013feefd940c0a01e642942eac0ce881e4",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "feature-flags",
+      "path": "skills/feature-flags/SKILL.md",
+      "sha256": "2fe26e0c2db3eb4e53e1cb6ffdbfa9e69c3fd5e866004734027e33f942e27bf2",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "file-conversion",
+      "path": "skills/file-conversion/SKILL.md",
+      "sha256": "198fdc0c1e421de0aa6f8f2116161dd86649a4b7af50f08ba807b4cfd77cd365",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "file-upload-handling",
+      "path": "skills/file-upload-handling/SKILL.md",
+      "sha256": "60ba9ae6e18e0cea0201f35f8c61317ddbf46d4f1bfc73ada2fb0540f0ac14cc",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "fine-tuning-prep",
+      "path": "skills/fine-tuning-prep/SKILL.md",
+      "sha256": "654bb7a2390a667ef0db0290a684443b183db377ab8476ef26a2bf4703478577",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "focus-mode",
+      "path": "skills/focus-mode/SKILL.md",
+      "sha256": "c5ca4776cf1a2479a77305312e4f80b92e7ea1b71943e336ed2f91062b43890d",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "form-validation",
+      "path": "skills/form-validation/SKILL.md",
+      "sha256": "84f3efce4439832047a239029469c4cab6a8c71b63275037cb75d568597434c0",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "frontend-design",
+      "path": "skills/frontend-design/SKILL.md",
+      "sha256": "765612dcae85e14f7c4219f566f71b35ba6b173890cbba2e5fc9605cb4c607fd",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/frontend-design/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "function-calling",
+      "path": "skills/function-calling/SKILL.md",
+      "sha256": "6a99e0cf30687e27b5f2b7be46224c6435a370f9ca76b5323d305b7c95551419",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "general-video",
+      "path": "skills/general-video/SKILL.md",
+      "sha256": "5a1dc157f4916e41dadcf3d8dd8c535819d4f76f6bde3a656f818b7077b401ac",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/general-video/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "git-guardrails-claude-code",
+      "path": "skills/git-guardrails-claude-code/SKILL.md",
+      "sha256": "03c4de7613c712aea336d64c467ea3ed14be2cbd52345925fe949c75c01c29f7",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/misc/git-guardrails-claude-code/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "git-workflow",
+      "path": "skills/git-workflow/SKILL.md",
+      "sha256": "3256c0c2382edf91d827dcb747a197cc9a5c37261e556e1033ce14c67ac538b6",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "github-actions-docs",
+      "path": "skills/github-actions-docs/SKILL.md",
+      "sha256": "85f3e313505340d09f6c5706aac096a29ff30a0ef11c04ce7a466a57175df33f",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/github-actions-docs/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "goal-setting",
+      "path": "skills/goal-setting/SKILL.md",
+      "sha256": "56113a5119e529a684c820f6c4135d38f73edefbc8f4f2e998a85caadde6ac9a",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "gpt-tasteskill",
+      "path": "skills/gpt-tasteskill/SKILL.md",
+      "sha256": "2e64c269953f2656c21bf5a0fa6b4568e82fe0c72b36e8f84758e090349966a5",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/gpt-tasteskill/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "graphql-design",
+      "path": "skills/graphql-design/SKILL.md",
+      "sha256": "74c876c6adbe9c417336b27dace96a7bf2b98e3b5d758b375b682fc7b52ab499",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "grill-me",
+      "path": "skills/grill-me/SKILL.md",
+      "sha256": "6189dfceb7304a6e5558f75d87e68fa3bc7fcf7ba120e44f21f8a61fe01eba54",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/productivity/grill-me/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "grilling",
+      "path": "skills/grilling/SKILL.md",
+      "sha256": "fe00af3e1815f97c0a7644605479328a726b5cd95ba6ef56a4be2a92fae6c20f",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/productivity/grilling/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "habit-tracker",
+      "path": "skills/habit-tracker/SKILL.md",
+      "sha256": "efafe4e99773bc924806fd91ee24e98c31d082211b118c13ad72bfcf7dabe749",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "hallucination-detection",
+      "path": "skills/hallucination-detection/SKILL.md",
+      "sha256": "376142c77a974d925a08d775a03f11187c034df382a6c7b731b86c7ab8c48cb6",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "handoff",
+      "path": "skills/handoff/SKILL.md",
+      "sha256": "94bee8c16cbfcf9f1e15187f7e5d0d5a93c4adb7c512feceecaab80c8ff7c059",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/productivity/handoff/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "hyperframes",
+      "path": "skills/hyperframes/SKILL.md",
+      "sha256": "59fa30d536f3b11d4bfb2b2cada2a0d18ae52158d7ac36a02b0e8726dfaddaaf",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/hyperframes/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "hyperframes-animation",
+      "path": "skills/hyperframes-animation/SKILL.md",
+      "sha256": "aba5c44ac02efdaca35fc9378491373f62da1d375c35f16768ef60057f3533b1",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/hyperframes-animation/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "hyperframes-cli",
+      "path": "skills/hyperframes-cli/SKILL.md",
+      "sha256": "f6f5b0c1ea9eba3f8a52e59664c1aaa3366f3c81a4ecd151541c58387524f823",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/hyperframes-cli/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "hyperframes-core",
+      "path": "skills/hyperframes-core/SKILL.md",
+      "sha256": "689de1f94e682ee31d1f22cf196040e8f24fdaee5fbf75a832fd890f1a27a2b7",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/hyperframes-core/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "hyperframes-creative",
+      "path": "skills/hyperframes-creative/SKILL.md",
+      "sha256": "8b104a3928473f3ea683510c377e0ea65d41d3472e80e2983629cca09ff736b3",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/hyperframes-creative/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "hyperframes-media",
+      "path": "skills/hyperframes-media/SKILL.md",
+      "sha256": "2427217105228e80c326fabea4e7e74a91f31536345cc35f1285ef510ba26323",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/hyperframes-media/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "image-processing",
+      "path": "skills/image-processing/SKILL.md",
+      "sha256": "334ec7764c78f68e36289a587b80e2a88f8099a723df25bec55cf520ae74ab75",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "image-to-code-skill",
+      "path": "skills/image-to-code-skill/SKILL.md",
+      "sha256": "4c060a8064a8b13380bc2ef3d6e6a1d0b1e316aa093cd9807d0ce9e4eeb037fa",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/image-to-code-skill/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "imagegen-frontend-mobile",
+      "path": "skills/imagegen-frontend-mobile/SKILL.md",
+      "sha256": "8a33389979f3074fa0926678e266ad2eb9234624472254469fc1ad916b9caa24",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/imagegen-frontend-mobile/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "imagegen-frontend-web",
+      "path": "skills/imagegen-frontend-web/SKILL.md",
+      "sha256": "6b5c2256522fdba1e3313eafa3d743b960a7b13ec029d3e6586e04b23327c1f8",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/imagegen-frontend-web/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "implement",
+      "path": "skills/implement/SKILL.md",
+      "sha256": "6e79ad337b162393ec5bd4334c37c468a7f18281856d8b15b1b9e6fb4246c252",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/engineering/implement/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "init",
+      "path": "skills/init/SKILL.md",
+      "sha256": "4b8133592b9b302dfeb079d8dd778e61a8e36b370490448c70f0a58a9a4b6c04",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/init/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "internal-comms",
+      "path": "skills/internal-comms/SKILL.md",
+      "sha256": "067b7587a344a928fc6534ef66b1bcd591fc7c26d207ea7ca3334aeb678d6475",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/internal-comms/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "json-transformation",
+      "path": "skills/json-transformation/SKILL.md",
+      "sha256": "fb88df6062cde23e001a36a8463ad8388b3f5b8324d77f514921096e41902d27",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "keyboard-shortcuts",
+      "path": "skills/keyboard-shortcuts/SKILL.md",
+      "sha256": "0d9532b2f7682b925c256af1c61d8984e1ddf175a9da20586fd157e8ddeda6ea",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "knowledge-base",
+      "path": "skills/knowledge-base/SKILL.md",
+      "sha256": "0bb6b5016ce4d6306c3c200ed69f0c01d1c53d8db01cd2866598de26a81576ca",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "knowledge-graph",
+      "path": "skills/knowledge-graph/SKILL.md",
+      "sha256": "65513916a3cfaa877b9e1a71f1ac2163805cfe71a4328196346d1a1494213458",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "kubernetes-deployment",
+      "path": "skills/kubernetes-deployment/SKILL.md",
+      "sha256": "3394530b0bb58f8bd9cc1efa07ccc7dffcf5e68b4b354ffc04cb71e7aadb4b36",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "language-translation",
+      "path": "skills/language-translation/SKILL.md",
+      "sha256": "bd3bac27232e6e812ec2c0ff41e1873b3d53211583c3a01b4aa1959b1810d505",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "lark-approval",
+      "path": "skills/lark-approval/SKILL.md",
+      "sha256": "25b6bfd72b6ffe281c0df3be3e42bf679254cee48e6830dcf67654becdd66482",
+      "kind": "third-party",
+      "repository": "https://github.com/larksuite/cli",
+      "revision": "5190cfd60f5046c6f61bd02dfed08a54c5eb277a",
+      "source": "https://raw.githubusercontent.com/larksuite/cli/5190cfd60f5046c6f61bd02dfed08a54c5eb277a/skills/lark-approval/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "lark-base",
+      "path": "skills/lark-base/SKILL.md",
+      "sha256": "4dc986a08848393277c76aea6ff6ec4e00c7398f37e77657cb59b485b45a1225",
+      "kind": "third-party",
+      "repository": "https://github.com/larksuite/cli",
+      "revision": "5190cfd60f5046c6f61bd02dfed08a54c5eb277a",
+      "source": "https://raw.githubusercontent.com/larksuite/cli/5190cfd60f5046c6f61bd02dfed08a54c5eb277a/skills/lark-base/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "lark-doc",
+      "path": "skills/lark-doc/SKILL.md",
+      "sha256": "6dfe0c75a7f8c47708ee9873ef4e2e3023d4aa6e494e4e238b66f2f7e31dab1d",
+      "kind": "third-party",
+      "repository": "https://github.com/larksuite/cli",
+      "revision": "5190cfd60f5046c6f61bd02dfed08a54c5eb277a",
+      "source": "https://raw.githubusercontent.com/larksuite/cli/5190cfd60f5046c6f61bd02dfed08a54c5eb277a/skills/lark-doc/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "lark-shared",
+      "path": "skills/lark-shared/SKILL.md",
+      "sha256": "47eb16beb85cec95738ae8b9053793ef24baa65a11a0b94e7de451b8349ada24",
+      "kind": "third-party",
+      "repository": "https://github.com/larksuite/cli",
+      "revision": "5190cfd60f5046c6f61bd02dfed08a54c5eb277a",
+      "source": "https://raw.githubusercontent.com/larksuite/cli/5190cfd60f5046c6f61bd02dfed08a54c5eb277a/skills/lark-shared/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "lark-workflow-meeting-summary",
+      "path": "skills/lark-workflow-meeting-summary/SKILL.md",
+      "sha256": "73ba2deb396429680a674930090d52c47ae4af6d1aceaf668f2a6f2ddb241215",
+      "kind": "third-party",
+      "repository": "https://github.com/larksuite/cli",
+      "revision": "5190cfd60f5046c6f61bd02dfed08a54c5eb277a",
+      "source": "https://raw.githubusercontent.com/larksuite/cli/5190cfd60f5046c6f61bd02dfed08a54c5eb277a/skills/lark-workflow-meeting-summary/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "linting-neostandard-eslint9",
+      "path": "skills/linting-neostandard-eslint9/SKILL.md",
+      "sha256": "acfe85c6b54057d48fde3b6e701272a4fd81e27f60b873486f26111405ac7ffe",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/linting-neostandard-eslint9/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "llm-chaining",
+      "path": "skills/llm-chaining/SKILL.md",
+      "sha256": "81d881471e507595310ab20634fc343743f74006c3a66bdee36dca8de068296b",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "localization-i18n",
+      "path": "skills/localization-i18n/SKILL.md",
+      "sha256": "6597968f4f71e91a76992035b7ba13732b2e981398034f2ada0ea4aa278bb250",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "logging-best-practices",
+      "path": "skills/logging-best-practices/SKILL.md",
+      "sha256": "2d1123e3b4e86cdc66425130bf37e5dd9617d170a4ee7445f258e26b688a86c0",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "loop-me",
+      "path": "skills/loop-me/SKILL.md",
+      "sha256": "2b2c725f8b6e8b8f3f6e6bc2c18f0cf3ab029a270b5ac23132fbebdeb6b443aa",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/in-progress/loop-me/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "machine-learning-pipeline",
+      "path": "skills/machine-learning-pipeline/SKILL.md",
+      "sha256": "f2c0bb2af485b838688897d16971a3fccace763cee049b23c4fc6949098d6569",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "mcp-builder",
+      "path": "skills/mcp-builder/SKILL.md",
+      "sha256": "bcdc5475e458f0fae3add3dff4be623e583797d44400bf02724645e799e1b3d4",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/mcp-builder/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "meeting-notes",
+      "path": "skills/meeting-notes/SKILL.md",
+      "sha256": "00cee5d6eabea1e03bc14f61c99359c2e7d9f92213a9f6f7197ed964cd753b8c",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "meeting-scheduler",
+      "path": "skills/meeting-scheduler/SKILL.md",
+      "sha256": "1a72616ebea02fb0c3adb1b219631bb34fcf65b1e7c08ac42d7f4bbf28cfdfb2",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "message-queues",
+      "path": "skills/message-queues/SKILL.md",
+      "sha256": "6c47e2b02f4e41e5673ce330d17d97a8d7983689a08adaaaff3d6c92d76fcdfb",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "message-summarization",
+      "path": "skills/message-summarization/SKILL.md",
+      "sha256": "28cc8876ceea77f7b5d37e2e164e67f7965480580d9150fe458ba1aff236a65d",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "microservices-architecture",
+      "path": "skills/microservices-architecture/SKILL.md",
+      "sha256": "3cc435d17dbb59a0dd258768cf2f27abf4de1670b4f0d00340c5ceb3cc343643",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "microsoft-foundry",
+      "path": "skills/microsoft-foundry/SKILL.md",
+      "sha256": "98d9d0468d44e5bd240a945733ea881fadc372fbaaa2587f25297ce2efc8d167",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/microsoft-foundry/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "migrate-to-shoehorn",
+      "path": "skills/migrate-to-shoehorn/SKILL.md",
+      "sha256": "de4da4c11d924fac79c924b2ee3d2db4a5cb98386eb490a599119463d036ae72",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/misc/migrate-to-shoehorn/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "milestone-tracking",
+      "path": "skills/milestone-tracking/SKILL.md",
+      "sha256": "59c8a49caad7b84749a61c3c6ac01959d974b4beb576f7181509a6b93f6d451d",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "minimalist-skill",
+      "path": "skills/minimalist-skill/SKILL.md",
+      "sha256": "36bc7328f085405f43b476938e62460fa573bf7e984e949e072bcf014831a44c",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/minimalist-skill/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "model-deployment",
+      "path": "skills/model-deployment/SKILL.md",
+      "sha256": "0bf776981925957486a2c58176ddad6960ee055832a856c564384d080ad10517",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "model-evaluation",
+      "path": "skills/model-evaluation/SKILL.md",
+      "sha256": "55cd6cc562d40f1d7411fbb51d8b089428d32fecf7969597cce3fc57b3aa8495",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "monitoring-setup",
+      "path": "skills/monitoring-setup/SKILL.md",
+      "sha256": "2e6e55efb9fa70292c18b6a14233599ff6f13d057b63424bb58dcf90ff5c3745",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "monorepo-setup",
+      "path": "skills/monorepo-setup/SKILL.md",
+      "sha256": "124e62728cc7bdef8cda446737464bbf1f3c3fb01cdee399ef9c1df5057282e2",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "motion-graphics",
+      "path": "skills/motion-graphics/SKILL.md",
+      "sha256": "bede3caf4ddaad632ad6f86f825c31aa45f40e6ac95182b14389e4ea7fd15920",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/motion-graphics/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "multi-agent-systems",
+      "path": "skills/multi-agent-systems/SKILL.md",
+      "sha256": "c58eb116f3170d43c689aa912b8b98bf7e686e6afcb0bab5540fbd96dbcc4cde",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "music-to-video",
+      "path": "skills/music-to-video/SKILL.md",
+      "sha256": "191d5aeb5dadb370bd46b746424757ed9f47e374a45dd1956b0fabb752874677",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/music-to-video/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "network-troubleshooting",
+      "path": "skills/network-troubleshooting/SKILL.md",
+      "sha256": "400125d5802c1daca148530ce40a0df702670353708109304421e238ec8a0e0d",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "node",
+      "path": "skills/node/SKILL.md",
+      "sha256": "fa2888f4a2200985df1802469a2eea8652510276c188fa31878047bf9c63957e",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/node/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "nodejs-core",
+      "path": "skills/nodejs-core/SKILL.md",
+      "sha256": "2de73991baea3b6cb6c016fc52374d1bed2ee6e63416d8ae422c9e9384065ec6",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/nodejs-core/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "note-organization",
+      "path": "skills/note-organization/SKILL.md",
+      "sha256": "f0abe8f3794880980233c1472490bd0fd86e860c9c330c2ccd7b2fe7d98cb306",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "oauth",
+      "path": "skills/oauth/SKILL.md",
+      "sha256": "18142d09c48a47d4b15979a768d151ab68cc812308e2e056d9dc9ccbe6424d74",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/oauth/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "obsidian-vault",
+      "path": "skills/obsidian-vault/SKILL.md",
+      "sha256": "7bed1d552aa5e9345e493cd62cb13e65c5d829d153c349afdb2cb91c809fa6c4",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/personal/obsidian-vault/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "octocat",
+      "path": "skills/octocat/SKILL.md",
+      "sha256": "64d0c3473a2ed3287bebc5ed29dc5750781d868963afcfad85fad0afcf078cc1",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/octocat/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "openclaw-secure-linux-cloud",
+      "path": "skills/openclaw-secure-linux-cloud/SKILL.md",
+      "sha256": "12892b306b8010b3162902fbd7a66d64cdafd0b3d810a5b85ca2203f19d9979e",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/openclaw-secure-linux-cloud/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "opensource-guide-coach",
+      "path": "skills/opensource-guide-coach/SKILL.md",
+      "sha256": "b3282d99655e4e0562b92f9e176e80b80178e730b6bd25e473caa9bf3404dfd3",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/opensource-guide-coach/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "output-skill",
+      "path": "skills/output-skill/SKILL.md",
+      "sha256": "e5bf48b1ae561511439cf71672209a10a88cee0968cc925909ff861dfa0a96a7",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/output-skill/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "package-publishing",
+      "path": "skills/package-publishing/SKILL.md",
+      "sha256": "d6ae0d5ae6d0de838a500757864f5e5a4229a585d55f50d9a202db8c6501cb6a",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "password-generator",
+      "path": "skills/password-generator/SKILL.md",
+      "sha256": "2d4381ef6bcf59ce8aec6c6779f0973c96a31c7e083af9fb6d2c4d04e1a7d2bc",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "pdf",
+      "path": "skills/pdf/SKILL.md",
+      "sha256": "9f78b8359fbd4943ad260a7a1e436e5a96503406d6c34e99f69223d647d85b9c",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/pdf/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "pdf-processing",
+      "path": "skills/pdf-processing/SKILL.md",
+      "sha256": "94e15ac761b27ec1cc6e5d281c5a3023743e4492f78cb95da19d18069b708eee",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "performance-optimization",
+      "path": "skills/performance-optimization/SKILL.md",
+      "sha256": "98231cebbaafea81aca3206e7bf53cbee1b52df6d30b172bae90c8cb11947afe",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "playwright",
+      "path": "skills/playwright/SKILL.md",
+      "sha256": "4aa35c5e12499cf1da0216dfadf1273d0cbf58e37fb71f435bd8466d8786d467",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "pomodoro-timer",
+      "path": "skills/pomodoro-timer/SKILL.md",
+      "sha256": "d99e98afda13c3da05262b38062f3705eb8f7433f35a09aa45a37ecfac28aad9",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "powershell-automation",
+      "path": "skills/powershell-automation/SKILL.md",
+      "sha256": "2668063439ef0d9335e252079ba7908fd5656f46ff855d357ebc5b0030b99d32",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "pptx",
+      "path": "skills/pptx/SKILL.md",
+      "sha256": "e5b0df918cbe9d62508b3cf808d73899633f82fc19f6258a25ef9f0de7e62125",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/pptx/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "pr-to-video",
+      "path": "skills/pr-to-video/SKILL.md",
+      "sha256": "cda9e70069e815033a9d087a483102258cb4e56358f6886a979593e45efb0d23",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/pr-to-video/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "priority-filtering",
+      "path": "skills/priority-filtering/SKILL.md",
+      "sha256": "d16db014f87cf16e4c02913ea2107feebea029eae1b7838b8c26d533e2e94c4b",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "product-launch-video",
+      "path": "skills/product-launch-video/SKILL.md",
+      "sha256": "e9c1c93c3ea492e575ac624a99462eea4948942ae32e7d203053098d9cb8f90a",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/product-launch-video/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "project-tracking",
+      "path": "skills/project-tracking/SKILL.md",
+      "sha256": "0d14a7fbef9fc2271eaa312c0d45bfdc4396db4c65014520c923c72de73b5dc8",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "prompt-compression",
+      "path": "skills/prompt-compression/SKILL.md",
+      "sha256": "9059c5c1ee58fa432e6bf0c4c9257b77337a6e4610d16280e2cae244d369b773",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "prompt-engineering",
+      "path": "skills/prompt-engineering/SKILL.md",
+      "sha256": "b3a970f5368a2187716cb9409a4558bf6096cefef1e5688d16f5340151d72c83",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "push-notifications",
+      "path": "skills/push-notifications/SKILL.md",
+      "sha256": "1a3904b5cee80434988a6f1959cb0e7fa504c0e356747f7c892291ab00f57690",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "python-appservice-deploy",
+      "path": "skills/python-appservice-deploy/SKILL.md",
+      "sha256": "084bd2ef7dce6fabaec77f02c48c1d794072fa6770f18c4f180f0c17c703a4c9",
+      "kind": "third-party",
+      "repository": "https://github.com/microsoft/azure-skills",
+      "revision": "29e3b054a8319147bb969f1fffa7d051cf757d91",
+      "source": "https://raw.githubusercontent.com/microsoft/azure-skills/29e3b054a8319147bb969f1fffa7d051cf757d91/skills/python-appservice-deploy/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "qa",
+      "path": "skills/qa/SKILL.md",
+      "sha256": "d9727aac6503981bf69bdd8b37e0d85b32b8fbd353a57528c252dac1337ab761",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/deprecated/qa/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "rag-implementation",
+      "path": "skills/rag-implementation/SKILL.md",
+      "sha256": "b429597a8400a35212874f10510b9a013d44207dbfd4174be9074ab634e17a09",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "rate-limiting",
+      "path": "skills/rate-limiting/SKILL.md",
+      "sha256": "118d922754ca5d1946a57442eb3f61698713636535215dca0cf28f8e99407e04",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "react-best-practices",
+      "path": "skills/react-best-practices/SKILL.md",
+      "sha256": "71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355",
+      "kind": "third-party",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "source": "https://raw.githubusercontent.com/vercel-labs/agent-skills/7c180d9044c9ae2b442b567aad4e42a28dd5ed62/skills/react-best-practices/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "react-native-skills",
+      "path": "skills/react-native-skills/SKILL.md",
+      "sha256": "4012750a5ccbe064ca04af3835d5d1b011979d2d09d9b6df1c8128fac58e0a66",
+      "kind": "third-party",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "source": "https://raw.githubusercontent.com/vercel-labs/agent-skills/7c180d9044c9ae2b442b567aad4e42a28dd5ed62/skills/react-native-skills/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "react-view-transitions",
+      "path": "skills/react-view-transitions/SKILL.md",
+      "sha256": "8c4c0f8b5581ef473fbf388b2df7d13e02d418ab2150a912b9b7eafdf4b76a01",
+      "kind": "third-party",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "source": "https://raw.githubusercontent.com/vercel-labs/agent-skills/7c180d9044c9ae2b442b567aad4e42a28dd5ed62/skills/react-view-transitions/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "readme-i18n",
+      "path": "skills/readme-i18n/SKILL.md",
+      "sha256": "ab7f02a1900a1831ff79e327d9b9586de10a6b4486430d5e6293ab3f47915b85",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/readme-i18n/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "real-time-communication",
+      "path": "skills/real-time-communication/SKILL.md",
+      "sha256": "c44855942f956a400fc5814881bb827799c0c8290147cfdd06eeab09e83a06d0",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "redesign-skill",
+      "path": "skills/redesign-skill/SKILL.md",
+      "sha256": "98ad3e5b051bfb71b2795f7e8a6aa0d32b51ee095606c098a4b2822ac07926c9",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/redesign-skill/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "refactoring-strategy",
+      "path": "skills/refactoring-strategy/SKILL.md",
+      "sha256": "db2ba5547d1016560ae97563f29eab424cb118c01f7846cd87653f6490435fa1",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "regex-mastery",
+      "path": "skills/regex-mastery/SKILL.md",
+      "sha256": "993f954ed5d649aa4c00e0630b1a99f6382779836886553e5bb0e66d6546d20c",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "remotion",
+      "path": "skills/remotion/SKILL.md",
+      "sha256": "378fe3ab188a2b2398107a1a55b3ec06862f72c2530bd7af753aab148d22acaf",
+      "kind": "third-party",
+      "repository": "https://github.com/remotion-dev/skills",
+      "revision": "b12104ef5f1b1ca2ca5590fcc7c1804fbc85556f",
+      "source": "https://raw.githubusercontent.com/remotion-dev/skills/b12104ef5f1b1ca2ca5590fcc7c1804fbc85556f/skills/remotion/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "report-generation",
+      "path": "skills/report-generation/SKILL.md",
+      "sha256": "e74912a0f09a1f555950b56f2aa64f6ca2af47a6309503f97508e6c7d4d51dcf",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "request-refactor-plan",
+      "path": "skills/request-refactor-plan/SKILL.md",
+      "sha256": "d59de4ba6cc1fe2dd267e8b9b5a1fd88e3e739e2130bc9dd78061d2a072830b8",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/deprecated/request-refactor-plan/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "research-compiler",
+      "path": "skills/research-compiler/SKILL.md",
+      "sha256": "2bc351f58a8c0d93d7831213c45fac7001780c936623a7813f130839f27e20de",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "resolving-merge-conflicts",
+      "path": "skills/resolving-merge-conflicts/SKILL.md",
+      "sha256": "c7c9ba81362a786aac05d2223123bf1bd2f8a99c3243a72882ede9c68bedfb24",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/engineering/resolving-merge-conflicts/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "responsive-design",
+      "path": "skills/responsive-design/SKILL.md",
+      "sha256": "ebfa871c012eee733d945cf21cce6b5a336349fa06ac02b279d622a019e01357",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "rest-api-patterns",
+      "path": "skills/rest-api-patterns/SKILL.md",
+      "sha256": "f8fc1a833f7fa57e4492803ac4691a64e3715da69e10620f546d988a47820654",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "retrospectives",
+      "path": "skills/retrospectives/SKILL.md",
+      "sha256": "57d9a6f7a123640e79c225c7814e5301a5828e8d0a6e07adf108132a3cd5ab87",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "risk-assessment",
+      "path": "skills/risk-assessment/SKILL.md",
+      "sha256": "ef1786cf50360576d01fb7831990ec73fdb93270c78ba5c8b7a0b9531b285366",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "roadmap-creation",
+      "path": "skills/roadmap-creation/SKILL.md",
+      "sha256": "ee6a1333712211a613188f148156c566442a173beb3e64ed393d7ce6f412cc51",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "running-claude-code-via-litellm-copilot",
+      "path": "skills/running-claude-code-via-litellm-copilot/SKILL.md",
+      "sha256": "e008ca87a9a1b514ea2cd330be76d3445d1c1e240f40bef9d845d59d49dcf78b",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/running-claude-code-via-litellm-copilot/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "scaffold-exercises",
+      "path": "skills/scaffold-exercises/SKILL.md",
+      "sha256": "75f5c9d771606fb9762f16522efc954df11c324f87148d8ff069bce166257de9",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/misc/scaffold-exercises/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "search-implementation",
+      "path": "skills/search-implementation/SKILL.md",
+      "sha256": "451c505633323f54e4d1ed84c0c52432e9bc44d591491985af0aa4fdaa3fc041",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "secrets-management",
+      "path": "skills/secrets-management/SKILL.md",
+      "sha256": "929c9d7006ae49b59477ecebc871888890f254253de8e127ede7d0b9da555a64",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "secure-linux-web-hosting",
+      "path": "skills/secure-linux-web-hosting/SKILL.md",
+      "sha256": "71f264601ca5b5306fec9366b655ad8e81635d83ca5f70e532da5615b489536f",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/secure-linux-web-hosting/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "security-audit",
+      "path": "skills/security-audit/SKILL.md",
+      "sha256": "8327761603a33bab4fe94619d2b8db9bc9986ef2d77fe72cf624ba4fedc2d9ec",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "selective-memory",
+      "path": "skills/selective-memory/SKILL.md",
+      "sha256": "8b6954964d99a2da106fb40b35666a4bd22e63303609d2298d16ca0cd579082c",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "semantic-search",
+      "path": "skills/semantic-search/SKILL.md",
+      "sha256": "d27cc2fc53b774c338c86ef2ce2f9d5d16d75208861bcf03474bd423fdab8a44",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "semantic-versioning",
+      "path": "skills/semantic-versioning/SKILL.md",
+      "sha256": "4cc8f2b63b79100c75d6a0b35345a4274973f166d623fe07a3587c18dee03eca",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "sentiment-analysis",
+      "path": "skills/sentiment-analysis/SKILL.md",
+      "sha256": "dee78255fd95b9552ec5eabf0b007900821946b3856efe3c63425da12a5316b4",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "seo-optimization",
+      "path": "skills/seo-optimization/SKILL.md",
+      "sha256": "023edf29062c0656c398ac5e329a1ddc6df90b68a1329480adec1cffd485177a",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "setup-pre-commit",
+      "path": "skills/setup-pre-commit/SKILL.md",
+      "sha256": "872f4037cb7e6e0e340d4175c086550072959925dffc87b160d1a30dc9f63bbd",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/misc/setup-pre-commit/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "shadcn",
+      "path": "skills/shadcn/SKILL.md",
+      "sha256": "75e9d038e282bb900e46fa63f10ff4fe8ed3945ef092a8dddf22de9c2546760c",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "simple",
+      "path": "skills/simple/SKILL.md",
+      "sha256": "b0ce8397daca34e83294511e60424711de81c02d5c42d0c96f1b27d1af767641",
+      "kind": "third-party",
+      "repository": "https://github.com/roin-orca/skills",
+      "revision": "44cd96fe7d40373e023329d9a87591b816b42562",
+      "source": "https://raw.githubusercontent.com/roin-orca/skills/44cd96fe7d40373e023329d9a87591b816b42562/skills/simple/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "skill-creator",
+      "path": "skills/skill-creator/SKILL.md",
+      "sha256": "dcd4803e61e913e6fc27294184cd3a71f09f5e924ff20c8a9a20173e7b3c2bcf",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/skill-creator/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "skill-optimizer",
+      "path": "skills/skill-optimizer/SKILL.md",
+      "sha256": "019de9dea8f69646db8ed97590f0a5c8f906ecaef2eb6fb5d0965683d7a69105",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/skill-optimizer/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "skills-cli",
+      "path": "skills/skills-cli/SKILL.md",
+      "sha256": "4f5b384a80079ef7dbf2f57220471f373af75930dbaad6725de8d29ead0495f5",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/skills-cli/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "slack-gif-creator",
+      "path": "skills/slack-gif-creator/SKILL.md",
+      "sha256": "2efca615ce55a3edd8fc05c779068a8085816617991987e446606403cd3abb22",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/slack-gif-creator/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "snipgrapher",
+      "path": "skills/snipgrapher/SKILL.md",
+      "sha256": "68bb505396fa982f61aa4c16f02f32ef839c4805582eb0d9b9f194d5b5ee823c",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/snipgrapher/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "snippet-manager",
+      "path": "skills/snippet-manager/SKILL.md",
+      "sha256": "64c12eb01ba887894c4c96d341743fe3073d3a02cf6d2a3bc99a456335c0c29a",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "soft-skill",
+      "path": "skills/soft-skill/SKILL.md",
+      "sha256": "e1e32f5e2d420872c6c7332b53d5ff7721946766b78c4822b424c2d512c8fdbc",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/soft-skill/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "sprint-planning",
+      "path": "skills/sprint-planning/SKILL.md",
+      "sha256": "7ffd3f3eb7145c539eb86bf26a7ffdb6ae621157cf07b06cd864af52b2d8798e",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "sql-query-optimization",
+      "path": "skills/sql-query-optimization/SKILL.md",
+      "sha256": "f512c2c95c4ef29858aa524bb4f19b807c79d1461af2da1913d11e1e51856bcc",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "stakeholder-communication",
+      "path": "skills/stakeholder-communication/SKILL.md",
+      "sha256": "87010fc1bae2784814891e5596e9204b2ae445c20ea0f46c758b5cdeb013ba71",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "state-management",
+      "path": "skills/state-management/SKILL.md",
+      "sha256": "a2fb37b36c017cebb9c7c5f7fa0f434735ab89e6e5fb31588b693ffa1a967179",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "statistical-analysis",
+      "path": "skills/statistical-analysis/SKILL.md",
+      "sha256": "f3c1d8e254d7723f408b8cad1a694a21a2a96aeb8a6a4c80c4010bf360e3c6e1",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "stitch-skill",
+      "path": "skills/stitch-skill/SKILL.md",
+      "sha256": "46bdb08fee2dded38b6ba0a051230a502d6ac6e4044afd47592cb40c256028b5",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/stitch-skill/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "streaming-responses",
+      "path": "skills/streaming-responses/SKILL.md",
+      "sha256": "daa4c1307422528172779e081ad71af556d635a36900d91c115b45ac919bb34a",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "structured-output",
+      "path": "skills/structured-output/SKILL.md",
+      "sha256": "e566851cf787d4c3eb9c13b1106d99fd1514ac6dffc50b0b078ab22066d28d0f",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "summarization-techniques",
+      "path": "skills/summarization-techniques/SKILL.md",
+      "sha256": "74b73e6df14416adf263b11fb2298f130657d9839fc177c9949ad2c91b58cbe0",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "summarize",
+      "path": "skills/summarize/SKILL.md",
+      "sha256": "1742f491d5e8983da565e29dcba0c6e521b565ab94b710cf7511ff5f77e3765a",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "supabase",
+      "path": "skills/supabase/SKILL.md",
+      "sha256": "1171386737b231610fa42485707272765c3516a9bbc0bd2c6c161a8cee3d7d33",
+      "kind": "third-party",
+      "repository": "https://github.com/supabase/agent-skills",
+      "revision": "8331f910845103c08d51f6ca1d86ebb7d1f745e3",
+      "source": "https://raw.githubusercontent.com/supabase/agent-skills/8331f910845103c08d51f6ca1d86ebb7d1f745e3/skills/supabase/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "supabase-postgres-best-practices",
+      "path": "skills/supabase-postgres-best-practices/SKILL.md",
+      "sha256": "ccd6e4596bd51cf344fe76c464867c541ccc16b6d90ae7a9db449fb17588613b",
+      "kind": "third-party",
+      "repository": "https://github.com/supabase/agent-skills",
+      "revision": "8331f910845103c08d51f6ca1d86ebb7d1f745e3",
+      "source": "https://raw.githubusercontent.com/supabase/agent-skills/8331f910845103c08d51f6ca1d86ebb7d1f745e3/skills/supabase-postgres-best-practices/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "system-diagnostics",
+      "path": "skills/system-diagnostics/SKILL.md",
+      "sha256": "ae7020af7945f1fa639a8787a4ece7f3493d49acadbf85153d58983bc46a2cb3",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "systematic-debugging",
+      "path": "skills/systematic-debugging/SKILL.md",
+      "sha256": "3b20719eca4f0461cb51a195221320d775dcf03b6859271066a03a5132a6ce7a",
+      "kind": "third-party",
+      "repository": "https://github.com/obra/superpowers",
+      "revision": "44c9b2d6e889982ac18c27d05a19fefe335194e1",
+      "source": "https://raw.githubusercontent.com/obra/superpowers/44c9b2d6e889982ac18c27d05a19fefe335194e1/skills/systematic-debugging/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "talking-head-recut",
+      "path": "skills/talking-head-recut/SKILL.md",
+      "sha256": "6a55193bbe5b7269dae40219cab2b496fe0177a8b9d27237c8e46fcaf3ccfba3",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/talking-head-recut/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "task-decomposition",
+      "path": "skills/task-decomposition/SKILL.md",
+      "sha256": "8c8960e403a98f6a2f23ea3117aa8155b0f51323afb6c433cf3bc53c25a10837",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "task-prioritization",
+      "path": "skills/task-prioritization/SKILL.md",
+      "sha256": "0cf8f95828c249994fc8f2d891bedc49b0eee87f1ebbd00ce43019eb883926c5",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "taste-skill",
+      "path": "skills/taste-skill/SKILL.md",
+      "sha256": "aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/taste-skill/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "taste-skill-v1",
+      "path": "skills/taste-skill-v1/SKILL.md",
+      "sha256": "033d45af1ed23832730642f95f40ab49db7fb5222848489a6c5656144bfc6dae",
+      "kind": "third-party",
+      "repository": "https://github.com/leonxlnx/taste-skill",
+      "revision": "e988add20dab0fa97d7a76781c48961c8184288e",
+      "source": "https://raw.githubusercontent.com/leonxlnx/taste-skill/e988add20dab0fa97d7a76781c48961c8184288e/skills/taste-skill-v1/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "tdd",
+      "path": "skills/tdd/SKILL.md",
+      "sha256": "13722957277ed4960061a2d254a0ed7d86f95693e88b40d1c68307e7fdc98287",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/engineering/tdd/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "teach",
+      "path": "skills/teach/SKILL.md",
+      "sha256": "6d2dbe5e03084cf26fef66b535127b36cd1bcbe9478e26b0626029cd51dc2259",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/productivity/teach/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "template-library",
+      "path": "skills/template-library/SKILL.md",
+      "sha256": "2f29659bac34c4517db53738b53811b904fb91277b2f3759883510114e14662e",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "test-driven-development",
+      "path": "skills/test-driven-development/SKILL.md",
+      "sha256": "b5b4717b8b761cce15a6cfe9022e33fd959e0894c0c39d72c9cb49c23486c10e",
+      "kind": "third-party",
+      "repository": "https://github.com/obra/superpowers",
+      "revision": "44c9b2d6e889982ac18c27d05a19fefe335194e1",
+      "source": "https://raw.githubusercontent.com/obra/superpowers/44c9b2d6e889982ac18c27d05a19fefe335194e1/skills/test-driven-development/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "test-generation",
+      "path": "skills/test-generation/SKILL.md",
+      "sha256": "9f7066b3db84e9622018801efb6bab410774677c8d91ab882cf2b1c0aa0f47d6",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "testing-strategy",
+      "path": "skills/testing-strategy/SKILL.md",
+      "sha256": "733303405fb5a65e227213cf3049086e987df55014f0aead73fee0edb5a3743c",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "text-expansion",
+      "path": "skills/text-expansion/SKILL.md",
+      "sha256": "056130820b506550ea8ce8f630608e7bff9ff47e398d529ce6b337a930ced320",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "theme-factory",
+      "path": "skills/theme-factory/SKILL.md",
+      "sha256": "c35893e221e28895c52143cc11bf30e41a44817796b39d4b15727dadc9796552",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/theme-factory/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "time-blocking",
+      "path": "skills/time-blocking/SKILL.md",
+      "sha256": "33a31f7b8aa21ce18cc418de77ea698ee2cf27003fe576e9fd5e66d2377c5f1d",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "to-prd",
+      "path": "skills/to-prd/SKILL.md",
+      "sha256": "db7e7188ac4fd47f4925ae6550e0233365b3b05be40f45235ab3a0a6b0165156",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/engineering/to-prd/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "token-budgeting",
+      "path": "skills/token-budgeting/SKILL.md",
+      "sha256": "cb1158e924cb3afe7106972a90a31c764d9ca67ce2bcf3eab70e474a04565a0d",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "token-optimization",
+      "path": "skills/token-optimization/SKILL.md",
+      "sha256": "c5f159b569e92ba8bbddd05ed8667739601cbb43be191a72578877789cdbc960",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "tool-calling-patterns",
+      "path": "skills/tool-calling-patterns/SKILL.md",
+      "sha256": "931fbaafcf568838f843e9668449f885b4737506d732c20696b4575c9847afe0",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "translate",
+      "path": "skills/translate/SKILL.md",
+      "sha256": "afda8a6caba9c721578e030a188962b31ab76d5386b1c3f640846a17d8bcb46b",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "typescript-magician",
+      "path": "skills/typescript-magician/SKILL.md",
+      "sha256": "5ae7057a8f87f66f9524ed352321b2d27e3f46df9fadbfb4287c236b5109d9a9",
+      "kind": "third-party",
+      "repository": "https://github.com/mcollina/skills",
+      "revision": "a88a866db5dc07f74d6dcef530a3b639158bdc97",
+      "source": "https://raw.githubusercontent.com/mcollina/skills/a88a866db5dc07f74d6dcef530a3b639158bdc97/skills/typescript-magician/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "tzst",
+      "path": "skills/tzst/SKILL.md",
+      "sha256": "d4215e2d45d0cc58e2f0c071434d33c69e5a15681374b29f3e9158e62a6c49e6",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/tzst/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "ubiquitous-language",
+      "path": "skills/ubiquitous-language/SKILL.md",
+      "sha256": "2449e2345b96b9f1e861c697b5eab50d03ae1254481a4306b6f815684e523b3a",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/deprecated/ubiquitous-language/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "use-my-browser",
+      "path": "skills/use-my-browser/SKILL.md",
+      "sha256": "7baa004fd5e56415741c23851909bc6c7bb6213ecf20e56d18bf9270d78e4978",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/use-my-browser/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "using-superpowers",
+      "path": "skills/using-superpowers/SKILL.md",
+      "sha256": "918562bbba1c73d1407c50de77a92eeaa6930508bdb57a64324d7d508a9069e1",
+      "kind": "third-party",
+      "repository": "https://github.com/obra/superpowers",
+      "revision": "44c9b2d6e889982ac18c27d05a19fefe335194e1",
+      "source": "https://raw.githubusercontent.com/obra/superpowers/44c9b2d6e889982ac18c27d05a19fefe335194e1/skills/using-superpowers/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "vector-database-setup",
+      "path": "skills/vector-database-setup/SKILL.md",
+      "sha256": "b60a8a28204424fe58c1030f7925d8dba9a9514db3fd47dcc1703681c4822857",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "vercel-cli-with-tokens",
+      "path": "skills/vercel-cli-with-tokens/SKILL.md",
+      "sha256": "c06bea99e75eab07fde4fae26069baa002f82f39b53f07981704c2901551dd4c",
+      "kind": "third-party",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "source": "https://raw.githubusercontent.com/vercel-labs/agent-skills/7c180d9044c9ae2b442b567aad4e42a28dd5ed62/skills/vercel-cli-with-tokens/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "vercel-optimize",
+      "path": "skills/vercel-optimize/SKILL.md",
+      "sha256": "95ae2683b30d892d165af92a350c5628b68106f395a59b448857b654e306ed91",
+      "kind": "third-party",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "source": "https://raw.githubusercontent.com/vercel-labs/agent-skills/7c180d9044c9ae2b442b567aad4e42a28dd5ed62/skills/vercel-optimize/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "video-editing",
+      "path": "skills/video-editing/SKILL.md",
+      "sha256": "b9bf0ed6f3977b75c66f95f81cb8aaeae3d7283a199e3dcae8302fc928343989",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "viral-instagram-reels",
+      "path": "skills/viral-instagram-reels/SKILL.md",
+      "sha256": "bef61d6b5ccf348fb10f251d51016f4609a1d188a27c0fd84c280570e60a4972",
+      "kind": "third-party",
+      "repository": "https://github.com/vyralcontent/content-skills",
+      "revision": "349e495d97029a3e6303a7510e3f39c73f36d8fe",
+      "source": "https://raw.githubusercontent.com/vyralcontent/content-skills/349e495d97029a3e6303a7510e3f39c73f36d8fe/skills/viral-instagram-reels/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "viral-short-form",
+      "path": "skills/viral-short-form/SKILL.md",
+      "sha256": "d6563c8c5b4231ef18729bbd4b2888badb376962d23ce7ae62b3220608834d28",
+      "kind": "third-party",
+      "repository": "https://github.com/vyralcontent/content-skills",
+      "revision": "349e495d97029a3e6303a7510e3f39c73f36d8fe",
+      "source": "https://raw.githubusercontent.com/vyralcontent/content-skills/349e495d97029a3e6303a7510e3f39c73f36d8fe/skills/viral-short-form/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "viral-short-form-ideas",
+      "path": "skills/viral-short-form-ideas/SKILL.md",
+      "sha256": "8a8807438741972c463896e681a2b145f42ea0da661d5c4c7c3fae1fc42d6eae",
+      "kind": "third-party",
+      "repository": "https://github.com/vyralcontent/content-skills",
+      "revision": "349e495d97029a3e6303a7510e3f39c73f36d8fe",
+      "source": "https://raw.githubusercontent.com/vyralcontent/content-skills/349e495d97029a3e6303a7510e3f39c73f36d8fe/skills/viral-short-form-ideas/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "viral-tiktok-content",
+      "path": "skills/viral-tiktok-content/SKILL.md",
+      "sha256": "526b97eb6eef87a65686d2fe9525aff6a3aaa7fa2684b0c8052af965464b50c6",
+      "kind": "third-party",
+      "repository": "https://github.com/vyralcontent/content-skills",
+      "revision": "349e495d97029a3e6303a7510e3f39c73f36d8fe",
+      "source": "https://raw.githubusercontent.com/vyralcontent/content-skills/349e495d97029a3e6303a7510e3f39c73f36d8fe/skills/viral-tiktok-content/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "visualization-creation",
+      "path": "skills/visualization-creation/SKILL.md",
+      "sha256": "5ab2f2d624e5e0af54b81d2c13ab00eee56e898ce19518e513933f8734ea11ea",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "web-artifacts-builder",
+      "path": "skills/web-artifacts-builder/SKILL.md",
+      "sha256": "81c5002c6643b0de7b8710b00e7a9038daa6fb9b68d59870ee6adb12da8d10f8",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/web-artifacts-builder/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "web-design-guidelines",
+      "path": "skills/web-design-guidelines/SKILL.md",
+      "sha256": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f",
+      "kind": "third-party",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "source": "https://raw.githubusercontent.com/vercel-labs/agent-skills/7c180d9044c9ae2b442b567aad4e42a28dd5ed62/skills/web-design-guidelines/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "web-scraping",
+      "path": "skills/web-scraping/SKILL.md",
+      "sha256": "03b626ed2db18d6c316a24e78d5a71ee0620891d879c9d296c357d0130ee0f5c",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "webapp-testing",
+      "path": "skills/webapp-testing/SKILL.md",
+      "sha256": "51b7349e77ec63b7744a6f63647e7566a0b4d2e301121cc10e8c2113af6556a2",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/webapp-testing/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "webhook-handling",
+      "path": "skills/webhook-handling/SKILL.md",
+      "sha256": "4f6eebe23100f1bdd5b01bbfde49693d38e1157697e11c869040727d11442704",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "website-to-video",
+      "path": "skills/website-to-video/SKILL.md",
+      "sha256": "034276ce1b67aa7f56652ca0304372671d568d89ba074b01b754b2ed85c6250b",
+      "kind": "third-party",
+      "repository": "https://github.com/heygen-com/hyperframes",
+      "revision": "2350f9b69b10c32ec12d0f84800133aa5173804e",
+      "source": "https://raw.githubusercontent.com/heygen-com/hyperframes/2350f9b69b10c32ec12d0f84800133aa5173804e/skills/website-to-video/SKILL.md",
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "weekly-review",
+      "path": "skills/weekly-review/SKILL.md",
+      "sha256": "031928a743aa5fd4280a918a28be13411845d552237246cb0343e20f30db5f93",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "workflow-automation",
+      "path": "skills/workflow-automation/SKILL.md",
+      "sha256": "4d6ab8ecee039c3e467dfec6d8b6ed146894569883a4a906be0c80825ec1cda4",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    },
+    {
+      "name": "writing-beats",
+      "path": "skills/writing-beats/SKILL.md",
+      "sha256": "668185cfb6eb6a324b8d864404c398e21f3cddbb637b760e39b7784c8c5e4fee",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/in-progress/writing-beats/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "writing-fragments",
+      "path": "skills/writing-fragments/SKILL.md",
+      "sha256": "c61b6608f227b0eee1b832273360cf5088ad68c343c15ec9c06673086662e64e",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/in-progress/writing-fragments/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "writing-great-skills",
+      "path": "skills/writing-great-skills/SKILL.md",
+      "sha256": "7c6ba7ec25bb2c0e173c52cdc2da878aef0b083ec19a9c1799934e480c8833cc",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/productivity/writing-great-skills/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "writing-guidelines",
+      "path": "skills/writing-guidelines/SKILL.md",
+      "sha256": "89a5f581193289b80af58b980090aeed535047c8df2b55ccbaae0de40283a99d",
+      "kind": "third-party",
+      "repository": "https://github.com/vercel-labs/agent-skills",
+      "revision": "7c180d9044c9ae2b442b567aad4e42a28dd5ed62",
+      "source": "https://raw.githubusercontent.com/vercel-labs/agent-skills/7c180d9044c9ae2b442b567aad4e42a28dd5ed62/skills/writing-guidelines/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "writing-plans",
+      "path": "skills/writing-plans/SKILL.md",
+      "sha256": "272e1af349f5062c28dc282b3e21b220d58d683a7314a10c455b7432ec91d845",
+      "kind": "third-party",
+      "repository": "https://github.com/obra/superpowers",
+      "revision": "44c9b2d6e889982ac18c27d05a19fefe335194e1",
+      "source": "https://raw.githubusercontent.com/obra/superpowers/44c9b2d6e889982ac18c27d05a19fefe335194e1/skills/writing-plans/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "writing-shape",
+      "path": "skills/writing-shape/SKILL.md",
+      "sha256": "67d34422bbe43cfd523dea9fe7b3ec5260791aed8ea52309b5b85f9d76f32745",
+      "kind": "third-party",
+      "repository": "https://github.com/mattpocock/skills",
+      "revision": "84fdeffd12f2ee307994d1eb6feb48173b6e0502",
+      "source": "https://raw.githubusercontent.com/mattpocock/skills/84fdeffd12f2ee307994d1eb6feb48173b6e0502/skills/in-progress/writing-shape/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "xdrop",
+      "path": "skills/xdrop/SKILL.md",
+      "sha256": "26074fc40e0fa6122a443025fc7a404dc9764c4f68e068722aeb1c01daa638f1",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/xdrop/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "xget",
+      "path": "skills/xget/SKILL.md",
+      "sha256": "1d363cb79f2367fcfa1cdcd3848fba23bf872f134b2599e1e3224601a1a87c5b",
+      "kind": "third-party",
+      "repository": "https://github.com/xixu-me/skills",
+      "revision": "1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f",
+      "source": "https://raw.githubusercontent.com/xixu-me/skills/1a68a20b1fc50c5bf215ecbc016ad2ba4b30791f/skills/xget/SKILL.md",
+      "license": "MIT"
+    },
+    {
+      "name": "xlsx",
+      "path": "skills/xlsx/SKILL.md",
+      "sha256": "dd316db7785a6be12966c2a2d848931fbf5f518b3cdb0a66fa62ee835ead1cfc",
+      "kind": "third-party",
+      "repository": "https://github.com/anthropics/skills",
+      "revision": "f17010c9bb483898c1d9c9f42dde2b3a98889434",
+      "source": "https://raw.githubusercontent.com/anthropics/skills/f17010c9bb483898c1d9c9f42dde2b3a98889434/skills/xlsx/SKILL.md",
+      "license": "SEE-UPSTREAM"
+    },
+    {
+      "name": "youtube-ac",
+      "path": "skills/youtube-ac/SKILL.md",
+      "sha256": "4631b329fb2acef3e90783ba908b186e92a8e863a0f047ddba194ba7fb51f96e",
+      "kind": "natureco",
+      "repository": "https://github.com/natureco-official/natureco-cli",
+      "license": "SEE-PACKAGE-LICENSE"
+    }
+  ]
+}
