@@ -85,7 +85,7 @@
     "diff": "^5.2.2",
     "discord.js": "^14.27.0",
     "irc": "^0.5.2",
-    "marked": "^4.3.0",
+    "marked": "^18.0.9",
     "node-cron": "^4.2.1",
     "node-telegram-bot-api": "^1.1.2",
     "openai": "^6.45.0",
