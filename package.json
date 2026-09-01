@@ -1,6 +1,6 @@
 {
   "name": "natureco-cli",
-  "version": "6.1.0",
+  "version": "6.2.0",
   "description": "Terminal-native AI agent CLI with bilingual TR/EN UI, multi-agent orchestration, persistent memory, secure tools and messaging integrations.",
   "bin": {
     "natureco": "bin/natureco.js"
