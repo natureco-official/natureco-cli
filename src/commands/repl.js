@@ -48,6 +48,7 @@ function extractPreferenceFacts(content) {
 }
 const chalk = require('chalk');
 const { abonelikKipi, abonelikBagla, saglayiciAdi } = require('../utils/abonelik-baglayici');
+const { extractReasoningDelta } = require('../utils/reasoning-models');
 const { getLang: _getLang } = require('../utils/i18n');
 const L = (tr, en) => (_getLang() === 'en' ? en : tr);
 const tui = require('../utils/tui');
@@ -783,6 +784,8 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
           }
           let buffer = '';
           let streamText = '';
+          // Düşünme metni yazıldı mı — cevap başlarken ayırıcı koymak için.
+          let dusunmeYazildi = false;
           const toolCalls = []; // { index, id, name, args }
           res.on('data', (chunk) => {
             buffer += chunk.toString('utf8');
@@ -802,8 +805,26 @@ async function sendStreaming(providerUrl, providerApiKey, messages, model, onChu
                 if (!choice) continue;
                 const delta = choice.delta;
 
+                // Düşünme (reasoning) metni — cevaptan ÖNCE gelir.
+                //
+                // Düşünen modeller cevabı `content`, düşünme metnini
+                // `reasoning` / `reasoning_content` alanında yollar. Burada
+                // yalnızca `content` okunduğu için model düşündüğü sürece ekran
+                // BOŞ kalıyordu; kullanıcıya araç donmuş gibi görünüyordu.
+                // Ölçüldü: bir sağlayıcıda 41 parçanın tamamı `reasoning`
+                // alanındaydı, `content` hiç gelmedi.
+                //
+                // `streamText`e EKLENMEZ: düşünme metni cevabın parçası değil,
+                // transkripte girerse sonraki turlara da taşınırdı.
+                if (!streamText) {
+                  const dusunme = extractReasoningDelta(delta);
+                  if (dusunme) process.stdout.write(chalk.gray(dusunme));
+                }
+
                 // Text content
                 if (delta.content) {
+                  // Düşünme yazıldıysa cevabı temiz bir satırdan başlat.
+                  if (!streamText && dusunmeYazildi) { process.stdout.write('\n\n'); dusunmeYazildi = false; }
                   streamText += delta.content;
                   onChunk(delta.content);
                 }

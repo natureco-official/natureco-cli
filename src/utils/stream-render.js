@@ -234,6 +234,8 @@ function createStreamWriter(options = {}) {
   let committedRendered = '';
   let activeRendered = '';
   let ended = false;
+  /** Düşünme metni yazıldı mı — cevap başlarken ayırıcı koymak için. */
+  let reasoningWritten = false;
   let commitCount = 0;
 
   function write(value) {
@@ -296,8 +298,34 @@ function createStreamWriter(options = {}) {
     repaintFrom(boundary, true);
   }
 
+  /**
+   * Düşünme (reasoning) metnini soluk renkte akıtır.
+   *
+   * NEDEN AYRI: düşünen modeller cevabı `delta.content`, düşünme metnini ise
+   * `delta.reasoning` / `reasoning_content` alanında yollar. Bu alan uzun süre
+   * hiç ÇİZİLMİYORDU: çıkarma yapılıp `reasoning_delta` olayı yayılıyor ama
+   * tüketen kimse olmadığı için model düşündüğü sürece ekran BOŞ kalıyordu —
+   * kullanıcıya araç donmuş gibi görünüyor. Ölçüldü: bir sağlayıcıda 41
+   * parçanın tamamı `reasoning` alanındaydı, `content` hiç gelmedi.
+   *
+   * `raw`'a YAZILMAZ: düşünme metni cevabın parçası değil; oraya karışsaydı
+   * markdown çizimini ve kaydedilen yanıtı kirletirdi.
+   */
+  function reasoning(text) {
+    if (ended) return;
+    const delta = String(text ?? '');
+    if (!delta || raw.length > 0) return; // cevap başladıysa artık düşünme yazma
+    reasoningWritten = true;
+    write(tui.C.muted(delta));
+  }
+
   function event(item) {
-    if (item?.type === 'text_delta') push(item.text);
+    if (item?.type === 'reasoning_delta') reasoning(item.text);
+    if (item?.type === 'text_delta') {
+      // Düşünme yazıldıysa cevabı temiz bir satırdan başlat.
+      if (reasoningWritten && raw.length === 0) { write('\n\n'); reasoningWritten = false; }
+      push(item.text);
+    }
     if (item?.type === 'done') end();
   }
 
