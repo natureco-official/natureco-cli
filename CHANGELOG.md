@@ -2,6 +2,23 @@
 
 All notable changes to NatureCo CLI will be documented in this file.
 
+## [6.3.1] - 2026-09-02 — Düşünen modellerde ekran boş kalıyordu
+
+### Fixed
+- **Düşünen (reasoning) modellerde `chat` ve `code` hiçbir şey göstermiyordu.**
+  Bu modeller cevabı `delta.content`, düşünme metnini ise `delta.reasoning` /
+  `reasoning_content` alanında akıtır. 6.1.0'da çıkarma yazılmış ve
+  `reasoning_delta` olayı yayılıyordu — ama **o olayı çizen hiç kimse yoktu**;
+  `code` kendi akış yazıcısında, `chat` ise kendi ayrıştırıcısında yalnızca
+  `content` okuyordu. Model düşündüğü sürece ekran bomboş kalıyor, araç donmuş
+  gibi görünüyordu. Ölçüldü: gerçek bir sağlayıcıda 41 SSE parçasının tamamı
+  `reasoning` alanındaydı ve `content` hiç gelmedi.
+  - Düşünme metni artık soluk renkte akıtılır, cevap temiz bir satırdan başlar.
+  - Düşünme metni **kaydedilen cevaba karışmaz**; transkripte girseydi sonraki
+    turlara da taşınırdı.
+  - `code`'un "düşünüyor" göstergesi ilk düşünme parçasında durur; yoksa
+    düşünme metninin üstüne yazıyordu.
+
 ## [6.3.0] - 2026-09-01 — Kurulumda önce abonelik sorulur
 
 ### Changed

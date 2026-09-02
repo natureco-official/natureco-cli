@@ -377,8 +377,13 @@ async function streamAssistantReply(providerUrl, providerKey, model, messages, t
         signal: options.signal,
         exposedTools: options.exposedTools,
         onEvent: event => {
+          // reasoning_delta de "ilk çıktı" sayılır: düşünen modellerde ilk gelen
+          // şey odur ve gösterge dönmeye devam ederse düşünme metninin üstüne
+          // yazar. Eskiden yalnızca text_delta beklendiği için, cevabı hiç
+          // gelmeyen düşünen modellerde ekran boş kalıyordu.
           if (awaitingFirstDelta &&
-              (event?.type === 'text_delta' || event?.type === 'tool_call_delta')) {
+              (event?.type === 'text_delta' || event?.type === 'tool_call_delta' ||
+               event?.type === 'reasoning_delta')) {
             awaitingFirstDelta = false;
             thinking?.stop();
           }
